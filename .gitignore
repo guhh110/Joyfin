@@ -1,0 +1,31 @@
+# Publish only application sources, resources, tests and build tooling.
+/*
+!/.gitignore
+!/README.md
+!/app/
+!/gradle/
+!/build.gradle.kts
+!/settings.gradle.kts
+!/gradle.properties
+!/gradlew
+!/gradlew.bat
+!/build.sh
+
+# Local configuration, generated files and credentials remain private.
+**/build/
+**/.gradle/
+**/.kotlin/
+**/.idea/
+**/local.properties
+*.iml
+.DS_Store
+*.apk
+*.aab
+*.keystore
+*.jks
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
