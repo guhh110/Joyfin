@@ -5,29 +5,22 @@ usage() {
     cat <<'HELP'
 Joyfin 本地打包（优化 Preview，使用现有 debug 签名）
 
-用法：./build.sh [tv|mobile] [--offline] [--dry-run]
-  tv          默认；Android 9+，ARM32 / ARM64 / x86 / x86_64 通用包
-  mobile      Android 12+，ARM64 手机包
+用法：./build.sh [--offline] [--dry-run]
+  Android 9+ 手机 / TV 通用包，包含 ARM32 / ARM64 / x86 / x86_64
   --offline   使用本地 Gradle 依赖缓存
   --dry-run   只显示配置和命令，不打包、不写入产物
 
 可用 JAVA_HOME 指定 JDK 21，GRADLE_BIN 指定 Gradle 可执行文件。
 Android SDK 由 local.properties 或 ANDROID_HOME 配置。
+需要 Python 3 读取 Gradle 产物版本；APK 命名为 Joyfin-版本号.apk。
 HELP
 }
 fail() { printf '错误：%s\n' "$*" >&2; exit 1; }
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-target=tv
-target_set=false
 offline=false
 dry_run=false
 for arg in "$@"; do
     case "$arg" in
-        tv|mobile)
-            if "$target_set"; then fail '只能选择一个目标：tv 或 mobile'; fi
-            target="$arg"
-            target_set=true
-            ;;
         --offline) offline=true ;;
         --dry-run) dry_run=true ;;
         -h|--help) usage; exit 0 ;;
@@ -64,6 +57,7 @@ else
     gradle_bin="$root/gradlew"
 fi
 [[ -x "$gradle_bin" ]] || fail "Gradle 不可执行：$gradle_bin"
+command -v python3 >/dev/null 2>&1 || fail '需要 Python 3 读取 Gradle 产物版本'
 if command -v shasum >/dev/null 2>&1; then
     checksum=(shasum -a 256)
 elif command -v sha256sum >/dev/null 2>&1; then
@@ -71,27 +65,43 @@ elif command -v sha256sum >/dev/null 2>&1; then
 else
     fail '需要 shasum 或 sha256sum 来生成校验值'
 fi
-property=-Pldplayer=true
-if [[ "$target" == mobile ]]; then property=-Pmobile=true; fi
-command_args=("$gradle_bin" :app:assemblePreview "$property" --console=plain)
+command_args=("$gradle_bin" :app:assemblePreview --console=plain)
 if "$offline"; then command_args+=(--offline); fi
-printf '目标：%s\nJDK：%s\n命令：' "$target" "${JAVA_HOME:-PATH 中的 Java}"
+printf '目标：Android 9+ 手机 / TV 通用包（ARM32 / ARM64 / x86 / x86_64）\nJDK：%s\n命令：' "${JAVA_HOME:-PATH 中的 Java}"
 printf '%q ' "${command_args[@]}"
 printf '\n'
 if "$dry_run"; then exit 0; fi
 
 cd -- "$root"
 mkdir -p "$root/dist"
-output_dir="$(mktemp -d "$root/dist/joyfin-${target}-$(date +%Y%m%d-%H%M%S)-XXXXXX")"
+output_dir="$(mktemp -d "$root/dist/joyfin-$(date +%Y%m%d-%H%M%S)-XXXXXX")"
 printf '构建记录：%s/build.log\n' "$output_dir"
 if ! "${command_args[@]}" 2>&1 | tee "$output_dir/build.log"; then
     fail "打包失败，日志保留在 $output_dir/build.log"
 fi
 source_apk="$root/app/build/outputs/apk/preview/app-preview.apk"
 [[ -s "$source_apk" ]] || fail 'Gradle 已结束，但未找到 Preview APK'
-apk_name="Joyfin-${target}.apk"
+metadata="$root/app/build/outputs/apk/preview/output-metadata.json"
+if ! version_name="$(python3 - "$metadata" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    elements = json.load(source)["elements"]
+if len(elements) != 1:
+    raise SystemExit("预期一个通用 APK，无法确定产物版本")
+version = elements[0]["versionName"]
+if not isinstance(version, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", version):
+    raise SystemExit("产物版本为空或包含不支持的文件名字符")
+print(version)
+PY
+)"; then
+    fail "无法读取构建版本，日志保留在 $output_dir/build.log"
+fi
+apk_name="Joyfin-${version_name}.apk"
 cp -- "$source_apk" "$output_dir/$apk_name"
-cp -- "$root/app/build/outputs/apk/preview/output-metadata.json" "$output_dir/output-metadata.json"
+cp -- "$metadata" "$output_dir/output-metadata.json"
 (
     cd -- "$output_dir"
     "${checksum[@]}" "$apk_name" > SHA256SUMS.txt

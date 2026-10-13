@@ -3,27 +3,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
-val ldplayerCompat = providers.gradleProperty("ldplayer").map(String::toBoolean).orElse(false).get()
-val mobileCompat = providers.gradleProperty("mobile").map(String::toBoolean).orElse(false).get()
-val targetAbi = providers.gradleProperty("abi").orElse("").get()
-require(!(ldplayerCompat && mobileCompat)) { "Choose either -Pldplayer=true or -Pmobile=true" }
 android {
     namespace = "dev.joyfin"
     compileSdk = 37
     defaultConfig {
         applicationId = "dev.joyfin"
-        minSdk = if (ldplayerCompat) 28 else 31
-        manifestPlaceholders["leanbackRequired"] = false
-        manifestPlaceholders["browseOrientation"] = if (mobileCompat) "portrait" else "unspecified"
-        val abi = targetAbi.ifBlank { if (mobileCompat) "arm64-v8a" else "" }
-        if (abi.isNotBlank()) ndk { abiFilters += abi }
+        minSdk = 28
+        ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64") }
         targetSdk = 37
         versionCode = 3
-        versionName = when {
-            ldplayerCompat -> "0.2.1-ldplayer"
-            mobileCompat -> "0.2.1-mobile"
-            else -> "0.2.1"
-        }
+        versionName = "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
