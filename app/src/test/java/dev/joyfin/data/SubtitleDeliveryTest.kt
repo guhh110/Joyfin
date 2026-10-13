@@ -1,15 +1,20 @@
 package dev.joyfin.data
 
-import org.json.JSONObject
+import dev.joyfin.data.*
+import kotlinx.serialization.decodeFromString
 import org.junit.Assert.*
 import org.junit.Test
 
 class SubtitleDeliveryTest {
     private val tracks =
         listOf(
-            JSONObject("""{"Type":"Audio","Index":0}"""),
-            JSONObject("""{"Type":"Subtitle","Index":7,"Codec":"ass"}"""),
-            JSONObject("""{"Type":"Subtitle","Index":2,"Codec":"pgssub"}"""),
+            AppJson.decodeFromString<MediaStream>("""{"Type":"Audio","Index":0}"""),
+            AppJson.decodeFromString<MediaStream>(
+                """{"Type":"Subtitle","Index":7,"Codec":"ass"}"""
+            ),
+            AppJson.decodeFromString<MediaStream>(
+                """{"Type":"Subtitle","Index":2,"Codec":"pgssub"}"""
+            ),
         )
 
     @Test

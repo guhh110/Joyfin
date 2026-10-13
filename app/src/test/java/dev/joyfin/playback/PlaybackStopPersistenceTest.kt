@@ -1,14 +1,25 @@
 package dev.joyfin.playback
 
+import dev.joyfin.data.PlaybackReport
 import dev.joyfin.data.Session
-import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 class PlaybackStopPersistenceTest {
     private val owner = Session("https://jellyfin.example", "not-persisted", "user", "Viewer")
 
-    private fun stop(id: String) = PlaybackStop(JSONObject().put("PlaySessionId", id), true)
+    private fun stop(id: String) = PlaybackStop(PlaybackReport(playSessionId = id), true)
+
+    @Test
+    fun oldPendingStopPayloadKeepsWireFieldsAndOwnership() {
+        val raw =
+            """{"user":"user","server":"https:\/\/jellyfin.example","requests":[{"body":{"ItemId":"episode","PlaySessionId":"old","PositionTicks":123},"encoding":true}]}"""
+        val stop = PlaybackStopPersistence(owner, { raw }, {}).load().single()
+        assertEquals("old", stop.key)
+        assertEquals("episode", stop.body.itemId)
+        assertEquals(123L, stop.body.positionTicks)
+        assertTrue(stop.encoding)
+    }
 
     @Test
     fun finishingOldPlayerDoesNotEraseNewPlayersPendingStop() {

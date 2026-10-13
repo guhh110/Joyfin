@@ -334,9 +334,9 @@ class PlaybackController(
                         versions =
                             media.sources.map { source ->
                                 VersionChoice(
-                                    source.optString("Id"),
-                                    source.optString("Name").ifBlank {
-                                        source.optString("Container").uppercase()
+                                    source.id,
+                                    source.name.ifBlank {
+                                        source.container.uppercase()
                                     },
                                 )
                             },
@@ -344,7 +344,7 @@ class PlaybackController(
                 }
                 if (fetch) loadEpisodeMetadata(media)
                 val source =
-                    media.sources.firstOrNull { sourceId == null || it.optString("Id") == sourceId }
+                    media.sources.firstOrNull { sourceId == null || it.id == sourceId }
                 val prepared =
                     api.playback(
                         media,
@@ -363,9 +363,9 @@ class PlaybackController(
                 item =
                     media.copy(
                         sources =
-                            if (media.sources.any { it.optString("Id") == prepared.sourceId }) {
+                            if (media.sources.any { it.id == prepared.sourceId }) {
                                 media.sources.map {
-                                    if (it.optString("Id") == prepared.sourceId) prepared.source
+                                    if (it.id == prepared.sourceId) prepared.source
                                     else it
                                 }
                             } else media.sources + prepared.source,
@@ -411,7 +411,7 @@ class PlaybackController(
                         subtitles = prepared.trackChoices("Subtitle"),
                         audioIndex =
                             audioIndex
-                                ?: prepared.source.optInt("DefaultAudioStreamIndex", -1).takeIf {
+                                ?: prepared.source.defaultAudioIndex.takeIf {
                                     index ->
                                     index >= 0
                                 },
@@ -512,7 +512,7 @@ class PlaybackController(
         val current = plan ?: return false
         return (type == "Subtitle" && index == -1) ||
             current.streams.any {
-                it.optString("Type") == type && it.optInt("Index", -1) == index
+                it.type == type && it.index == index
             }
     }
 
@@ -616,8 +616,8 @@ class PlaybackController(
         if (current.method == "DirectPlay" && audioIndex != null) {
             val ordinal =
                 current.streams
-                    .filter { it.optString("Type") == "Audio" }
-                    .indexOfFirst { it.optInt("Index") == audioIndex }
+                    .filter { it.type == "Audio" }
+                    .indexOfFirst { it.index == audioIndex }
             val audioTracks =
                 tracks.groups
                     .filter { it.type == C.TRACK_TYPE_AUDIO }

@@ -1,0 +1,156 @@
+package dev.joyfin.data
+
+import retrofit2.Response
+import retrofit2.http.*
+
+/** Retrofit owns HTTP execution, coroutine cancellation and generated JSON conversion. */
+internal interface JellyfinService {
+    @Headers("Accept: application/json")
+    @GET("System/Info/Public")
+    suspend fun publicInfo(@Header("Authorization") auth: String): Response<ServerInfo>
+
+    @Headers("Accept: application/json")
+    @POST("Users/AuthenticateByName")
+    suspend fun login(
+        @Header("Authorization") auth: String,
+        @Body body: LoginRequest,
+    ): Response<LoginResponse>
+
+    @Headers("Accept: application/json")
+    @GET("Users/{id}")
+    suspend fun validate(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+    ): Response<UserDto>
+
+    @Headers("Accept: application/json")
+    @POST("Sessions/Logout")
+    suspend fun logout(
+        @Header("Authorization") auth: String,
+        @Body body: Map<String, String> = emptyMap(),
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @GET("UserItems/Resume")
+    suspend fun resume(
+        @Header("Authorization") auth: String,
+        @QueryMap query: Map<String, String>,
+    ): Response<ItemsResponse>
+
+    @Headers("Accept: application/json")
+    @GET("UserViews")
+    suspend fun views(
+        @Header("Authorization") auth: String,
+        @Query("UserId") user: String,
+    ): Response<ItemsResponse>
+
+    @Headers("Accept: application/json")
+    @GET("Items/Latest")
+    suspend fun latest(
+        @Header("Authorization") auth: String,
+        @QueryMap query: Map<String, String>,
+    ): Response<List<ItemDto>>
+
+    @Headers("Accept: application/json")
+    @GET("Items")
+    suspend fun items(
+        @Header("Authorization") auth: String,
+        @QueryMap query: Map<String, String>,
+    ): Response<ItemsResponse>
+
+    @Headers("Accept: application/json")
+    @GET("Items/{id}")
+    suspend fun item(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("UserId") user: String,
+    ): Response<ItemDto>
+
+    @Headers("Accept: application/json")
+    @GET("Shows/{id}/Seasons")
+    suspend fun seasons(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @QueryMap query: Map<String, String>,
+    ): Response<ItemsResponse>
+
+    @Headers("Accept: application/json")
+    @GET("Shows/{id}/Episodes")
+    suspend fun episodes(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @QueryMap query: Map<String, String>,
+    ): Response<ItemsResponse>
+
+    @Headers("Accept: application/json")
+    @GET("Items/{id}/Similar")
+    suspend fun similar(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @QueryMap query: Map<String, String>,
+    ): Response<ItemsResponse>
+
+    @Headers("Accept: application/json")
+    @GET("Persons/{name}")
+    suspend fun person(
+        @Header("Authorization") auth: String,
+        @Path("name") name: String,
+        @Query("UserId") user: String,
+    ): Response<ItemDto>
+
+    @Headers("Accept: application/json")
+    @POST("UserFavoriteItems/{id}")
+    suspend fun favorite(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("UserId") user: String,
+        @Body body: Map<String, String> = emptyMap(),
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @DELETE("UserFavoriteItems/{id}")
+    suspend fun unfavorite(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("UserId") user: String,
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @POST("Items/{id}/PlaybackInfo")
+    suspend fun playback(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("UserId") user: String,
+        @Query("IsPlayback") isPlayback: Boolean,
+        @Body body: PlaybackRequest,
+    ): Response<PlaybackResponse>
+
+    @Headers("Accept: application/json")
+    @POST("Sessions/Playing")
+    suspend fun started(
+        @Header("Authorization") auth: String,
+        @Body body: PlaybackReport,
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @POST("Sessions/Playing/Progress")
+    suspend fun progress(
+        @Header("Authorization") auth: String,
+        @Body body: PlaybackReport,
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @POST("Sessions/Playing/Stopped")
+    suspend fun stopped(
+        @Header("Authorization") auth: String,
+        @Body body: PlaybackReport,
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @DELETE("Videos/ActiveEncodings")
+    suspend fun stopEncoding(
+        @Header("Authorization") auth: String,
+        @Query("DeviceId") device: String,
+        @Query("PlaySessionId") session: String,
+    ): Response<Unit>
+}

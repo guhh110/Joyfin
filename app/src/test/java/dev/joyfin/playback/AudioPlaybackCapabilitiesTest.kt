@@ -1,6 +1,6 @@
 package dev.joyfin.playback
 
-import org.json.JSONObject
+import dev.joyfin.data.DeviceProfileDto
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -8,19 +8,11 @@ class AudioPlaybackCapabilitiesTest {
     @Test
     fun multichannelDecoderIsNotLimitedByStereoSpeakers() {
         val audio = AudioPlaybackCapabilities(mapOf("aac" to 2, "eac3" to 6))
-        val profile = JSONObject().put("CodecProfiles", audio.codecProfiles())
+        val profile = DeviceProfileDto(codecProfiles = audio.codecProfiles())
         assertEquals(6, AudioPlaybackCapabilities.requestChannelLimit(profile))
         assertEquals("aac,eac3", audio.codecs)
         assertFalse(audio.codecs.contains("truehd"))
-        assertEquals(
-            "2",
-            audio
-                .codecProfiles()
-                .getJSONObject(0)
-                .getJSONArray("Conditions")
-                .getJSONObject(0)
-                .getString("Value"),
-        )
+        assertEquals("2", audio.codecProfiles().first().conditions.first().value)
     }
 
     @Test
@@ -29,7 +21,7 @@ class AudioPlaybackCapabilitiesTest {
         assertEquals(
             2,
             AudioPlaybackCapabilities.requestChannelLimit(
-                JSONObject().put("CodecProfiles", audio.codecProfiles())
+                DeviceProfileDto(codecProfiles = audio.codecProfiles())
             ),
         )
     }

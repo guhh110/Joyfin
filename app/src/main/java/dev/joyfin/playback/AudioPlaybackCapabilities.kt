@@ -8,35 +8,20 @@ import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
-import dev.joyfin.data.objects
-import org.json.JSONArray
-import org.json.JSONObject
+import dev.joyfin.data.*
 
 /** Input channels can be decoded locally even when the final PCM output is stereo. */
 data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
     val codecs: String
         get() = channelsByCodec.keys.joinToString(",")
 
-    fun codecProfiles(): JSONArray =
-        JSONArray().apply {
-            channelsByCodec.forEach { (codec, channels) ->
-                put(
-                    JSONObject()
-                        .put("Type", "VideoAudio")
-                        .put("Codec", codec)
-                        .put(
-                            "Conditions",
-                            JSONArray()
-                                .put(
-                                    JSONObject()
-                                        .put("Condition", "LessThanEqual")
-                                        .put("Property", "AudioChannels")
-                                        .put("Value", channels.toString())
-                                        .put("IsRequired", false)
-                                ),
-                        )
-                )
-            }
+    fun codecProfiles(): List<CodecProfile> =
+        channelsByCodec.map { (codec, channels) ->
+            CodecProfile(
+                "VideoAudio",
+                codec,
+                listOf(ProfileCondition(property = "AudioChannels", value = channels.toString())),
+            )
         }
 
     companion object {
@@ -59,18 +44,15 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
                 "truehd" to listOf("audio/true-hd"),
             )
 
-        fun detect(context: Context, source: JSONObject?): AudioPlaybackCapabilities {
+        fun detect(context: Context, source: MediaSource?): AudioPlaybackCapabilities {
             val output = AudioCapabilities.getCapabilities(context, attributes, null, emptyList())
-            val streams = source?.optJSONArray("MediaStreams").objects()
+            val streams = source?.streams.orEmpty()
             val limits = linkedMapOf("pcm" to 8, "lpcm" to 8)
             mimeTypes.forEach { (codec, mimes) ->
                 val rate =
                     streams
-                        .firstOrNull {
-                            it.optString("Type") == "Audio" &&
-                                it.optString("Codec").equals(codec, true)
-                        }
-                        ?.optInt("SampleRate", 48_000)
+                        .firstOrNull { it.type == "Audio" && it.codec.equals(codec, true) }
+                        ?.sampleRate
                         ?.takeIf { it > 0 } ?: 48_000
                 val max =
                     mimes.maxOf { mime ->
@@ -100,14 +82,12 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
         }
 
         /** Use the same per-codec limits in the Jellyfin request, never a fixed stereo ceiling. */
-        fun requestChannelLimit(profile: JSONObject): Int =
-            profile
-                .optJSONArray("CodecProfiles")
-                .objects()
-                .filter { it.optString("Type") == "VideoAudio" }
-                .flatMap { it.optJSONArray("Conditions").objects() }
-                .filter { it.optString("Property") == "AudioChannels" }
-                .mapNotNull { it.optString("Value").toIntOrNull() }
+        fun requestChannelLimit(profile: DeviceProfileDto): Int =
+            profile.codecProfiles
+                .filter { it.type == "VideoAudio" }
+                .flatMap { it.conditions }
+                .filter { it.property == "AudioChannels" }
+                .mapNotNull { it.value.toIntOrNull() }
                 .maxOrNull()
                 ?.coerceIn(2, 8) ?: 8
     }

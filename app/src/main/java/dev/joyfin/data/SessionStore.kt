@@ -10,7 +10,8 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import org.json.JSONObject
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 
 /** Passwords are never persisted; the complete authenticated session is encrypted at rest. */
 class SessionStore(context: Context) : SessionStorage {
@@ -50,7 +51,7 @@ class SessionStore(context: Context) : SessionStorage {
                         )
                         .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                         .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                        .build(),
+                        .build()
                 )
             }
             .generateKey()
@@ -59,13 +60,7 @@ class SessionStore(context: Context) : SessionStorage {
     override fun save(session: Session) {
         val cipher =
             Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
-        val data =
-            JSONObject()
-                .put("server", session.server)
-                .put("token", session.token)
-                .put("userId", session.userId)
-                .put("userName", session.userName)
-                .toString()
+        val data = AppJson.encodeToString(session)
         val payload = cipher.iv + cipher.doFinal(data.toByteArray(Charsets.UTF_8))
         prefs
             .edit()
@@ -86,15 +81,8 @@ class SessionStore(context: Context) : SessionStorage {
                             GCMParameterSpec(128, bytes.copyOfRange(0, 12)),
                         )
                     }
-                val json =
-                    JSONObject(
-                        String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8),
-                    )
-                Session(
-                    json.getString("server"),
-                    json.getString("token"),
-                    json.getString("userId"),
-                    json.getString("userName"),
+                AppJson.decodeFromString<Session>(
+                    String(cipher.doFinal(bytes.copyOfRange(12, bytes.size)), Charsets.UTF_8)
                 )
             }
         } catch (_: Exception) {
@@ -103,12 +91,19 @@ class SessionStore(context: Context) : SessionStorage {
         }
 
     override fun clear() {
-        prefs.edit().remove("session").remove("pendingReport").remove("pendingPlaybackStops").apply()
+        prefs
+            .edit()
+            .remove("session")
+            .remove("pendingReport")
+            .remove("pendingPlaybackStops")
+            .apply()
     }
 
     var pendingPlaybackStops: String?
         get() = prefs.getString("pendingPlaybackStops", null)
-        set(value) { prefs.edit().putString("pendingPlaybackStops", value).apply() }
+        set(value) {
+            prefs.edit().putString("pendingPlaybackStops", value).apply()
+        }
 
     var pendingReport: String?
         get() = prefs.getString("pendingReport", null)

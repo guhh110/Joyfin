@@ -1,7 +1,9 @@
 package dev.joyfin.data
 
+import dev.joyfin.data.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.decodeFromString
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
@@ -41,8 +43,8 @@ class JellyfinApiTest {
         server.enqueue(
             MockResponse()
                 .setBody(
-                    """{"PlaySessionId":"play-id","MediaSources":[{"Id":"source-id","SupportsDirectPlay":$direct,"TranscodingUrl":${if (transcode == null) "null" else "\"$transcode\""},"MediaStreams":$streams}]}""",
-                ),
+                    """{"PlaySessionId":"play-id","MediaSources":[{"Id":"source-id","SupportsDirectPlay":$direct,"TranscodingUrl":${if (transcode == null) "null" else "\"$transcode\""},"MediaStreams":$streams}]}"""
+                )
         )
     }
 
@@ -55,20 +57,25 @@ class JellyfinApiTest {
                 .selected(
                     "Audio",
                     1,
-                    listOf(JSONObject("""{"Type":"Audio","Index":1,"Language":"ja"}""")),
+                    listOf(
+                        AppJson.decodeFromString<MediaStream>(
+                            """{"Type":"Audio","Index":1,"Language":"ja"}"""
+                        )
+                    ),
                 )
                 .selected(
                     "Subtitle",
                     2,
                     listOf(
-                        JSONObject(
-                            """{"Type":"Subtitle","Index":2,"Language":"en","Codec":"ass"}""",
-                        ),
+                        AppJson.decodeFromString<MediaStream>(
+                            """{"Type":"Subtitle","Index":2,"Language":"en","Codec":"ass"}"""
+                        )
                     ),
                 )
         playbackResponse(streams = streams)
         playbackResponse(streams = streams)
-        val plan = api.playback(item, JSONObject(), 0, subtitle = null, preferences = preferences)
+        val plan =
+            api.playback(item, DeviceProfileDto(), 0, subtitle = null, preferences = preferences)
         assertEquals("false", server.takeRequest().requestUrl!!.queryParameter("IsPlayback"))
         val request = server.takeRequest()
         assertEquals("true", request.requestUrl!!.queryParameter("IsPlayback"))
@@ -87,7 +94,8 @@ class JellyfinApiTest {
         val preferences = PlaybackTrackPreferences(subtitlesOff = true)
         playbackResponse(streams = streams)
         playbackResponse(streams = streams)
-        val plan = api.playback(item, JSONObject(), 0, subtitle = null, preferences = preferences)
+        val plan =
+            api.playback(item, DeviceProfileDto(), 0, subtitle = null, preferences = preferences)
         server.takeRequest()
         assertEquals(
             -1,
@@ -98,7 +106,7 @@ class JellyfinApiTest {
         val explicit =
             api.playback(
                 item.copy(sources = listOf(plan.source)),
-                JSONObject(),
+                DeviceProfileDto(),
                 0,
                 subtitle = 9,
                 preferences = preferences,
@@ -119,26 +127,35 @@ class JellyfinApiTest {
                 .selected(
                     "Audio",
                     2,
-                    listOf(JSONObject("""{"Type":"Audio","Index":2,"Language":"ja"}""")),
+                    listOf(
+                        AppJson.decodeFromString<MediaStream>(
+                            """{"Type":"Audio","Index":2,"Language":"ja"}"""
+                        )
+                    ),
                 )
                 .selected(
                     "Subtitle",
                     3,
                     listOf(
-                        JSONObject(
-                            """{"Type":"Subtitle","Index":3,"Language":"en","Codec":"ass"}""",
-                        ),
+                        AppJson.decodeFromString<MediaStream>(
+                            """{"Type":"Subtitle","Index":3,"Language":"en","Codec":"ass"}"""
+                        )
                     ),
                 )
         val media =
             item.copy(
-                sources = listOf(JSONObject("""{"Id":"source-id","MediaStreams":$streams}""")),
+                sources =
+                    listOf(
+                        AppJson.decodeFromString<MediaSource>(
+                            """{"Id":"source-id","MediaStreams":$streams}"""
+                        )
+                    )
             )
         playbackResponse(streams = streams)
         val plan =
             api.playback(
                 media,
-                JSONObject(),
+                DeviceProfileDto(),
                 0,
                 audio = 1,
                 subtitle = null,
@@ -159,17 +176,23 @@ class JellyfinApiTest {
                     "Subtitle",
                     1,
                     listOf(
-                        JSONObject(
-                            """{"Type":"Subtitle","Index":1,"Language":"en","Codec":"pgssub"}""",
-                        ),
+                        AppJson.decodeFromString<MediaStream>(
+                            """{"Type":"Subtitle","Index":1,"Language":"en","Codec":"pgssub"}"""
+                        )
                     ),
                 )
         val media =
             item.copy(
-                sources = listOf(JSONObject("""{"Id":"source-id","MediaStreams":$streams}""")),
+                sources =
+                    listOf(
+                        AppJson.decodeFromString<MediaSource>(
+                            """{"Id":"source-id","MediaStreams":$streams}"""
+                        )
+                    )
             )
         playbackResponse(direct = false, transcode = "/jellyfin/video.m3u8", streams = streams)
-        val plan = api.playback(media, JSONObject(), 0, subtitle = null, preferences = preferences)
+        val plan =
+            api.playback(media, DeviceProfileDto(), 0, subtitle = null, preferences = preferences)
         val body = JSONObject(server.takeRequest().body.readUtf8())
         assertEquals(5, body.getInt("SubtitleStreamIndex"))
         assertFalse(body.getBoolean("EnableDirectPlay"))
@@ -182,7 +205,7 @@ class JellyfinApiTest {
         val streams = """[{"Type":"Subtitle","Index":5,"Codec":"pgssub"}]"""
         playbackResponse(streams = streams)
         playbackResponse(direct = false, transcode = "/jellyfin/video.m3u8", streams = streams)
-        val plan = api.playback(item, JSONObject(), 0, subtitle = 5)
+        val plan = api.playback(item, DeviceProfileDto(), 0, subtitle = 5)
         assertEquals("false", server.takeRequest().requestUrl!!.queryParameter("IsPlayback"))
         val body = JSONObject(server.takeRequest().body.readUtf8())
         assertEquals(5, body.getInt("SubtitleStreamIndex"))
@@ -196,10 +219,15 @@ class JellyfinApiTest {
             """[{"Type":"Subtitle","Index":7,"Codec":"ass"},{"Type":"Subtitle","Index":2,"Codec":"subrip"}]"""
         val media =
             item.copy(
-                sources = listOf(JSONObject("""{"Id":"source-id","MediaStreams":$streams}""")),
+                sources =
+                    listOf(
+                        AppJson.decodeFromString<MediaSource>(
+                            """{"Id":"source-id","MediaStreams":$streams}"""
+                        )
+                    )
             )
         playbackResponse(streams = streams)
-        val plan = api.playback(media, JSONObject(), 0, subtitle = null)
+        val plan = api.playback(media, DeviceProfileDto(), 0, subtitle = null)
         val body = JSONObject(server.takeRequest().body.readUtf8())
         assertEquals(7, body.getInt("SubtitleStreamIndex"))
         assertTrue(body.getBoolean("EnableDirectPlay"))
@@ -215,7 +243,7 @@ class JellyfinApiTest {
         val streams = """[{"Type":"Subtitle","Index":3,"Codec":"subrip"}]"""
         playbackResponse(streams = streams)
         playbackResponse(streams = streams)
-        val plan = api.playback(item, JSONObject(), 0, subtitle = null)
+        val plan = api.playback(item, DeviceProfileDto(), 0, subtitle = null)
         val discovery = server.takeRequest()
         assertEquals("false", discovery.requestUrl!!.queryParameter("IsPlayback"))
         assertFalse(JSONObject(discovery.body.readUtf8()).getBoolean("AutoOpenLiveStream"))
@@ -229,7 +257,7 @@ class JellyfinApiTest {
     fun manualOffIsPreservedEvenWhenSubtitlesExist() = runBlocking {
         val streams = """[{"Type":"Subtitle","Index":3,"Codec":"subrip"}]"""
         playbackResponse(streams = streams)
-        val plan = api.playback(item, JSONObject(), 0, subtitle = -1)
+        val plan = api.playback(item, DeviceProfileDto(), 0, subtitle = -1)
         assertEquals(
             -1,
             JSONObject(server.takeRequest().body.readUtf8()).getInt("SubtitleStreamIndex"),
@@ -250,12 +278,12 @@ class JellyfinApiTest {
             item.copy(
                 sources =
                     listOf(
-                        JSONObject(
-                            """{"Id":"source-id","MediaStreams":[{"Type":"Subtitle","Index":4,"Codec":"ssa"}]}""",
-                        ),
-                    ),
+                        AppJson.decodeFromString<MediaSource>(
+                            """{"Id":"source-id","MediaStreams":[{"Type":"Subtitle","Index":4,"Codec":"ssa"}]}"""
+                        )
+                    )
             )
-        val plan = api.playback(media, JSONObject(), 0, subtitle = 4)
+        val plan = api.playback(media, DeviceProfileDto(), 0, subtitle = 4)
         assertEquals("Transcode", plan.method)
         assertEquals("text/x-ssa", plan.subtitles.single().mime)
     }
@@ -266,10 +294,15 @@ class JellyfinApiTest {
             """[{"Type":"Subtitle","Index":3,"Codec":"pgssub","DeliveryMethod":"Encode"}]"""
         val media =
             item.copy(
-                sources = listOf(JSONObject("""{"Id":"source-id","MediaStreams":$streams}""")),
+                sources =
+                    listOf(
+                        AppJson.decodeFromString<MediaSource>(
+                            """{"Id":"source-id","MediaStreams":$streams}"""
+                        )
+                    )
             )
         playbackResponse(direct = false, transcode = "/jellyfin/video.m3u8", streams = streams)
-        val plan = api.playback(media, JSONObject(), 0, subtitle = 3)
+        val plan = api.playback(media, DeviceProfileDto(), 0, subtitle = 3)
         val body = JSONObject(server.takeRequest().body.readUtf8())
         assertFalse(body.getBoolean("EnableDirectPlay"))
         assertFalse(body.getBoolean("AllowVideoStreamCopy"))
@@ -290,9 +323,7 @@ class JellyfinApiTest {
     fun loginUsesNameAndPasswordAndReturnsUser() = runBlocking {
         server.enqueue(
             MockResponse()
-                .setBody(
-                    """{"AccessToken":"new-token","User":{"Id":"new-user","Name":"Viewer"}}""",
-                ),
+                .setBody("""{"AccessToken":"new-token","User":{"Id":"new-user","Name":"Viewer"}}""")
         )
         val session = api.login(server.url("/jellyfin").toString(), "Viewer", "secret")
         val request = server.takeRequest()
@@ -309,8 +340,8 @@ class JellyfinApiTest {
         server.enqueue(
             MockResponse()
                 .setBody(
-                    """{"Items":[{"Id":"id","Name":"Example","Type":"Movie","UserData":{"PlaybackPositionTicks":123000}}],"TotalRecordCount":100}""",
-                ),
+                    """{"Items":[{"Id":"id","Name":"Example","Type":"Movie","UserData":{"PlaybackPositionTicks":123000}}],"TotalRecordCount":100}"""
+                )
         )
         val page = api.items("library", start = 40)
         val request = server.takeRequest()
@@ -343,8 +374,8 @@ class JellyfinApiTest {
         server.enqueue(
             MockResponse()
                 .setBody(
-                    """[{"Id":"e1","Name":"One","Type":"Episode","SeriesId":"series","SeriesName":"Show"},{"Id":"e2","Name":"Two","Type":"Episode","SeriesId":"series"},{"Id":"movie","Name":"Movie","Type":"Movie"}]""",
-                ),
+                    """[{"Id":"e1","Name":"One","Type":"Episode","SeriesId":"series","SeriesName":"Show"},{"Id":"e2","Name":"Two","Type":"Episode","SeriesId":"series"},{"Id":"movie","Name":"Movie","Type":"Movie"}]"""
+                )
         )
         val items = api.latestInLibrary("children")
         val url = server.takeRequest().requestUrl!!
@@ -360,8 +391,8 @@ class JellyfinApiTest {
         server.enqueue(
             MockResponse()
                 .setBody(
-                    """{"Items":[{"Id":"anime","Name":"Anime","Type":"CollectionFolder","CollectionType":"tvshows"},{"Id":"music","Type":"CollectionFolder","CollectionType":"music"},{"Id":"children","Name":"Children","Type":"CollectionFolder","CollectionType":"mixed"}]}""",
-                ),
+                    """{"Items":[{"Id":"anime","Name":"Anime","Type":"CollectionFolder","CollectionType":"tvshows"},{"Id":"music","Type":"CollectionFolder","CollectionType":"music"},{"Id":"children","Name":"Children","Type":"CollectionFolder","CollectionType":"mixed"}]}"""
+                )
         )
         assertEquals(listOf("anime", "children"), api.videoLibraries().map { it.id })
     }
@@ -369,7 +400,7 @@ class JellyfinApiTest {
     @Test
     fun detailsUseCurrentItemsEndpointWithUserContext() = runBlocking {
         server.enqueue(
-            MockResponse().setBody("""{"Id":"movie-id","Name":"Movie","Type":"Movie"}"""),
+            MockResponse().setBody("""{"Id":"movie-id","Name":"Movie","Type":"Movie"}""")
         )
         api.item("movie-id")
         val request = server.takeRequest()
@@ -380,7 +411,7 @@ class JellyfinApiTest {
     @Test
     fun directPlaybackCarriesSourceAndResume() = runBlocking {
         playbackResponse()
-        val plan = api.playback(item, JSONObject(), 320_000_000L)
+        val plan = api.playback(item, DeviceProfileDto(), 320_000_000L)
         val request = server.takeRequest()
         assertEquals(
             "320000000",
@@ -395,7 +426,7 @@ class JellyfinApiTest {
     @Test
     fun compatiblePlaybackDisablesCopyAndKeepsFullHlsTimeline() = runBlocking {
         playbackResponse(false, "/jellyfin/Videos/movie-id/master.m3u8?StartTimeTicks=50000000")
-        val plan = api.playback(item, JSONObject(), 50_000_000, compatible = true)
+        val plan = api.playback(item, DeviceProfileDto(), 50_000_000, compatible = true)
         val body = JSONObject(server.takeRequest().body.readUtf8())
         assertFalse(body.getBoolean("EnableDirectPlay"))
         assertFalse(body.getBoolean("AllowVideoStreamCopy"))
@@ -408,18 +439,18 @@ class JellyfinApiTest {
     fun selectedTextSubtitleUsesExtractionEndpoint() = runBlocking {
         playbackResponse(
             streams =
-                """[{"Type":"Subtitle","Index":3,"Codec":"subrip","Language":"chi","DisplayTitle":"Chinese"}]""",
+                """[{"Type":"Subtitle","Index":3,"Codec":"subrip","Language":"chi","DisplayTitle":"Chinese"}]"""
         )
         val media =
             item.copy(
                 sources =
                     listOf(
-                        JSONObject(
-                            """{"Id":"source-id","MediaStreams":[{"Type":"Subtitle","Index":3,"Codec":"subrip"}]}""",
-                        ),
-                    ),
+                        AppJson.decodeFromString<MediaSource>(
+                            """{"Id":"source-id","MediaStreams":[{"Type":"Subtitle","Index":3,"Codec":"subrip"}]}"""
+                        )
+                    )
             )
-        val plan = api.playback(media, JSONObject(), 0, subtitle = 3)
+        val plan = api.playback(media, DeviceProfileDto(), 0, subtitle = 3)
         server.takeRequest()
         assertEquals(1, plan.subtitles.size)
         assertTrue(plan.subtitles.single().url.endsWith("/source-id/Subtitles/3/Stream.srt"))
@@ -430,7 +461,7 @@ class JellyfinApiTest {
     fun missingTranscodeFailsClearly() = runBlocking {
         playbackResponse(false)
         try {
-            api.playback(item, JSONObject(), 0)
+            api.playback(item, DeviceProfileDto(), 0)
             fail("Expected unavailable playback")
         } catch (e: java.io.IOException) {
             assertTrue(e.message!!.contains("转码"))
@@ -451,7 +482,7 @@ class JellyfinApiTest {
     @Test
     fun stopReportIncludesFinalPositionAndNoStartOnlyFields() = runBlocking {
         playbackResponse()
-        val plan = api.playback(item, JSONObject(), 0)
+        val plan = api.playback(item, DeviceProfileDto(), 0)
         server.takeRequest()
         server.enqueue(MockResponse().setResponseCode(204))
         api.report(plan, "Stopped", 900_000_000, true)
@@ -467,7 +498,7 @@ class JellyfinApiTest {
     fun multichannelPlaybackRequestUsesProfileLimitAndKeepsDirectPlay() = runBlocking {
         playbackResponse(streams = """[{"Type":"Audio","Codec":"eac3","Channels":6}]""")
         val audio = dev.joyfin.playback.AudioPlaybackCapabilities(mapOf("eac3" to 6))
-        val plan = api.playback(item, JSONObject().put("CodecProfiles", audio.codecProfiles()), 0)
+        val plan = api.playback(item, DeviceProfileDto(codecProfiles = audio.codecProfiles()), 0)
         val body = JSONObject(server.takeRequest().body.readUtf8())
         assertEquals(6, body.getInt("MaxAudioChannels"))
         assertTrue(body.getBoolean("EnableDirectPlay"))
@@ -537,7 +568,7 @@ class JellyfinApiTest {
         server.enqueue(
             MockResponse()
                 .setBody("""{"ServerName":"Delayed"}""")
-                .setHeadersDelay(250, java.util.concurrent.TimeUnit.MILLISECONDS),
+                .setHeadersDelay(250, java.util.concurrent.TimeUnit.MILLISECONDS)
         )
         var completed = false
         val job = launch {
@@ -559,9 +590,9 @@ class JellyfinApiTest {
     fun immersiveMetadataKeepsInheritedImagesAndPeople() {
         val media =
             Media.from(
-                JSONObject(
-                    """{"Id":"ep","Name":"Episode","Type":"Episode","SeriesId":"series","SeasonId":"season","SeriesName":"Show","ParentBackdropItemId":"series","ParentBackdropImageTags":["backdrop-tag"],"SeriesPrimaryImageTag":"poster-tag","CommunityRating":8.7,"OfficialRating":"TV-14","PremiereDate":"2025-10-17T00:00:00Z","Genres":["Drama"],"People":[{"Id":"actor","Name":"Actor","Role":"Lead","Type":"Actor","PrimaryImageTag":"face"}],"UserData":{"IsFavorite":true}}""",
-                ),
+                AppJson.decodeFromString<ItemDto>(
+                    """{"Id":"ep","Name":"Episode","Type":"Episode","SeriesId":"series","SeasonId":"season","SeriesName":"Show","ParentBackdropItemId":"series","ParentBackdropImageTags":["backdrop-tag"],"SeriesPrimaryImageTag":"poster-tag","CommunityRating":8.7,"OfficialRating":"TV-14","PremiereDate":"2025-10-17T00:00:00Z","Genres":["Drama"],"People":[{"Id":"actor","Name":"Actor","Role":"Lead","Type":"Actor","PrimaryImageTag":"face"}],"UserData":{"IsFavorite":true}}"""
+                )
             )
         assertEquals("series", media.backdropId)
         assertEquals("backdrop-tag", media.backdropTag)
@@ -577,9 +608,9 @@ class JellyfinApiTest {
     fun missingMetadataNeverRendersLiteralNullOrFakeRating() {
         val media =
             Media.from(
-                JSONObject(
-                    """{"Id":"id","Overview":null,"CommunityRating":null,"ImageTags":{"Primary":null},"Genres":[null],"OriginalLanguage":null}""",
-                ),
+                AppJson.decodeFromString<ItemDto>(
+                    """{"Id":"id","Overview":null,"CommunityRating":null,"ImageTags":{"Primary":null},"Genres":[null],"OriginalLanguage":null}"""
+                )
             )
         assertEquals("", media.overview)
         assertEquals("", media.language)
@@ -592,9 +623,9 @@ class JellyfinApiTest {
     fun episodeStillUsesOwnIdAndPrimaryEvenWithInheritedBackdrop() {
         val episode =
             Media.from(
-                JSONObject(
-                    """{"Id":"e2","Type":"Episode","SeriesId":"series","ImageTags":{"Primary":"still-2"},"ParentBackdropItemId":"series","ParentBackdropImageTags":["backdrop"],"SeriesPrimaryImageTag":"poster"}""",
-                ),
+                AppJson.decodeFromString<ItemDto>(
+                    """{"Id":"e2","Type":"Episode","SeriesId":"series","ImageTags":{"Primary":"still-2"},"ParentBackdropItemId":"series","ParentBackdropImageTags":["backdrop"],"SeriesPrimaryImageTag":"poster"}"""
+                )
             )
         val url = api.episodeImage(episode)!!
         assertTrue(url.contains("/Items/e2/Images/Primary"))
@@ -607,9 +638,9 @@ class JellyfinApiTest {
     fun missingEpisodeStillNeverFallsBackToParentPosterOrBackdrop() {
         val episode =
             Media.from(
-                JSONObject(
-                    """{"Id":"e1","Type":"Episode","SeriesId":"series","ParentPrimaryImageItemId":"series","ParentPrimaryImageTag":"poster","ParentBackdropItemId":"series","ParentBackdropImageTags":["backdrop"]}""",
-                ),
+                AppJson.decodeFromString<ItemDto>(
+                    """{"Id":"e1","Type":"Episode","SeriesId":"series","ParentPrimaryImageItemId":"series","ParentPrimaryImageTag":"poster","ParentBackdropItemId":"series","ParentBackdropImageTags":["backdrop"]}"""
+                )
             )
         assertEquals("poster", episode.imageTag)
         assertEquals("", episode.episodeImageTag)
@@ -620,11 +651,15 @@ class JellyfinApiTest {
     fun individualEpisodeStillTagsRemainDistinct() {
         val first =
             Media.from(
-                JSONObject("""{"Id":"e1","Type":"Episode","ImageTags":{"Primary":"still-1"}}"""),
+                AppJson.decodeFromString<ItemDto>(
+                    """{"Id":"e1","Type":"Episode","ImageTags":{"Primary":"still-1"}}"""
+                )
             )
         val second =
             Media.from(
-                JSONObject("""{"Id":"e2","Type":"Episode","ImageTags":{"Primary":"still-2"}}"""),
+                AppJson.decodeFromString<ItemDto>(
+                    """{"Id":"e2","Type":"Episode","ImageTags":{"Primary":"still-2"}}"""
+                )
             )
         assertNotEquals(api.episodeImage(first), api.episodeImage(second))
         assertNull(api.episodeImage(Media("series", "Show", "Series", imageTag = "poster")))
@@ -639,15 +674,15 @@ class JellyfinApiTest {
         assertFalse(url.contains("test-token"))
         assertTrue(
             api.personImage(Person("person-id", "Actor", "", "Actor", "face"))!!.contains(
-                "/jellyfin/Items/person-id/Images/Primary",
-            ),
+                "/jellyfin/Items/person-id/Images/Primary"
+            )
         )
     }
 
     @Test
     fun actorQueryUsesPersonIdAndPaging() = runBlocking {
         server.enqueue(
-            MockResponse().setBody("""{"Id":"person-id","Name":"A/B","Type":"Person"}"""),
+            MockResponse().setBody("""{"Id":"person-id","Name":"A/B","Type":"Person"}""")
         )
         api.person("A/B")
         val person = server.takeRequest()
@@ -659,6 +694,31 @@ class JellyfinApiTest {
         assertEquals("40", request.queryParameter("StartIndex"))
         assertEquals("user-id", request.queryParameter("UserId"))
         assertEquals("true", request.queryParameter("Recursive"))
+    }
+
+    @Test
+    fun malformedSuccessAndMissingResponseBodyFailAtTheNetworkBoundary() = runBlocking {
+        server.enqueue(MockResponse().setBody("not-json"))
+        try {
+            api.connect(server.url("/jellyfin").toString())
+            fail("Malformed JSON must fail")
+        } catch (_: kotlinx.serialization.SerializationException) {}
+        server.enqueue(MockResponse().setResponseCode(204))
+        try {
+            api.connect(server.url("/jellyfin").toString())
+            fail("A connection must return server information")
+        } catch (_: java.io.IOException) {}
+    }
+
+    @Test
+    fun logoutAcceptsEmptySuccessAndKeepsJsonHeaders() = runBlocking {
+        server.enqueue(MockResponse().setBody(""))
+        api.logout()
+        val request = server.takeRequest()
+        assertEquals("/jellyfin/Sessions/Logout", request.requestUrl!!.encodedPath)
+        assertEquals("application/json", request.getHeader("Accept"))
+        assertTrue(request.getHeader("Content-Type")!!.startsWith("application/json"))
+        assertEquals("{}", request.body.readUtf8())
     }
 
     @Test

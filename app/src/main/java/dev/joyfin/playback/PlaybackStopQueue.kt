@@ -1,13 +1,15 @@
 package dev.joyfin.playback
 
+import dev.joyfin.data.PlaybackReport
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import org.json.JSONObject
+import kotlinx.serialization.Serializable
 
 /** Stops have a dedicated worker; a slow progress report cannot hold a transcoder open. */
-internal data class PlaybackStop(val body: JSONObject, val encoding: Boolean) {
+@Serializable
+internal data class PlaybackStop(val body: PlaybackReport, val encoding: Boolean) {
     val key: String
-        get() = body.optString("PlaySessionId").ifBlank { body.optString("ItemId") }
+        get() = body.playSessionId.ifBlank { body.itemId }
 }
 
 internal class PlaybackStopQueue(

@@ -5,7 +5,6 @@ import dev.joyfin.data.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
-import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -34,9 +33,7 @@ class SessionControllerTest {
 
     private class Api : SessionConnection {
         override var session: Session? = null
-        var connect: suspend (String) -> JSONObject = {
-            JSONObject().put("ServerName", "New Cinema")
-        }
+        var connect: suspend (String) -> ServerInfo = { ServerInfo("New Cinema") }
         var authenticate: suspend (String, String, String) -> Session = { server, name, _ ->
             Session(server, "new-token", "user", name)
         }
@@ -211,7 +208,7 @@ class SessionControllerTest {
         val f = Fixture(this)
         f.api.connect = {
             withContext(NonCancellable) { delay(500) }
-            JSONObject().put("ServerName", "Stale")
+            ServerInfo("Stale")
         }
         f.controller.connect("http://old-server")
         runCurrent()

@@ -1,9 +1,17 @@
 package dev.joyfin.playback
 
+import dev.joyfin.data.AppJson
 import dev.joyfin.data.Session
-import dev.joyfin.data.objects
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+
+@Serializable
+private data class PendingStops(
+    val user: String,
+    val server: String,
+    val requests: List<PlaybackStop>,
+)
 
 /** Player activities can overlap while their final network requests drain. Merge by session. */
 internal class PlaybackStopPersistence(
@@ -20,17 +28,10 @@ internal class PlaybackStopPersistence(
 
     private fun records(): List<PlaybackStop> =
         runCatching {
-                val json = read()?.let(::JSONObject)
-                if (
-                    owner == null ||
-                        json?.optString("user") != owner.userId ||
-                        json.optString("server") != owner.server
-                )
+                val json = read()?.let { AppJson.decodeFromString<PendingStops>(it) }
+                if (owner == null || json?.user != owner.userId || json.server != owner.server)
                     emptyList()
-                else
-                    json.optJSONArray("requests").objects().map {
-                        PlaybackStop(it.getJSONObject("body"), it.optBoolean("encoding"))
-                    }
+                else json.requests
             }
             .getOrDefault(emptyList())
 
@@ -48,22 +49,9 @@ internal class PlaybackStopPersistence(
             write(
                 if (current.isEmpty()) null
                 else
-                    JSONObject()
-                        .put("user", owner.userId)
-                        .put("server", owner.server)
-                        .put(
-                            "requests",
-                            JSONArray().apply {
-                                current.values.forEach {
-                                    put(
-                                        JSONObject()
-                                            .put("body", it.body)
-                                            .put("encoding", it.encoding)
-                                    )
-                                }
-                            },
-                        )
-                        .toString()
+                    AppJson.encodeToString(
+                        PendingStops(owner.userId, owner.server, current.values.toList())
+                    )
             )
         }
 }

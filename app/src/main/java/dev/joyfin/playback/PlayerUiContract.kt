@@ -60,19 +60,18 @@ data class PlayerActions(
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =
     streams
-        .filter { it.optString("Type") == type }
+        .filter { it.type == type }
         .map { stream ->
             TrackChoice(
-                stream.optInt("Index"),
-                stream.optString("DisplayTitle").ifBlank {
-                    stream.optString("Language").ifBlank {
-                        if (type == "Audio") "音轨 ${stream.optInt("Index")}"
-                        else "字幕 ${stream.optInt("Index")}"
+                stream.index,
+                stream.displayTitle.ifBlank {
+                    stream.language.ifBlank {
+                        if (type == "Audio") "音轨 ${stream.index}" else "字幕 ${stream.index}"
                     }
                 },
                 listOf(
-                        stream.optString("Codec").uppercase(),
-                        stream.optInt("Channels").takeIf { it > 0 }?.let { "$it 声道" }.orEmpty(),
+                        stream.codec.uppercase(),
+                        stream.channels.takeIf { it > 0 }?.let { "$it 声道" }.orEmpty(),
                     )
                     .filter { it.isNotBlank() }
                     .joinToString(" · "),

@@ -2,23 +2,16 @@ package dev.joyfin.data
 
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
-import org.json.JSONArray
-import org.json.JSONObject
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 class JellyfinApi(
     val deviceId: String,
@@ -34,6 +27,48 @@ class JellyfinApi(
     @Volatile override var session: Session? = null
     private val browseFields =
         "Overview,People,Genres,MediaSources,ProductionLocations,ChildCount,SeasonUserData"
+    private var serviceBase: String? = null
+    private var cachedService: JellyfinService? = null
+
+    @Synchronized
+    private fun service(server: String = requireSession().server): JellyfinService {
+        val base = normalizeServer(server) + "/"
+        if (serviceBase != base) {
+            cachedService =
+                Retrofit.Builder()
+                    .baseUrl(base)
+                    .client(client)
+                    .addConverterFactory(
+                        AppJson.asConverterFactory("application/json; charset=utf-8".toMediaType())
+                    )
+                    .build()
+                    .create(JellyfinService::class.java)
+            serviceBase = base
+        }
+        return requireNotNull(cachedService)
+    }
+
+    private fun <T> Response<T>.checked(): Response<T> {
+        if (!isSuccessful) {
+            errorBody()?.close()
+            throw ApiException(
+                code(),
+                when (code()) {
+                    401 -> "登录已过期或用户名/密码错误"
+                    403 -> "账号无权访问此内容或使用转码"
+                    404 -> "内容或接口不存在，请检查服务器地址和子路径"
+                    in 300..399 -> "服务器地址发生重定向，请直接填写最终地址"
+                    else -> "服务器请求失败（HTTP ${code()}）"
+                },
+            )
+        }
+        return this
+    }
+
+    private fun <T> Response<T>.value(): T = checked().body() ?: throw IOException("服务器返回了空响应")
+
+    private fun params(vararg values: Pair<String, Any?>): Map<String, String> =
+        values.mapNotNull { (key, value) -> value?.let { key to it.toString() } }.toMap()
 
     companion object {
         fun normalizeServer(value: String): String {
@@ -47,7 +82,7 @@ class JellyfinApi(
                 url.username.isEmpty() &&
                     url.password.isEmpty() &&
                     url.query == null &&
-                    url.fragment == null,
+                    url.fragment == null
             ) {
                 "请填写服务器根地址，不包含账号、查询参数或页面锚点"
             }
@@ -77,7 +112,7 @@ class JellyfinApi(
         require(
             resolved.scheme == base.scheme &&
                 resolved.host == base.host &&
-                resolved.port == base.port,
+                resolved.port == base.port
         ) {
             "服务器返回了不同来源的播放地址，无法安全附加登录凭证"
         }
@@ -86,120 +121,52 @@ class JellyfinApi(
 
     private fun requireSession() = session ?: throw ApiException(401, "请先登录")
 
-    suspend fun request(
-        path: String,
-        method: String = "GET",
-        body: JSONObject? = null,
-        query: Map<String, Any?> = emptyMap(),
-        server: String = requireSession().server,
-        token: String? = session?.token,
-    ): String {
-        val builder =
-            Request.Builder()
-                .url(url(path, query, server))
-                .header("Authorization", authorization(token))
-                .header("Accept", "application/json")
-        if (method != "GET")
-            builder.method(
-                method,
-                if (method == "DELETE") null
-                else
-                    (body?.toString() ?: "{}").toRequestBody(
-                        "application/json; charset=utf-8".toMediaType(),
-                    ),
-            )
-        val call = client.newCall(builder.build())
-        return suspendCancellableCoroutine { cont ->
-            cont.invokeOnCancellation { call.cancel() }
-            call.enqueue(
-                object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        if (cont.isActive) cont.resumeWithException(e)
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        try {
-                            response.use {
-                                if (!cont.isActive) return
-                                val text = it.body?.string().orEmpty()
-                                if (it.isSuccessful) cont.resume(text)
-                                else
-                                    cont.resumeWithException(
-                                        ApiException(
-                                            it.code,
-                                            when (it.code) {
-                                                401 -> "登录已过期或用户名/密码错误"
-                                                403 -> "账号无权访问此内容或使用转码"
-                                                404 -> "内容或接口不存在，请检查服务器地址和子路径"
-                                                in 300..399 -> "服务器地址发生重定向，请直接填写最终地址"
-                                                else -> "服务器请求失败（HTTP ${it.code}）"
-                                            },
-                                        ),
-                                    )
-                            }
-                        } catch (e: Exception) {
-                            if (cont.isActive) cont.resumeWithException(e)
-                        }
-                    }
-                },
-            )
-        }
-    }
-
-    override suspend fun connect(server: String): JSONObject =
-        JSONObject(request("System/Info/Public", server = normalizeServer(server), token = null))
+    override suspend fun connect(server: String): ServerInfo =
+        service(server).publicInfo(authorization(null)).value()
 
     override suspend fun login(server: String, name: String, password: String): Session {
         val normalized = normalizeServer(server)
         val response =
-            JSONObject(
-                request(
-                    "Users/AuthenticateByName",
-                    "POST",
-                    JSONObject().put("Username", name).put("Pw", password),
-                    server = normalized,
-                    token = null,
-                ),
-            )
-        val user = response.getJSONObject("User")
+            service(normalized).login(authorization(null), LoginRequest(name, password)).value()
         return Session(
             normalized,
-            response.getString("AccessToken"),
-            user.getString("Id"),
-            user.optString("Name", name),
+            response.accessToken,
+            response.user.id,
+            response.user.name.ifBlank { name },
         )
     }
 
     override suspend fun validateSession() {
-        request("Users/${requireSession().userId}")
+        service().validate(authorization(), requireSession().userId).value()
     }
 
     override suspend fun logout() {
-        request("Sessions/Logout", "POST")
+        service().logout(authorization()).checked()
     }
 
     suspend fun resumeVideo(): List<Media> =
         withContext(Dispatchers.Default) {
-            JSONObject(
-                    request(
-                        "UserItems/Resume",
-                        query =
-                            mapOf(
-                                "UserId" to requireSession().userId,
-                                "Limit" to 20,
-                                "MediaTypes" to "Video",
-                                "Fields" to browseFields,
-                            ),
+            service()
+                .resume(
+                    authorization(),
+                    params(
+                        "UserId" to requireSession().userId,
+                        "Limit" to 20,
+                        "MediaTypes" to "Video",
+                        "Fields" to browseFields,
                     ),
                 )
-                .mediaPage()
+                .value()
+                .toMediaPage()
                 .items
         }
 
     suspend fun videoLibraries(): List<Media> =
         withContext(Dispatchers.Default) {
-            JSONObject(request("UserViews", query = mapOf("UserId" to requireSession().userId)))
-                .mediaPage()
+            service()
+                .views(authorization(), requireSession().userId)
+                .value()
+                .toMediaPage()
                 .items
                 .filter { it.isVideoLibrary() }
         }
@@ -210,141 +177,129 @@ class JellyfinApi(
 
     private suspend fun latestVideo(id: String? = null): List<Media> =
         withContext(Dispatchers.Default) {
-            val result =
-                JSONArray(
-                        request(
-                            "Items/Latest",
-                            query =
-                                mapOf(
-                                    "UserId" to requireSession().userId,
-                                    "ParentId" to id,
-                                    "Limit" to 20,
-                                    "GroupItems" to true,
-                                    "IncludeItemTypes" to "Movie,Episode,Video,MusicVideo",
-                                    "Fields" to browseFields,
-                                ),
+            groupLatestVideo(
+                service()
+                    .latest(
+                        authorization(),
+                        params(
+                            "UserId" to requireSession().userId,
+                            "ParentId" to id,
+                            "Limit" to 20,
+                            "GroupItems" to true,
+                            "IncludeItemTypes" to "Movie,Episode,Video,MusicVideo",
+                            "Fields" to browseFields,
                         ),
                     )
-                    .objects()
+                    .value()
                     .map(Media::from)
-            return@withContext groupLatestVideo(result)
+            )
         }
 
     suspend fun items(parent: String? = null, search: String? = null, start: Int = 0): MediaPage =
         withContext(Dispatchers.Default) {
-            val query =
-                mutableMapOf<String, Any?>(
-                    "UserId" to requireSession().userId,
-                    "StartIndex" to start,
-                    "Limit" to 40,
-                    "Fields" to browseFields,
-                    "SortBy" to "SortName",
-                    "SortOrder" to "Ascending",
+            val searching = !search.isNullOrBlank()
+            service()
+                .items(
+                    authorization(),
+                    params(
+                        "UserId" to requireSession().userId,
+                        "StartIndex" to start,
+                        "Limit" to 40,
+                        "Fields" to browseFields,
+                        "SortBy" to "SortName",
+                        "SortOrder" to "Ascending",
+                        "ParentId" to parent,
+                        "SearchTerm" to search?.takeIf { searching },
+                        "Recursive" to true.takeIf { searching },
+                        "IncludeItemTypes" to "Movie,Series,Episode".takeIf { searching },
+                    ),
                 )
-            if (parent != null) query["ParentId"] = parent
-            if (!search.isNullOrBlank()) {
-                query["SearchTerm"] = search
-                query["Recursive"] = true
-                query["IncludeItemTypes"] = "Movie,Series,Episode"
-            }
-            return@withContext JSONObject(request("Items", query = query)).mediaPage()
+                .value()
+                .toMediaPage()
         }
 
     suspend fun item(id: String): Media =
         withContext(Dispatchers.Default) {
-            Media.from(
-                JSONObject(
-                    request("Items/$id", query = mapOf("UserId" to requireSession().userId)),
-                ),
-            )
+            Media.from(service().item(authorization(), id, requireSession().userId).value())
         }
 
     suspend fun seasons(seriesId: String): List<Media> =
         withContext(Dispatchers.Default) {
-            JSONObject(
-                    request(
-                        "Shows/$seriesId/Seasons",
-                        query =
-                            mapOf("UserId" to requireSession().userId, "Fields" to browseFields),
-                    ),
+            service()
+                .seasons(
+                    authorization(),
+                    seriesId,
+                    params("UserId" to requireSession().userId, "Fields" to browseFields),
                 )
-                .mediaPage()
+                .value()
+                .toMediaPage()
                 .items
         }
 
     suspend fun episodes(seriesId: String, seasonId: String? = null): List<Media> =
         withContext(Dispatchers.Default) {
-            JSONObject(
-                    request(
-                        "Shows/$seriesId/Episodes",
-                        query =
-                            mapOf(
-                                "UserId" to requireSession().userId,
-                                "SeasonId" to seasonId,
-                                "Fields" to browseFields,
-                            ),
+            service()
+                .episodes(
+                    authorization(),
+                    seriesId,
+                    params(
+                        "UserId" to requireSession().userId,
+                        "SeasonId" to seasonId,
+                        "Fields" to browseFields,
                     ),
                 )
-                .mediaPage()
+                .value()
+                .toMediaPage()
                 .items
         }
 
     suspend fun similar(id: String): List<Media> =
         withContext(Dispatchers.Default) {
-            JSONObject(
-                    request(
-                        "Items/$id/Similar",
-                        query =
-                            mapOf(
-                                "UserId" to requireSession().userId,
-                                "Limit" to 12,
-                                "Fields" to browseFields,
-                            ),
+            service()
+                .similar(
+                    authorization(),
+                    id,
+                    params(
+                        "UserId" to requireSession().userId,
+                        "Limit" to 12,
+                        "Fields" to browseFields,
                     ),
                 )
-                .mediaPage()
+                .value()
+                .toMediaPage()
                 .items
         }
 
     suspend fun person(name: String): Media =
         withContext(Dispatchers.Default) {
-            Media.from(
-                JSONObject(
-                    request(
-                        "Persons/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}",
-                        query = mapOf("UserId" to requireSession().userId),
-                    ),
-                ),
-            )
+            Media.from(service().person(authorization(), name, requireSession().userId).value())
         }
 
     suspend fun personItems(id: String, start: Int = 0): MediaPage =
         withContext(Dispatchers.Default) {
             require(id.isNotBlank()) { "服务器未提供演员 ID" }
-            return@withContext JSONObject(
-                    request(
-                        "Items",
-                        query =
-                            mapOf(
-                                "UserId" to requireSession().userId,
-                                "PersonIds" to id,
-                                "Recursive" to true,
-                                "IncludeItemTypes" to "Movie,Series",
-                                "Fields" to browseFields,
-                                "StartIndex" to start,
-                                "Limit" to 40,
-                            ),
+            service()
+                .items(
+                    authorization(),
+                    params(
+                        "UserId" to requireSession().userId,
+                        "PersonIds" to id,
+                        "Recursive" to true,
+                        "IncludeItemTypes" to "Movie,Series",
+                        "Fields" to browseFields,
+                        "StartIndex" to start,
+                        "Limit" to 40,
                     ),
                 )
-                .mediaPage()
+                .value()
+                .toMediaPage()
         }
 
     suspend fun favorite(id: String, selected: Boolean) {
-        request(
-            "UserFavoriteItems/$id",
-            if (selected) "POST" else "DELETE",
-            query = mapOf("UserId" to requireSession().userId),
-        )
+        val response =
+            if (selected) service().favorite(authorization(), id, requireSession().userId)
+            else service().unfavorite(authorization(), id, requireSession().userId)
+        response.checked()
     }
 
     suspend fun nextEpisode(current: Media): Media? {
@@ -404,7 +359,7 @@ class JellyfinApi(
 
     suspend fun playback(
         item: Media,
-        profile: JSONObject,
+        profile: DeviceProfileDto,
         startTicks: Long,
         bitrate: Int = 80_000_000,
         audio: Int? = null,
@@ -413,56 +368,43 @@ class JellyfinApi(
         compatible: Boolean = false,
         preferences: PlaybackTrackPreferences? = null,
     ): PlaybackPlan {
-        val knownSource =
-            item.sources.firstOrNull { sourceId == null || it.optString("Id") == sourceId }
+        val knownSource = item.sources.firstOrNull { sourceId == null || it.id == sourceId }
         val discovering = (subtitle != -1 || preferences != null) && knownSource == null
-        val knownStreams = knownSource?.optJSONArray("MediaStreams").objects()
+        val knownStreams = knownSource?.streams.orEmpty()
         val selectedAudio = audio ?: preferences?.audio?.match("Audio", knownStreams)
         val selectedSubtitle =
             SubtitleDelivery.select(
                 subtitle ?: preferences?.subtitleIndex(knownStreams),
                 knownStreams,
             )
-        val burnIn =
-            SubtitleDelivery.requiresBurnIn(
-                selectedSubtitle,
-                knownSource?.optJSONArray("MediaStreams").objects(),
-            )
+        val burnIn = SubtitleDelivery.requiresBurnIn(selectedSubtitle, knownStreams)
         val body =
-            JSONObject()
-                .put("UserId", requireSession().userId)
-                .put("DeviceProfile", profile)
-                .put("StartTimeTicks", startTicks)
-                .put("MaxStreamingBitrate", bitrate)
-                .put(
-                    "MaxAudioChannels",
+            PlaybackRequest(
+                userId = requireSession().userId,
+                deviceProfile = profile,
+                startTimeTicks = startTicks,
+                maxStreamingBitrate = bitrate,
+                maxAudioChannels =
                     dev.joyfin.playback.AudioPlaybackCapabilities.requestChannelLimit(profile),
-                )
-                .put("EnableDirectPlay", !compatible && !burnIn)
-                .put("EnableDirectStream", !compatible && !burnIn)
-                .put("EnableTranscoding", true)
-                .put("AllowVideoStreamCopy", !compatible && !burnIn)
-                .put("AllowAudioStreamCopy", !compatible)
-                .put("SubtitleStreamIndex", selectedSubtitle)
-                .put("AutoOpenLiveStream", !discovering)
-        selectedAudio?.let { body.put("AudioStreamIndex", it) }
-        sourceId?.let { body.put("MediaSourceId", it) }
-        val result =
-            JSONObject(
-                request(
-                    "Items/${item.id}/PlaybackInfo",
-                    "POST",
-                    body,
-                    mapOf("UserId" to requireSession().userId, "IsPlayback" to !discovering),
-                ),
+                enableDirectPlay = !compatible && !burnIn,
+                enableDirectStream = !compatible && !burnIn,
+                allowVideoStreamCopy = !compatible && !burnIn,
+                allowAudioStreamCopy = !compatible,
+                subtitleStreamIndex = selectedSubtitle,
+                autoOpenLiveStream = !discovering,
+                audioStreamIndex = selectedAudio,
+                mediaSourceId = sourceId,
             )
-        if (result.optString("ErrorCode").isNotBlank() && result.optString("ErrorCode") != "null")
-            throw IOException("服务器无法提供可用播放方案：${result.optString("ErrorCode")}")
-        val sources = result.optJSONArray("MediaSources").objects()
+        val result =
+            service()
+                .playback(authorization(), item.id, requireSession().userId, !discovering, body)
+                .value()
+        if (!result.errorCode.isNullOrBlank() && result.errorCode != "null")
+            throw IOException("服务器无法提供可用播放方案：${result.errorCode}")
         val source =
-            sources.firstOrNull { sourceId == null || it.optString("Id") == sourceId }
+            result.sources.firstOrNull { sourceId == null || it.id == sourceId }
                 ?: throw IOException("没有可播放的媒体源")
-        if (discovering) {
+        if (discovering)
             return playback(
                 item.copy(sources = listOf(source)),
                 profile,
@@ -470,22 +412,15 @@ class JellyfinApi(
                 bitrate,
                 audio,
                 subtitle,
-                source.optString("Id"),
+                source.id,
                 compatible,
                 preferences,
             )
-        }
-        val sessionId = result.optString("PlaySessionId")
-        val directStreamUrl =
-            source.optString("DirectStreamUrl").takeIf { it.isNotBlank() && it != "null" }
-        val transcodingUrl =
-            source.optString("TranscodingUrl").takeIf { it.isNotBlank() && it != "null" }
-        val direct = !compatible && !burnIn && source.optBoolean("SupportsDirectPlay")
+        val directStreamUrl = source.directStreamUrl?.takeIf { it.isNotBlank() && it != "null" }
+        val transcodingUrl = source.transcodingUrl?.takeIf { it.isNotBlank() && it != "null" }
+        val direct = !compatible && !burnIn && source.supportsDirectPlay
         val stream =
-            !compatible &&
-                !burnIn &&
-                source.optBoolean("SupportsDirectStream") &&
-                directStreamUrl != null
+            !compatible && !burnIn && source.supportsDirectStream && directStreamUrl != null
         val path =
             when {
                 direct ->
@@ -493,12 +428,12 @@ class JellyfinApi(
                             "Videos/${item.id}/stream",
                             mapOf(
                                 "Static" to true,
-                                "MediaSourceId" to source.optString("Id"),
+                                "MediaSourceId" to source.id,
                                 "DeviceId" to deviceId,
                             ),
                         )
                         .toString()
-                stream -> playbackUrl(directStreamUrl!!)
+                stream -> playbackUrl(requireNotNull(directStreamUrl))
                 transcodingUrl != null ->
                     playbackUrl(transcodingUrl)
                         .toHttpUrl()
@@ -509,30 +444,29 @@ class JellyfinApi(
                 else -> throw IOException("此格式无法直接播放，服务器也未提供转码方案，请检查转码权限")
             }
         val subtitles =
-            source.optJSONArray("MediaStreams").objects().mapNotNull { track ->
+            source.streams.mapNotNull { track ->
                 if (
-                    track.optString("Type") != "Subtitle" ||
-                        track.optInt("Index", -1) < 0 ||
-                        track.optString("DeliveryMethod").equals("Encode", ignoreCase = true)
+                    track.type != "Subtitle" ||
+                        track.index < 0 ||
+                        track.deliveryMethod.equals("Encode", true)
                 )
                     return@mapNotNull null
-                val format =
-                    SubtitleDelivery.format(track.optString("Codec")) ?: return@mapNotNull null
+                val format = SubtitleDelivery.format(track.codec) ?: return@mapNotNull null
                 Subtitle(
                     url(
-                            "Videos/${item.id}/${source.optString("Id")}/Subtitles/${track.optInt("Index")}/Stream.${format.extension}",
+                            "Videos/${item.id}/${source.id}/Subtitles/${track.index}/Stream.${format.extension}"
                         )
                         .toString(),
                     format.mime,
-                    track.optString("Language", "und"),
-                    track.optString("DisplayTitle", "字幕"),
-                    track.optInt("Index"),
+                    track.language.ifBlank { "und" },
+                    track.displayTitle.ifBlank { "字幕" },
+                    track.index,
                 )
             }
         return PlaybackPlan(
             item,
             source,
-            sessionId,
+            result.sessionId,
             path,
             if (direct) "DirectPlay" else if (stream) "DirectStream" else "Transcode",
             startTicks,
@@ -543,31 +477,36 @@ class JellyfinApi(
         )
     }
 
-    suspend fun report(plan: PlaybackPlan, event: String, positionTicks: Long, paused: Boolean) {
-        val body = reportBody(plan, event, positionTicks, paused)
-        request("Sessions/Playing${if (event.isEmpty()) "" else "/$event"}", "POST", body)
-    }
+    suspend fun report(plan: PlaybackPlan, event: String, positionTicks: Long, paused: Boolean) =
+        reportSnapshot(reportBody(plan, event, positionTicks, paused), event)
 
     fun reportBody(
         plan: PlaybackPlan,
         event: String,
         positionTicks: Long,
         paused: Boolean,
-    ): JSONObject {
-        val body =
-            JSONObject()
-                .put("ItemId", plan.item.id)
-                .put("MediaSourceId", plan.sourceId)
-                .put("PlaySessionId", plan.sessionId)
-                .put("PositionTicks", positionTicks)
-        if (event != "Stopped")
-            body
-                .put("IsPaused", paused)
-                .put("CanSeek", true)
-                .put("PlayMethod", plan.method)
-                .put("AudioStreamIndex", plan.audioIndex)
-                .put("SubtitleStreamIndex", plan.subtitleIndex)
-        return body
+    ): PlaybackReport =
+        PlaybackReport(
+            itemId = plan.item.id,
+            mediaSourceId = plan.sourceId,
+            playSessionId = plan.sessionId,
+            positionTicks = positionTicks,
+            isPaused = paused.takeUnless { event == "Stopped" },
+            canSeek = true.takeUnless { event == "Stopped" },
+            playMethod = plan.method.takeUnless { event == "Stopped" },
+            audioStreamIndex = plan.audioIndex.takeUnless { event == "Stopped" },
+            subtitleStreamIndex = plan.subtitleIndex.takeUnless { event == "Stopped" },
+        )
+
+    suspend fun reportSnapshot(body: PlaybackReport, event: String) {
+        val response =
+            when (event) {
+                "" -> service().started(authorization(), body)
+                "Progress" -> service().progress(authorization(), body)
+                "Stopped" -> service().stopped(authorization(), body)
+                else -> error("未知播放上报事件")
+            }
+        response.checked()
     }
 
     suspend fun stopTranscoding(plan: PlaybackPlan) {
@@ -575,12 +514,7 @@ class JellyfinApi(
     }
 
     suspend fun stopTranscoding(sessionId: String) {
-        // A blank session id must never become a device-wide kill request.
         if (sessionId.isBlank()) return
-        request(
-            "Videos/ActiveEncodings",
-            "DELETE",
-            query = mapOf("DeviceId" to deviceId, "PlaySessionId" to sessionId),
-        )
+        service().stopEncoding(authorization(), deviceId, sessionId).checked()
     }
 }

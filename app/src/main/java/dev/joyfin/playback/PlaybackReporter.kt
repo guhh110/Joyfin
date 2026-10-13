@@ -4,7 +4,8 @@ import dev.joyfin.data.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
-import org.json.JSONObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 
 /** Progress stays ordered, while terminal cleanup has an independent, durable queue. */
 class PlaybackReporter(private val api: JellyfinApi, private val store: SessionStore) {
@@ -14,15 +15,18 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
     private val requestLock = Any()
     private var inFlight: Pair<String, Job>? = null
 
-    private data class Message(val key: String, val path: String, val body: JSONObject)
+    private data class Message(val key: String, val event: String, val body: PlaybackReport)
 
     private val queue = Channel<Message>(64)
     private val owner = api.session
 
-    private fun matches(json: JSONObject) =
-        owner != null &&
-            json.optString("user") == owner.userId &&
-            json.optString("server") == owner.server
+    @Serializable
+    private data class LegacyReport(
+        val user: String,
+        val server: String,
+        val path: String,
+        val body: PlaybackReport,
+    )
 
     private val stopPersistence =
         PlaybackStopPersistence(
@@ -36,18 +40,21 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
         )
     private val stops =
         PlaybackStopQueue(cleanupScope, stopPersistence.load(), stopPersistence::save) { stop ->
-            if (stop.encoding) api.stopTranscoding(stop.body.optString("PlaySessionId"))
-            api.request("Sessions/Playing/Stopped", "POST", stop.body)
+            if (stop.encoding) api.stopTranscoding(stop.body.playSessionId)
+            api.reportSnapshot(stop.body, "Stopped")
         }
 
     init {
         stops.worker.invokeOnCompletion { cleanupScope.cancel() }
         // Migrate the former single pending report. Never replay stale progress as active playback.
         runCatching {
-            store.pendingReport?.let(::JSONObject)?.takeIf(::matches)?.let { old ->
-                if (old.optString("path") == "Sessions/Playing/Stopped")
-                    stops.enqueue(PlaybackStop(old.getJSONObject("body"), true))
-            }
+            store.pendingReport
+                ?.let { AppJson.decodeFromString<LegacyReport>(it) }
+                ?.takeIf { owner != null && it.user == owner.userId && it.server == owner.server }
+                ?.let { old ->
+                    if (old.path == "Sessions/Playing/Stopped")
+                        stops.enqueue(PlaybackStop(old.body, true))
+                }
         }
         store.pendingReport = null
         scope.launch {
@@ -58,7 +65,7 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
                             launch(start = CoroutineStart.LAZY) {
                                 withTimeoutOrNull(8_000) {
                                     try {
-                                        api.request(message.path, "POST", message.body)
+                                        api.reportSnapshot(message.body, message.event)
                                     } catch (e: CancellationException) {
                                         throw e
                                     } catch (_: Exception) {
@@ -93,9 +100,7 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
             }
             stops.enqueue(PlaybackStop(body, plan.method != "DirectPlay"))
         } else if (key !in stopped) {
-            queue.trySend(
-                Message(key, "Sessions/Playing${if (event.isEmpty()) "" else "/$event"}", body)
-            )
+            queue.trySend(Message(key, event, body))
         }
     }
 

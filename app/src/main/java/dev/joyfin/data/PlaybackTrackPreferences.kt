@@ -1,26 +1,19 @@
 package dev.joyfin.data
 
 import java.util.Locale
-import org.json.JSONObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
 
 /** Semantic choices only: stream indices belong to one source, never to a series. */
+@Serializable
 data class TrackPreference(
     val language: String,
-    val forced: Boolean,
-    val hearingImpaired: Boolean,
-    val commentary: Boolean,
-    val variant: String,
-    val codec: String,
+    val forced: Boolean = false,
+    val hearingImpaired: Boolean = false,
+    val commentary: Boolean = false,
+    val variant: String = "",
+    val codec: String = "",
 ) {
-    fun toJson(): JSONObject =
-        JSONObject()
-            .put("language", language)
-            .put("forced", forced)
-            .put("hearingImpaired", hearingImpaired)
-            .put("commentary", commentary)
-            .put("variant", variant)
-            .put("codec", codec)
-
     companion object {
         private fun language(value: String): String {
             val normalized = value.trim().lowercase(Locale.ROOT).replace('_', '-')
@@ -46,10 +39,10 @@ data class TrackPreference(
             return (listOf(base) + parts.drop(1)).joinToString("-")
         }
 
-        fun fromTrack(track: JSONObject): TrackPreference? {
-            val lang = language(track.optString("Language"))
+        fun fromTrack(track: MediaStream): TrackPreference? {
+            val lang = language(track.language)
             if (lang.isBlank()) return null
-            val title = track.optString("Title").lowercase(Locale.ROOT)
+            val title = track.title.lowercase(Locale.ROOT)
             val variant =
                 when {
                     lang.contains("hans") || title.contains("简体") || title.contains("簡體") -> "hans"
@@ -58,35 +51,18 @@ data class TrackPreference(
                 }
             return TrackPreference(
                 lang.split('-').filterNot { it == "hans" || it == "hant" }.joinToString("-"),
-                track.optBoolean("IsForced"),
-                track.optBoolean("IsHearingImpaired"),
-                track.optBoolean("IsCommentary") ||
-                    title.contains("commentary") ||
-                    title.contains("评论音轨"),
+                track.forced,
+                track.hearingImpaired,
+                track.commentary || title.contains("commentary") || title.contains("评论音轨"),
                 variant,
-                track.optString("Codec").lowercase(Locale.ROOT),
+                track.codec.lowercase(Locale.ROOT),
             )
         }
-
-        fun fromJson(json: JSONObject): TrackPreference? =
-            json
-                .optString("language")
-                .takeIf { it.isNotBlank() }
-                ?.let {
-                    TrackPreference(
-                        it,
-                        json.optBoolean("forced"),
-                        json.optBoolean("hearingImpaired"),
-                        json.optBoolean("commentary"),
-                        json.optString("variant"),
-                        json.optString("codec"),
-                    )
-                }
     }
 
-    fun match(type: String, streams: List<JSONObject>): Int? =
+    fun match(type: String, streams: List<MediaStream>): Int? =
         streams
-            .filter { it.optString("Type") == type && it.optInt("Index", -1) >= 0 }
+            .filter { it.type == type && it.index >= 0 }
             .mapNotNull { track -> fromTrack(track)?.let { track to it } }
             .filter { (_, choice) ->
                 language == choice.language &&
@@ -98,9 +74,10 @@ data class TrackPreference(
             .sortedByDescending { (_, choice) -> choice.codec == codec }
             .firstOrNull()
             ?.first
-            ?.optInt("Index")
+            ?.index
 }
 
+@Serializable
 data class PlaybackTrackPreferences(
     val audio: TrackPreference? = null,
     val subtitle: TrackPreference? = null,
@@ -108,37 +85,27 @@ data class PlaybackTrackPreferences(
     val bitrate: Int? = null,
     val compatible: Boolean = false,
 ) {
-    fun subtitleIndex(streams: List<JSONObject>): Int? =
+    companion object {
+        fun decode(value: String): PlaybackTrackPreferences =
+            runCatching {
+                    AppJson.decodeFromString<PlaybackTrackPreferences>(value).let {
+                        it.copy(bitrate = it.bitrate?.takeIf { bitrate -> bitrate > 0 })
+                    }
+                }
+                .getOrDefault(PlaybackTrackPreferences())
+    }
+
+    fun subtitleIndex(streams: List<MediaStream>): Int? =
         if (subtitlesOff) -1 else subtitle?.match("Subtitle", streams)
 
-    fun toJson(): JSONObject =
-        JSONObject()
-            .put("audio", audio?.toJson())
-            .put("subtitle", subtitle?.toJson())
-            .put("subtitlesOff", subtitlesOff)
-            .put("bitrate", bitrate)
-            .put("compatible", compatible)
-
     /** Unknown language clears the old choice rather than guessing from an index or name. */
-    fun selected(type: String, index: Int, streams: List<JSONObject>): PlaybackTrackPreferences {
-        val track =
-            streams.firstOrNull { it.optString("Type") == type && it.optInt("Index", -1) == index }
+    fun selected(type: String, index: Int, streams: List<MediaStream>): PlaybackTrackPreferences {
+        val track = streams.firstOrNull { it.type == type && it.index == index }
         val choice = track?.let(TrackPreference::fromTrack)
         return when (type) {
             "Audio" -> copy(audio = choice)
             "Subtitle" -> copy(subtitle = choice, subtitlesOff = index == -1)
             else -> this
         }
-    }
-
-    companion object {
-        fun fromJson(json: JSONObject): PlaybackTrackPreferences =
-            PlaybackTrackPreferences(
-                json.optJSONObject("audio")?.let(TrackPreference::fromJson),
-                json.optJSONObject("subtitle")?.let(TrackPreference::fromJson),
-                json.optBoolean("subtitlesOff"),
-                json.optInt("bitrate").takeIf { it > 0 },
-                json.optBoolean("compatible"),
-            )
     }
 }

@@ -10,6 +10,8 @@ Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客
 
 页面按功能组织在 `app/src/main/java/dev/joyfin/ui/features/`，TV／手机布局分别放在各功能的 `tv/` 与 `mobile/` 目录；基础组件在 `ui/components/`，数据、会话和播放逻辑分别位于 `data/`、`session/` 和 `playback/`。
 
+网络接口使用 Retrofit，底层连接由 OkHttp 管理；API 和本地配置统一使用 Kotlin Serialization。接口声明、传输模型与业务转换分别位于 `data/JellyfinService.kt`、`data/JellyfinDtos.kt` 和 `data/JellyfinApi.kt`。
+
 公开仓库仅包含应用源码、资源、测试及构建工具。设计文档、截图、设备记录、备份和构建产物保留在本地，不纳入版本控制。
 
 ## 本地打包

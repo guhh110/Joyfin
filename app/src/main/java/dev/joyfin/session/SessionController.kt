@@ -37,7 +37,7 @@ internal class SessionController(
             val info = api.connect(normalized)
             currentCoroutineContext().ensureActive()
             store.server = normalized
-            store.serverName = info.optString("ServerName", "Jellyfin")
+            store.serverName = info.serverName
             mutable.value =
                 UiState(
                     page = Page.LOGIN,

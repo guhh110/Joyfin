@@ -77,7 +77,7 @@ class EpisodePlaybackController(
                     require(media.id == intent.episodeId && media.type == "Episode") { "本集已不可播放" }
                     require(
                         intent.sourceId == null ||
-                            media.sources.any { it.optString("Id") == intent.sourceId }
+                            media.sources.any { it.id == intent.sourceId }
                     ) {
                         "所选版本已不可用，请重新选择"
                     }

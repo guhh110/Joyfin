@@ -8,6 +8,7 @@ import dev.joyfin.playback.PlaybackController
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.*
+import kotlinx.serialization.decodeFromString
 import okhttp3.mockwebserver.*
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -59,7 +60,10 @@ class PlaybackPreferencesFlowTest {
         val session = Session(server.url("/").toString().trimEnd('/'), "mock-token", "user", "Test")
         val first = Media("first", "First", "Episode", seriesId = "series")
         val preferences = PlaybackPreferenceStore(context)
-        val audio = JSONObject("""{"Type":"Audio","Index":1,"Language":"jpn","Codec":"aac"}""")
+        val audio =
+            AppJson.decodeFromString<MediaStream>(
+                """{"Type":"Audio","Index":1,"Language":"jpn","Codec":"aac"}"""
+            )
         val saved =
             PlaybackTrackPreferences(bitrate = 4_000_000, compatible = true)
                 .selected("Audio", 1, listOf(audio))

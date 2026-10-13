@@ -1,16 +1,16 @@
 package dev.joyfin.playback
 
+import dev.joyfin.data.PlaybackReport
 import java.io.IOException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
-import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlaybackStopQueueTest {
     private fun stop(id: String) =
-        PlaybackStop(JSONObject().put("PlaySessionId", id).put("ItemId", "item"), true)
+        PlaybackStop(PlaybackReport(playSessionId = id, itemId = "item"), true)
 
     @Test
     fun cleanupRetriesAndPersistsBeforeNetworkThenClearsOnSuccess() = runTest {

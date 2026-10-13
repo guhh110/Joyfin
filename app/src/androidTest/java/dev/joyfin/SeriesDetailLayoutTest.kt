@@ -24,7 +24,6 @@ import dev.joyfin.ui.features.detail.DetailRoute
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.BoundlessTheme
-import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -203,19 +202,17 @@ class SeriesDetailLayoutTest {
             episodes[3].copy(
                 sources =
                     (1..3).map {
-                        JSONObject()
-                            .put("Id", "source$it")
-                            .put("Name", "Version $it")
-                            .put(
-                                "MediaStreams",
-                                org.json.JSONArray(
-                                    (1..30).map { track ->
-                                        JSONObject()
-                                            .put("Type", "Audio")
-                                            .put("DisplayTitle", "Audio $track")
-                                    }
-                                ),
-                            )
+                        dev.joyfin.data.MediaSource(
+                            id = "source$it",
+                            name = "Version $it",
+                            streams =
+                                (1..30).map { track ->
+                                    dev.joyfin.data.MediaStream(
+                                        type = "Audio",
+                                        displayTitle = "Audio $track",
+                                    )
+                                },
+                        )
                     }
             )
         val initial = ready()

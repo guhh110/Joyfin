@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
-import dev.joyfin.data.objects
 import dev.joyfin.ui.theme.Palette
 import java.util.Locale
 
@@ -24,13 +23,13 @@ fun MediaMetadata(item: Media) {
         if (item.genres.isNotEmpty()) Caption(item.genres.take(2).joinToString(" / "))
         if (item.officialRating.isNotBlank()) Caption(item.officialRating)
         val video =
-            item.sources.firstOrNull()?.optJSONArray("MediaStreams").objects().firstOrNull {
-                it.optString("Type") == "Video"
+            item.sources.firstOrNull()?.streams.orEmpty().firstOrNull {
+                it.type == "Video"
             }
         if (video != null) {
-            if (video.optInt("Width") >= 3840) Caption("4K")
+            if (video.width >= 3840) Caption("4K")
             video
-                .optString("VideoRange")
+                .videoRange
                 .takeIf { it.isNotBlank() && it != "SDR" }
                 ?.let { Caption(it) }
         }

@@ -1,7 +1,5 @@
 package dev.joyfin.data
 
-import org.json.JSONObject
-
 /** Shared subtitle negotiation policy. Null means automatic; -1 explicitly disables subtitles. */
 object SubtitleDelivery {
     data class Format(val extension: String, val mime: String)
@@ -20,19 +18,13 @@ object SubtitleDelivery {
             else -> null
         }
 
-    fun select(requested: Int?, streams: List<JSONObject>): Int =
-        requested
-            ?: streams
-                .firstOrNull { it.optString("Type") == "Subtitle" && it.optInt("Index", -1) >= 0 }
-                ?.optInt("Index")
-            ?: -1
+    fun select(requested: Int?, streams: List<MediaStream>): Int =
+        requested ?: streams.firstOrNull { it.type == "Subtitle" && it.index >= 0 }?.index ?: -1
 
-    fun requiresBurnIn(index: Int, streams: List<JSONObject>): Boolean =
+    fun requiresBurnIn(index: Int, streams: List<MediaStream>): Boolean =
         if (index < 0) false
         else
             streams
-                .firstOrNull {
-                    it.optString("Type") == "Subtitle" && it.optInt("Index", -1) == index
-                }
-                ?.let { format(it.optString("Codec")) == null } ?: false
+                .firstOrNull { it.type == "Subtitle" && it.index == index }
+                ?.let { format(it.codec) == null } ?: false
 }

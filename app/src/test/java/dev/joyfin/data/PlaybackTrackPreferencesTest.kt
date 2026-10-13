@@ -1,13 +1,15 @@
 package dev.joyfin.data
 
-import org.json.JSONObject
+import dev.joyfin.data.*
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 import org.junit.Assert.*
 import org.junit.Test
 
 class PlaybackTrackPreferencesTest {
     @Test
     fun oldTrackPreferencesKeepAutomaticPlaybackDefaults() {
-        val saved = PlaybackTrackPreferences.fromJson(JSONObject("""{"subtitlesOff":true}"""))
+        val saved = PlaybackTrackPreferences.decode("""{"subtitlesOff":true}""")
         assertTrue(saved.subtitlesOff)
         assertFalse(saved.compatible)
         assertNull(saved.bitrate)
@@ -20,7 +22,7 @@ class PlaybackTrackPreferencesTest {
             PlaybackTrackPreferences(bitrate = 4_000_000, compatible = true)
                 .selected("Audio", 4, streams)
                 .selected("Subtitle", 8, streams)
-        val restored = PlaybackTrackPreferences.fromJson(JSONObject(saved.toJson().toString()))
+        val restored = PlaybackTrackPreferences.decode(AppJson.encodeToString(saved))
         assertEquals(saved, restored)
         assertEquals(4_000_000, restored.bitrate)
         assertTrue(restored.compatible)
@@ -35,7 +37,7 @@ class PlaybackTrackPreferencesTest {
             PlaybackTrackPreferences(bitrate = 8_000_000, compatible = true)
                 .selected("Audio", 4, streams)
         val updated = saved.copy(compatible = false).selected("Subtitle", -1, streams)
-        val restored = PlaybackTrackPreferences.fromJson(JSONObject(updated.toJson().toString()))
+        val restored = PlaybackTrackPreferences.decode(AppJson.encodeToString(updated))
         assertFalse(restored.compatible)
         assertEquals(8_000_000, restored.bitrate)
         assertEquals(saved.audio, restored.audio)
@@ -45,7 +47,7 @@ class PlaybackTrackPreferencesTest {
     @Test
     fun invalidRememberedBitrateFallsBackToDefault() {
         for (value in listOf("null", "0", "-1", "\"invalid\"")) {
-            val saved = PlaybackTrackPreferences.fromJson(JSONObject("""{"bitrate":$value}"""))
+            val saved = PlaybackTrackPreferences.decode("""{"bitrate":$value}""")
             assertNull(saved.bitrate)
         }
     }
@@ -55,8 +57,10 @@ class PlaybackTrackPreferencesTest {
         language: String = "eng",
         type: String = "Subtitle",
         extra: String = "",
-    ): JSONObject =
-        JSONObject("""{"Index":$index,"Language":"$language","Type":"$type","Codec":"ass"$extra}""")
+    ): MediaStream =
+        AppJson.decodeFromString<MediaStream>(
+            """{"Index":$index,"Language":"$language","Type":"$type","Codec":"ass"$extra}"""
+        )
 
     @Test
     fun matchesLanguageAcrossIndicesAndAliases() {
@@ -76,8 +80,7 @@ class PlaybackTrackPreferencesTest {
         val off = PlaybackTrackPreferences().selected("Subtitle", -1, emptyList())
         assertEquals(
             -1,
-            PlaybackTrackPreferences.fromJson(JSONObject(off.toJson().toString()))
-                .subtitleIndex(emptyList()),
+            PlaybackTrackPreferences.decode(AppJson.encodeToString(off)).subtitleIndex(emptyList()),
         )
         assertEquals(
             3,
@@ -136,7 +139,7 @@ class PlaybackTrackPreferencesTest {
             PlaybackTrackPreferences()
                 .selected("Audio", 4, streams)
                 .selected("Subtitle", 8, streams)
-        val restored = PlaybackTrackPreferences.fromJson(JSONObject(preference.toJson().toString()))
+        val restored = PlaybackTrackPreferences.decode(AppJson.encodeToString(preference))
         assertEquals(preference, restored)
         assertEquals(4, restored.audio?.match("Audio", streams))
         assertEquals(8, restored.subtitleIndex(streams))
@@ -145,7 +148,7 @@ class PlaybackTrackPreferencesTest {
     @Test
     fun codecIsOnlyATieBreaker() {
         val preference = PlaybackTrackPreferences().selected("Subtitle", 1, listOf(track(1)))
-        val srt = track(2).put("Codec", "srt")
+        val srt = track(2).copy(codec = "srt")
         assertEquals(3, preference.subtitleIndex(listOf(srt, track(3))))
         assertEquals(2, preference.subtitleIndex(listOf(srt)))
     }

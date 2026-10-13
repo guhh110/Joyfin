@@ -1,8 +1,9 @@
 package dev.joyfin.playback
 
+import dev.joyfin.data.*
 import dev.joyfin.data.Media
 import dev.joyfin.data.PlaybackPlan
-import org.json.JSONArray
+import kotlinx.serialization.decodeFromString
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -11,7 +12,9 @@ class PlayerUiContractTest {
     private fun plan(vararg tracks: JSONObject) =
         PlaybackPlan(
             Media("movie", "影片", "Movie"),
-            JSONObject().put("MediaStreams", JSONArray(tracks.toList())),
+            MediaSource(
+                streams = tracks.map { AppJson.decodeFromString<MediaStream>(it.toString()) }
+            ),
             "session",
             "http://localhost/stream",
             "DirectPlay",

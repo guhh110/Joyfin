@@ -1,9 +1,9 @@
 package dev.joyfin.browse
 
 import dev.joyfin.data.*
+import dev.joyfin.data.MediaSource
 import kotlinx.coroutines.*
 import kotlinx.coroutines.test.*
-import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -85,7 +85,7 @@ class EpisodePlaybackControllerTest {
                 {
                     seen += it
                     if (seen.size == 1) error("offline")
-                    episode(it).copy(sources = listOf(JSONObject().put("Id", "version")))
+                    episode(it).copy(sources = listOf(MediaSource(id = "version")))
                 },
                 { state = it },
                 {},

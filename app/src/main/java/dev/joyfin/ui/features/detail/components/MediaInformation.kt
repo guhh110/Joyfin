@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
-import dev.joyfin.data.objects
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.RememberScreenFocus
 
@@ -33,25 +32,25 @@ fun MediaInformationContent(
     item.sources.forEach { source ->
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val video =
-                source.optJSONArray("MediaStreams").objects().firstOrNull {
-                    it.optString("Type") == "Video"
+                source.streams.firstOrNull {
+                    it.type == "Video"
                 }
             SectionTitle(
-                source.optString("Name").ifBlank { source.optString("Container").uppercase() }
+                source.name.ifBlank { source.container.uppercase() }
             )
             Caption(
                 listOfNotNull(
-                        video?.optString("Codec"),
+                        video?.codec,
                         video
-                            ?.optInt("Width")
+                            ?.width
                             ?.takeIf { it > 0 }
-                            ?.let { "${it}×${video.optInt("Height")}" },
-                        source.optLong("Bitrate").takeIf { it > 0 }?.let { "${it/1_000_000} Mbps" },
+                            ?.let { "${it}×${video.height}" },
+                        source.bitrate.takeIf { it > 0 }?.let { "${it/1_000_000} Mbps" },
                     )
                     .joinToString(" · ")
             )
             source
-                .optLong("Size")
+                .size
                 .takeIf { it > 0 }
                 ?.let { bytes ->
                     Caption(
@@ -63,16 +62,15 @@ fun MediaInformationContent(
                     )
                 }
             source
-                .optJSONArray("MediaStreams")
-                .objects()
-                .filter { it.optString("Type") in setOf("Audio", "Subtitle") }
+                .streams
+                .filter { it.type in setOf("Audio", "Subtitle") }
                 .forEach { stream ->
-                    val kind = if (stream.optString("Type") == "Audio") "音轨" else "字幕"
+                    val kind = if (stream.type == "Audio") "音轨" else "字幕"
                     val name =
-                        stream.optString("DisplayTitle").ifBlank {
+                        stream.displayTitle.ifBlank {
                             listOf(
-                                    stream.optString("Language"),
-                                    stream.optString("Codec").uppercase(),
+                                    stream.language,
+                                    stream.codec.uppercase(),
                                 )
                                 .filter { it.isNotBlank() }
                                 .joinToString(" · ")
@@ -80,7 +78,7 @@ fun MediaInformationContent(
                     if (name.isNotBlank()) Caption("$kind · $name")
                 }
             if (item.type in listOf("Movie", "Episode", "Video")) {
-                val sourceId = source.optString("Id").takeIf { it.isNotBlank() }
+                val sourceId = source.id.takeIf { it.isNotBlank() }
                 ActionButton(
                     playLabel(sourceId),
                     { onPlay(sourceId) },

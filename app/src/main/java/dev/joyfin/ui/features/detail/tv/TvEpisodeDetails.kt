@@ -21,7 +21,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Text
 import dev.joyfin.browse.*
 import dev.joyfin.data.Media
-import dev.joyfin.data.objects
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.RememberScreenFocus
@@ -49,7 +48,7 @@ fun TvEpisodeDetails(
     var version by rememberSaveable(episode.id) { mutableIntStateOf(0) }
     val index = version.coerceIn(0, (episode.sources.size - 1).coerceAtLeast(0))
     val source = episode.sources.getOrNull(index)
-    val sourceId = source?.optString("Id")?.takeIf { it.isNotBlank() }
+    val sourceId = source?.id?.takeIf { it.isNotBlank() }
     val trigger = "sheet:${episode.id}:${if (mediaInfo) sourceId else "null"}"
     val dismissView = if (mediaInfo) onDetails else onDismiss
     val height = (LocalConfiguration.current.screenHeightDp.dp * .85f).coerceAtMost(420.dp)
@@ -133,23 +132,23 @@ fun TvEpisodeDetails(
                                     CardText(
                                         if (source == null) "暂无媒体版本"
                                         else
-                                            "版本 ${index + 1} / ${episode.sources.size} · ${source.optString("Name").ifBlank { source.optString("Container").uppercase() }}"
+                                            "版本 ${index + 1} / ${episode.sources.size} · ${source.name.ifBlank { source.container.uppercase() }}"
                                     )
-                                val streams = source?.optJSONArray("MediaStreams").objects()
-                                val video = streams.firstOrNull { it.optString("Type") == "Video" }
+                                val streams = source?.streams.orEmpty()
+                                val video = streams.firstOrNull { it.type == "Video" }
                                 CardText(
                                     listOfNotNull(
-                                            video?.optString("Codec")?.uppercase(),
+                                            video?.codec?.uppercase(),
                                             video
-                                                ?.optInt("Width")
+                                                ?.width
                                                 ?.takeIf { it > 0 }
-                                                ?.let { "${it}×${video.optInt("Height")}" },
+                                                ?.let { "${it}×${video.height}" },
                                             source
-                                                ?.optLong("Bitrate")
+                                                ?.bitrate
                                                 ?.takeIf { it > 0 }
                                                 ?.let { "${it / 1_000_000} Mbps" },
                                             source
-                                                ?.optLong("Size")
+                                                ?.size
                                                 ?.takeIf { it > 0 }
                                                 ?.let {
                                                     java.lang.String.format(
@@ -164,15 +163,15 @@ fun TvEpisodeDetails(
                                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                     val tracks =
                                         streams.filter {
-                                            it.optString("Type") in setOf("Audio", "Subtitle")
+                                            it.type in setOf("Audio", "Subtitle")
                                         }
                                     val text =
                                         tracks
                                             .joinToString("\n") {
                                                 val type =
-                                                    if (it.optString("Type") == "Audio") "音轨"
+                                                    if (it.type == "Audio") "音轨"
                                                     else "字幕"
-                                                "$type · ${it.optString("DisplayTitle").ifBlank { listOf(it.optString("Language"), it.optString("Codec")).filter(String::isNotBlank).joinToString(" · ") }}"
+                                                "$type · ${it.displayTitle.ifBlank { listOf(it.language, it.codec).filter(String::isNotBlank).joinToString(" · ") }}"
                                             }
                                             .ifBlank { "暂无音轨／字幕信息" }
                                     if (details.loading && tracks.isEmpty()) SkeletonText(lines = 3)
