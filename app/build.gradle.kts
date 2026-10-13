@@ -55,6 +55,8 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.11.1")
     implementation("androidx.media3:media3-session:1.11.1")
     implementation("androidx.media3:media3-effect:1.11.1")
+    // Same FFmpeg audio extension used by Jellyfin Android TV with Media3 1.11.1.
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
     implementation("io.github.peerless2012:ass-media:0.5.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

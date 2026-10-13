@@ -12,6 +12,8 @@ Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客
 
 网络接口使用 Retrofit，底层连接由 OkHttp 管理；API 和本地配置统一使用 Kotlin Serialization。接口声明、传输模型与业务转换分别位于 `data/JellyfinService.kt`、`data/JellyfinDtos.kt` 和 `data/JellyfinApi.kt`。
 
+播放器使用 Media3 与 libass，音频优先使用系统解码／直通，并由 [Jellyfin FFmpeg 音频扩展](https://github.com/jellyfin/jellyfin-androidx-media)补充 DTS／DTS-HD、TrueHD 等解码能力；视频能力按 Media3 的格式检查与容器解封装组合上报；内嵌 PGS 等字幕由 Media3 渲染。默认原画不设 80 Mbps 限制，已保存的限速偏好继续生效；具体支持以运行时检测和服务端协商为准。该扩展发布包使用 GPL-3.0 许可证，源码与许可证见其上游仓库。播放协商日志使用 `JoyfinPlayback` 标签，包含播放方式、兼容模式、上报音频格式和服务器返回的转码原因，不记录播放 URL 或令牌。
+
 公开仓库仅包含应用源码、资源、测试及构建工具。设计文档、截图、设备记录、备份和构建产物保留在本地，不纳入版本控制。
 
 ## 本地打包

@@ -138,6 +138,7 @@ data class PlaybackPlan(
     val subtitleIndex: Int,
     val bitrate: Int,
     val subtitles: List<Subtitle>,
+    val transcodeReasons: List<String> = emptyList(),
 ) {
     val sourceId
         get() = source.id

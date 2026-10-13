@@ -82,7 +82,8 @@ fun PlayerBottomBar(
                 }
                 item {
                     ActionButton(
-                        if (ui.bitrate >= 80_000_000) "原画" else "${ui.bitrate/1_000_000f} Mbps",
+                        if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL) "原画"
+                        else "${ui.bitrate/1_000_000f} Mbps",
                         { onPanel(PlayerPanel.Quality) },
                         modifier = Modifier.focusTarget("player:quality"),
                         quiet = true,

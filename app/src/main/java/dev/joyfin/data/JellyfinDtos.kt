@@ -43,10 +43,19 @@ data class MediaStream(
     @SerialName("Type") val type: String = "",
     @SerialName("Index") val index: Int = -1,
     @SerialName("Codec") val codec: String = "",
+    @SerialName("Profile") val profile: String = "",
+    @SerialName("Level") val level: Double? = null,
+    @SerialName("RealFrameRate") val realFrameRate: Float = 0f,
+    @SerialName("AverageFrameRate") val averageFrameRate: Float = 0f,
+    @SerialName("DvProfile") val dvProfile: Int? = null,
+    @SerialName("DvLevel") val dvLevel: Int? = null,
+    @SerialName("IsExternal") val external: Boolean = false,
     @SerialName("Language") val language: String = "",
     @SerialName("Title") val title: String = "",
     @SerialName("DisplayTitle") val displayTitle: String = "",
     @SerialName("DeliveryMethod") val deliveryMethod: String = "",
+    @SerialName("DeliveryUrl") val deliveryUrl: String = "",
+    @SerialName("IsTextSubtitleStream") val textSubtitle: Boolean = false,
     @SerialName("IsForced") val forced: Boolean = false,
     @SerialName("IsHearingImpaired") val hearingImpaired: Boolean = false,
     @SerialName("IsCommentary") val commentary: Boolean = false,
@@ -166,13 +175,14 @@ data class TranscodingProfile(
 data class SubtitleProfile(
     @SerialName("Format") val format: String,
     @SerialName("Method") val method: String,
+    @SerialName("Container") val container: String? = null,
 )
 
 @Serializable
 data class DeviceProfileDto(
     @SerialName("Name") val name: String = "Joyfin Android Cinema",
-    @SerialName("MaxStreamingBitrate") val maxStreamingBitrate: Int = 80000000,
-    @SerialName("MaxStaticBitrate") val maxStaticBitrate: Int = 80000000,
+    @SerialName("MaxStreamingBitrate") val maxStreamingBitrate: Int = PlaybackQuality.DEFAULT,
+    @SerialName("MaxStaticBitrate") val maxStaticBitrate: Int = PlaybackQuality.DEFAULT,
     @SerialName("DirectPlayProfiles") val directPlayProfiles: List<DirectPlayProfile> = emptyList(),
     @SerialName("TranscodingProfiles")
     val transcodingProfiles: List<TranscodingProfile> = emptyList(),

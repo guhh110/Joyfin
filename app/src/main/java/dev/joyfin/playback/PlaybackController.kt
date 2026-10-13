@@ -9,6 +9,7 @@ import androidx.media3.common.*
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.session.MediaSession
 import dev.joyfin.BuildConfig
 import dev.joyfin.data.*
@@ -38,12 +39,13 @@ class PlaybackController(
     private var currentId = restored?.getString("itemId") ?: itemId
     private var initialTicks = restored?.getLong("position") ?: startTicks
     private var sourceId = restored?.getString("source") ?: initialSourceId
-    private var bitrate = restored?.getInt("bitrate", 80_000_000) ?: 80_000_000
+    private var bitrate = restored?.getInt("bitrate", PlaybackQuality.DEFAULT) ?: PlaybackQuality.DEFAULT
     private var audioIndex = restored?.getInt("audio", -1)?.takeIf { it >= 0 }
     private var subtitleIndex: Int? =
         restored?.takeIf { it.containsKey("subtitle") }?.getInt("subtitle")
     private var compatible = restored?.getBoolean("compatible") ?: false
     private var fallbackUsed = restored?.getBoolean("fallbackUsed") ?: false
+    private var audioTranscode = restored?.getBoolean("audioTranscode") ?: false
     private var settingsItemId: String? = if (restored != null) currentId else null
     private var playbackGeneration = 0L
     private var item: Media? = null
@@ -144,7 +146,11 @@ class PlaybackController(
                     sourceId = it
                     audioIndex = null
                     subtitleIndex = null
-                    compatible = fallbackUsed
+                    compatible = item?.let { media ->
+                        api.session?.let { preferenceStore.load(it, media).compatible }
+                    } ?: false
+                    fallbackUsed = compatible
+                    audioTranscode = false
                     load(positionTicks())
                 }
             },
@@ -309,9 +315,10 @@ class PlaybackController(
                 val media = requireNotNull(item)
                 val preferences = api.session?.let { preferenceStore.load(it, media) }
                 if (settingsItemId != media.id) {
-                    bitrate = preferences?.bitrate ?: 80_000_000
+                    bitrate = preferences?.bitrate ?: PlaybackQuality.DEFAULT
                     compatible = preferences?.compatible ?: false
                     fallbackUsed = compatible
+                    audioTranscode = false
                     settingsItemId = media.id
                 }
                 mutable.update {
@@ -345,10 +352,11 @@ class PlaybackController(
                 if (fetch) loadEpisodeMetadata(media)
                 val source =
                     media.sources.firstOrNull { sourceId == null || it.id == sourceId }
+                var profile = DeviceProfile.build(context, source, bitrate, audioIndex)
                 val prepared =
                     api.playback(
                         media,
-                        DeviceProfile.build(context, source, bitrate),
+                        profile,
                         ticks,
                         bitrate,
                         audioIndex,
@@ -356,6 +364,10 @@ class PlaybackController(
                         sourceId,
                         compatible,
                         preferences,
+                        profileForSource = { discovered, selectedAudio ->
+                            DeviceProfile.build(context, discovered, bitrate, selectedAudio).also { profile = it }
+                        },
+                        audioTranscode = audioTranscode,
                     )
                 unclaimed = prepared
                 currentCoroutineContext().ensureActive()
@@ -371,9 +383,18 @@ class PlaybackController(
                             } else media.sources + prepared.source,
                     )
                 plan = prepared
+                // Never log playback URLs: they may contain server addresses and credentials.
+                android.util.Log.i(
+                    "JoyfinPlayback",
+                    "method=${prepared.method}, compatible=$compatible, audioFallback=$audioTranscode, " +
+                        "video=${prepared.source.streams.firstOrNull { it.type == "Video" }?.let { "${it.codec}/${it.profile}/${it.bitDepth}bit/${it.width}x${it.height}" }}, " +
+                        "subtitle=${prepared.source.streams.firstOrNull { it.type == "Subtitle" && it.index == prepared.subtitleIndex }?.codec}, " +
+                        "audioCodecs=${profile.directPlayProfiles.flatMap { it.audioCodec.split(',') }.distinct().joinToString(",")}, " +
+                        "reasons=${prepared.transcodeReasons.joinToString()}",
+                )
                 unclaimed = null
                 sourceId = prepared.sourceId
-                audioIndex = prepared.audioIndex
+                audioIndex = prepared.audioIndex ?: prepared.source.defaultAudioIndex.takeIf { it >= 0 }
                 subtitleIndex = prepared.subtitleIndex
                 val builder =
                     MediaItem.Builder()
@@ -503,6 +524,7 @@ class PlaybackController(
         subtitleIndex = null
         compatible = false
         fallbackUsed = false
+        audioTranscode = false
         settingsItemId = null
         load(0, fetch = true, autoPlay = true)
     }
@@ -533,10 +555,11 @@ class PlaybackController(
     private fun selectCompatibility(value: Boolean) {
         if (mutable.value.loading || item == null) return
         stagePreference { it.copy(compatible = value) }
-        if (compatible == value && started && mutable.value.error == null) commitPreference()
+        if (compatible == value && !audioTranscode && started && mutable.value.error == null) commitPreference()
         else {
             compatible = value
             fallbackUsed = value
+            audioTranscode = false
             load(positionTicks())
         }
     }
@@ -562,7 +585,25 @@ class PlaybackController(
         mutable.update { it.copy(positionMs = safe) }
     }
 
-    /** Local text selection changes neither the video source nor the playback session. */
+    private fun subtitleTrack(tracks: Tracks, current: PlaybackPlan, index: Int): Pair<Tracks.Group, Int>? {
+        val text = tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }
+            .flatMap { group -> (0 until group.length).map { group to it } }
+        text.firstOrNull { (group, track) ->
+            SubtitleTrackId.matches(group.getTrackFormat(track).id, index) && group.isTrackSupported(track)
+        }?.let { return it }
+        val target = current.streams.firstOrNull { it.type == "Subtitle" && it.index == index } ?: return null
+        if (current.method != "DirectPlay" || !SubtitleDelivery.embedded(target, current.source.container)) return null
+        val embedded = text.filterNot { (group, track) -> SubtitleTrackId.isExternal(group.getTrackFormat(track).id) }
+        val ordinal = EmbeddedSubtitleMatcher.find(index, current.streams, embedded.map { (group, track) ->
+            val format = group.getTrackFormat(track)
+            EmbeddedSubtitleMatcher.Track(
+                if (format.sampleMimeType == "application/x-media3-cues") format.codecs else format.sampleMimeType,
+                format.language, format.label)
+        }) ?: return null
+        return embedded.getOrNull(ordinal)?.takeIf { (group, track) -> group.isTrackSupported(track) }
+    }
+
+    /** Local subtitle selection changes neither the video source nor the playback session. */
     private fun selectLocalSubtitle(index: Int): Boolean {
         val current = plan ?: return false
         if (
@@ -572,23 +613,14 @@ class PlaybackController(
                 dev.joyfin.data.SubtitleDelivery.requiresBurnIn(
                     current.subtitleIndex,
                     current.streams,
+                    current.source.container,
                 )
         )
             return false
         val selected =
             if (index < 0) null
             else {
-                if (current.subtitles.none { it.index == index }) return false
-                player.currentTracks.groups
-                    .filter { it.type == C.TRACK_TYPE_TEXT }
-                    .firstNotNullOfOrNull { group ->
-                        (0 until group.length)
-                            .firstOrNull {
-                                SubtitleTrackId.matches(group.getTrackFormat(it).id, index) &&
-                                    group.isTrackSupported(it)
-                            }
-                            ?.let { group to it }
-                    } ?: return false
+                subtitleTrack(player.currentTracks, current, index) ?: return false
             }
         cancelCountdown()
         val parameters =
@@ -614,15 +646,16 @@ class PlaybackController(
         val builder = player.trackSelectionParameters.buildUpon()
         var changed = false
         if (current.method == "DirectPlay" && audioIndex != null) {
-            val ordinal =
-                current.streams
-                    .filter { it.type == "Audio" }
-                    .indexOfFirst { it.index == audioIndex }
             val audioTracks =
                 tracks.groups
                     .filter { it.type == C.TRACK_TYPE_AUDIO }
                     .flatMap { group -> (0 until group.length).map { group to it } }
-            audioTracks.getOrNull(ordinal)?.let { (group, index) ->
+            val ordinal = AudioTrackMatcher.find(requireNotNull(audioIndex), current.streams,
+                audioTracks.map { (group, index) ->
+                    val format = group.getTrackFormat(index)
+                    AudioTrackMatcher.Track(format.sampleMimeType, format.language, format.label, format.channelCount)
+                })
+            ordinal?.let { audioTracks.getOrNull(it) }?.let { (group, index) ->
                 if (group.isTrackSupported(index) && !group.isTrackSelected(index)) {
                     builder.setOverrideForType(
                         TrackSelectionOverride(group.mediaTrackGroup, listOf(index)),
@@ -631,28 +664,11 @@ class PlaybackController(
                 }
             }
         }
-        if (current.subtitles.isNotEmpty()) {
-            tracks.groups
-                .filter { it.type == C.TRACK_TYPE_TEXT }
-                .forEach { group ->
-                    val index =
-                        (0 until group.length).firstOrNull {
-                            SubtitleTrackId.matches(
-                                group.getTrackFormat(it).id,
-                                current.subtitleIndex,
-                            )
-                        }
-                    if (
-                        index != null &&
-                            group.isTrackSupported(index) &&
-                            !group.isTrackSelected(index)
-                    ) {
-                        builder.setOverrideForType(
-                            TrackSelectionOverride(group.mediaTrackGroup, listOf(index)),
-                        )
-                        changed = true
-                    }
-                }
+        if (current.subtitleIndex >= 0) subtitleTrack(tracks, current, current.subtitleIndex)?.let { (group, index) ->
+            if (!group.isTrackSelected(index)) {
+                builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(index)))
+                changed = true
+            }
         }
         if (changed) player.trackSelectionParameters = builder.build()
     }
@@ -676,8 +692,10 @@ class PlaybackController(
                 )
         if (decode && !fallbackUsed) {
             fallbackUsed = true
-            compatible = true
-            stagePreference { it.copy(compatible = true) }
+            audioTranscode = error is ExoPlaybackException && error.rendererFormat?.sampleMimeType?.startsWith("audio/") == true
+            compatible = !audioTranscode
+            // An automatic failure fallback is temporary, not an explicit per-show preference.
+            android.util.Log.i("JoyfinPlayback", "fallback=${error.errorCodeName}, audioOnly=$audioTranscode")
             load(positionTicks())
         } else
             showError(
@@ -794,6 +812,7 @@ class PlaybackController(
         out.putBoolean("playing", if (suspendedPlayback) wasPlaying else pendingPlay ?: player.playWhenReady)
         out.putBoolean("compatible", compatible)
         out.putBoolean("fallbackUsed", fallbackUsed)
+        out.putBoolean("audioTranscode", audioTranscode)
         out.putFloat("speed", player.playbackParameters.speed)
         out.putInt("audio", audioIndex ?: -1)
         subtitleIndex?.let { out.putInt("subtitle", it) }

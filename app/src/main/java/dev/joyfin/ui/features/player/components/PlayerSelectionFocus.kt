@@ -4,7 +4,8 @@ import dev.joyfin.playback.PlayerUiState
 
 internal val qualityChoices =
     listOf(
-        80_000_000 to "原画优先",
+        dev.joyfin.data.PlaybackQuality.ORIGINAL to "原画",
+        80_000_000 to "高码率",
         20_000_000 to "高清优先",
         8_000_000 to "更稳定",
         4_000_000 to "节省流量",

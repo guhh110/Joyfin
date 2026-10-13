@@ -33,7 +33,13 @@ fun PlayerSettingsSheet(
             Sheet(panel.title, onDismiss, side = true) {
                 when (panel) {
                     PlayerPanel.Settings -> {
-                        ChoiceRow("画质", subtitle = "${ui.bitrate/1_000_000} Mbps 上限") {
+                        ChoiceRow(
+                            "画质",
+                            subtitle =
+                                if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL)
+                                    "原画 · 不限码率"
+                                else "${ui.bitrate/1_000_000} Mbps 上限",
+                        ) {
                             onPanel(PlayerPanel.Quality)
                         }
                         ChoiceRow(
@@ -70,7 +76,9 @@ fun PlayerSettingsSheet(
                         qualityChoices.forEach { (rate, name) ->
                             ChoiceRow(
                                 name,
-                                subtitle = "${rate/1_000_000f} Mbps",
+                                subtitle =
+                                    if (rate == dev.joyfin.data.PlaybackQuality.ORIGINAL) "不限码率"
+                                    else "${rate/1_000_000f} Mbps",
                                 selected = ui.bitrate == rate,
                                 modifier = Modifier.focusTarget(panel.choiceKey(rate)),
                             ) {

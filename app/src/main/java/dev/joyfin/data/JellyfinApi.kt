@@ -361,35 +361,48 @@ class JellyfinApi(
         item: Media,
         profile: DeviceProfileDto,
         startTicks: Long,
-        bitrate: Int = 80_000_000,
+        bitrate: Int = PlaybackQuality.DEFAULT,
         audio: Int? = null,
         subtitle: Int? = -1,
         sourceId: String? = null,
         compatible: Boolean = false,
         preferences: PlaybackTrackPreferences? = null,
+        profileForSource: ((MediaSource, Int?) -> DeviceProfileDto)? = null,
+        audioTranscode: Boolean = false,
     ): PlaybackPlan {
         val knownSource = item.sources.firstOrNull { sourceId == null || it.id == sourceId }
-        val discovering = (subtitle != -1 || preferences != null) && knownSource == null
+        val discovering =
+            (profileForSource != null || subtitle != -1 || preferences != null) &&
+                knownSource == null
         val knownStreams = knownSource?.streams.orEmpty()
         val selectedAudio = audio ?: preferences?.audio?.match("Audio", knownStreams)
+        val effectiveProfile =
+            knownSource?.let { profileForSource?.invoke(it, selectedAudio) } ?: profile
         val selectedSubtitle =
             SubtitleDelivery.select(
                 subtitle ?: preferences?.subtitleIndex(knownStreams),
                 knownStreams,
             )
-        val burnIn = SubtitleDelivery.requiresBurnIn(selectedSubtitle, knownStreams)
+        val burnIn =
+            SubtitleDelivery.requiresBurnIn(
+                selectedSubtitle,
+                knownStreams,
+                knownSource?.container.orEmpty(),
+            )
         val body =
             PlaybackRequest(
                 userId = requireSession().userId,
-                deviceProfile = profile,
+                deviceProfile = effectiveProfile,
                 startTimeTicks = startTicks,
                 maxStreamingBitrate = bitrate,
                 maxAudioChannels =
-                    dev.joyfin.playback.AudioPlaybackCapabilities.requestChannelLimit(profile),
-                enableDirectPlay = !compatible && !burnIn,
-                enableDirectStream = !compatible && !burnIn,
+                    dev.joyfin.playback.AudioPlaybackCapabilities.requestChannelLimit(
+                        effectiveProfile
+                    ),
+                enableDirectPlay = !compatible && !burnIn && !audioTranscode,
+                enableDirectStream = !compatible && !burnIn && !audioTranscode,
                 allowVideoStreamCopy = !compatible && !burnIn,
-                allowAudioStreamCopy = !compatible,
+                allowAudioStreamCopy = !compatible && !audioTranscode,
                 subtitleStreamIndex = selectedSubtitle,
                 autoOpenLiveStream = !discovering,
                 audioStreamIndex = selectedAudio,
@@ -415,12 +428,18 @@ class JellyfinApi(
                 source.id,
                 compatible,
                 preferences,
+                profileForSource,
+                audioTranscode,
             )
         val directStreamUrl = source.directStreamUrl?.takeIf { it.isNotBlank() && it != "null" }
         val transcodingUrl = source.transcodingUrl?.takeIf { it.isNotBlank() && it != "null" }
-        val direct = !compatible && !burnIn && source.supportsDirectPlay
+        val direct = !compatible && !burnIn && !audioTranscode && source.supportsDirectPlay
         val stream =
-            !compatible && !burnIn && source.supportsDirectStream && directStreamUrl != null
+            !compatible &&
+                !burnIn &&
+                !audioTranscode &&
+                source.supportsDirectStream &&
+                directStreamUrl != null
         val path =
             when {
                 direct ->
@@ -451,12 +470,18 @@ class JellyfinApi(
                         track.deliveryMethod.equals("Encode", true)
                 )
                     return@mapNotNull null
-                val format = SubtitleDelivery.format(track.codec) ?: return@mapNotNull null
+                val format = SubtitleDelivery.externalFormat(track) ?: return@mapNotNull null
                 Subtitle(
-                    url(
-                            "Videos/${item.id}/${source.id}/Subtitles/${track.index}/Stream.${format.extension}"
-                        )
-                        .toString(),
+                    if (
+                        track.deliveryMethod.equals("External", true) &&
+                            track.deliveryUrl.isNotBlank()
+                    )
+                        playbackUrl(track.deliveryUrl)
+                    else
+                        url(
+                                "Videos/${item.id}/${source.id}/Subtitles/${track.index}/Stream.${format.extension}"
+                            )
+                            .toString(),
                     format.mime,
                     track.language.ifBlank { "und" },
                     track.displayTitle.ifBlank { "字幕" },
@@ -474,6 +499,14 @@ class JellyfinApi(
             selectedSubtitle,
             bitrate,
             subtitles,
+            if (direct) emptyList()
+            else
+                path
+                    .toHttpUrl()
+                    .queryParameter("TranscodeReasons")
+                    ?.split(',')
+                    ?.filter { it.isNotBlank() }
+                    .orEmpty(),
         )
     }
 

@@ -118,7 +118,10 @@ class PlaybackPreferencesFlowTest {
             }
             val other = request()
             assertTrue(other.getBoolean("EnableDirectPlay"))
-            assertEquals(80_000_000, other.getInt("MaxStreamingBitrate"))
+            assertEquals(
+                dev.joyfin.data.PlaybackQuality.ORIGINAL,
+                other.getInt("MaxStreamingBitrate"),
+            )
         } finally {
             inst.runOnMainSync { controller.release() }
             scope.cancel()

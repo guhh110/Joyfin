@@ -26,7 +26,7 @@ data class PlayerUiState(
     val subtitles: List<TrackChoice> = emptyList(),
     val audioIndex: Int? = null,
     val subtitleIndex: Int = -1,
-    val bitrate: Int = 80_000_000,
+    val bitrate: Int = dev.joyfin.data.PlaybackQuality.DEFAULT,
     val compatible: Boolean = false,
     val episodes: List<Media> = emptyList(),
     val seasons: List<Media> = emptyList(),

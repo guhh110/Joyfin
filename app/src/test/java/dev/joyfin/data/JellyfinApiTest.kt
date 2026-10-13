@@ -13,6 +13,118 @@ import org.junit.Before
 import org.junit.Test
 
 class JellyfinApiTest {
+    @Test
+    fun audioDecoderFallbackPreservesVideoCopyInsteadOfForcingFullCompatibilityTranscode() =
+        runBlocking {
+            playbackResponse(direct = false, transcode = "/jellyfin/video.m3u8")
+            val plan = api.playback(item, DeviceProfileDto(), 0, audioTranscode = true)
+            val body = JSONObject(server.takeRequest().body.readUtf8())
+            assertFalse(body.getBoolean("EnableDirectPlay"))
+            assertFalse(body.getBoolean("AllowAudioStreamCopy"))
+            assertTrue(body.getBoolean("AllowVideoStreamCopy"))
+            assertEquals("Transcode", plan.method)
+        }
+
+    @Test
+    fun convertedTextUsesDeliveryUrlInsteadOfRequestingTheUnsupportedOriginalCodec() = runBlocking {
+        val subtitle =
+            MediaStream(type = "Subtitle", index = 5, codec = "sami", textSubtitle = true)
+        server.enqueue(
+            MockResponse()
+                .setBody(
+                    """{"PlaySessionId":"text","MediaSources":[{"Id":"source-id","Container":"mkv","SupportsDirectPlay":true,"MediaStreams":[{"Type":"Subtitle","Index":5,"Codec":"sami","IsTextSubtitleStream":true,"DeliveryMethod":"External","DeliveryUrl":"/jellyfin/converted.srt"}]}]}"""
+                )
+        )
+        val plan =
+            api.playback(
+                item.copy(
+                    sources =
+                        listOf(
+                            MediaSource(
+                                id = "source-id",
+                                container = "mkv",
+                                streams = listOf(subtitle),
+                            )
+                        )
+                ),
+                DeviceProfileDto(),
+                0,
+                subtitle = 5,
+            )
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertTrue(body.getBoolean("EnableDirectPlay"))
+        assertEquals("application/x-subrip", plan.subtitles.single().mime)
+        assertTrue(plan.subtitles.single().url.contains("/jellyfin/converted.srt"))
+    }
+
+    @Test
+    fun embeddedPgsKeepsDirectPlayAndDoesNotCreateAnExternalSupRequest() = runBlocking {
+        val source =
+            MediaSource(
+                id = "source-id",
+                container = "mkv",
+                streams = listOf(MediaStream(type = "Subtitle", index = 5, codec = "pgssub")),
+            )
+        server.enqueue(
+            MockResponse()
+                .setBody(
+                    """{"PlaySessionId":"pgs","MediaSources":[{"Id":"source-id","Container":"mkv","SupportsDirectPlay":true,"MediaStreams":[{"Type":"Subtitle","Index":5,"Codec":"pgssub","DeliveryMethod":"Embed"}]}]}"""
+                )
+        )
+        val plan =
+            api.playback(item.copy(sources = listOf(source)), DeviceProfileDto(), 0, subtitle = 5)
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertTrue(body.getBoolean("EnableDirectPlay"))
+        assertTrue(body.getBoolean("AllowVideoStreamCopy"))
+        assertEquals("DirectPlay", plan.method)
+        assertEquals(5, plan.subtitleIndex)
+        assertTrue(plan.subtitles.isEmpty())
+    }
+
+    @Test
+    fun discoveredSourceRebuildsProfileBeforeFinalPlaybackNegotiation() = runBlocking {
+        val response =
+            """{"PlaySessionId":"pgs","MediaSources":[{"Id":"source-id","Container":"mkv","SupportsDirectPlay":true,"MediaStreams":[{"Type":"Subtitle","Index":5,"Codec":"pgssub"},{"Type":"Audio","Index":3,"Codec":"dts","Channels":6}]}]}"""
+        repeat(2) { server.enqueue(MockResponse().setBody(response)) }
+        val plan =
+            api.playback(
+                item,
+                DeviceProfileDto(),
+                0,
+                audio = 3,
+                subtitle = 5,
+                profileForSource = { source, audio ->
+                    assertEquals("mkv", source.container)
+                    assertEquals(3, audio)
+                    DeviceProfileDto(name = "Discovered DTS profile")
+                },
+            )
+        assertFalse(
+            JSONObject(server.takeRequest().body.readUtf8()).getBoolean("AutoOpenLiveStream")
+        )
+        val body = JSONObject(server.takeRequest().body.readUtf8())
+        assertEquals(
+            "Discovered DTS profile",
+            body.getJSONObject("DeviceProfile").getString("Name"),
+        )
+        assertTrue(body.getBoolean("EnableDirectPlay"))
+        assertEquals("DirectPlay", plan.method)
+    }
+
+    @Test
+    fun playbackKeepsServerTranscodeReasonsWithoutRetainingTheUrlAsDiagnosticText() = runBlocking {
+        playbackResponse(
+            direct = false,
+            transcode =
+                "/jellyfin/video.m3u8?TranscodeReasons=AudioCodecNotSupported%2CAudioChannelsNotSupported",
+        )
+        val plan = api.playback(item, DeviceProfileDto(), 0, subtitle = -1)
+        assertEquals(
+            listOf("AudioCodecNotSupported", "AudioChannelsNotSupported"),
+            plan.transcodeReasons,
+        )
+    }
+
     private lateinit var server: MockWebServer
     private lateinit var api: JellyfinApi
     private val item = Media("movie-id", "Movie", "Movie")

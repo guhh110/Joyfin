@@ -1,0 +1,6 @@
+Jellyfin AndroidX Media3 FFmpeg decoder
+Artifact: org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1
+License: GNU General Public License v3.0 (see jellyfin-ffmpeg-GPL-3.0.txt).
+Upstream source and build configuration: https://github.com/jellyfin/jellyfin-androidx-media
+Media3 FFmpeg extension source: https://github.com/androidx/media/tree/1.9.0/libraries/decoder_ffmpeg
+The prebuilt extension is used without local modifications.
