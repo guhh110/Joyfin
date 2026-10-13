@@ -6,7 +6,7 @@ import androidx.compose.ui.Modifier
 import dev.joyfin.data.Media
 import dev.joyfin.data.seasonSummary
 import dev.joyfin.ui.components.*
-import dev.joyfin.ui.interaction.RememberScreenFocus
+import dev.joyfin.ui.interaction.RememberSelectionFocus
 import dev.joyfin.ui.interaction.focusTarget
 
 @Composable
@@ -16,8 +16,9 @@ fun SeasonPicker(
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val initial = "season-choice:${selectedId?:seasons.firstOrNull()?.id}"
-    RememberScreenFocus(initial) {
+    val selected = seasons.firstOrNull { it.id == selectedId } ?: seasons.firstOrNull()
+    val initial = selected?.let { "season-choice:${it.id}" } ?: "sheet:close"
+    RememberSelectionFocus(initial) {
         Sheet("选择季", onDismiss) {
             if (seasons.isEmpty()) Caption("暂无季信息")
             seasons.forEach { season ->

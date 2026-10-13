@@ -26,6 +26,24 @@ fun RememberScreenFocus(initial: String, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalScreenFocus provides memory, content = content)
 }
 
+/** A selector opens on its current value, even if the dialog first focuses its close button. */
+@Composable
+fun RememberSelectionFocus(initial: String, content: @Composable () -> Unit) {
+    key(initial) {
+        RememberScreenFocus(initial) {
+            val memory = LocalScreenFocus.current
+            val television = LocalDeviceLayout.current.television
+            LaunchedEffect(television) {
+                if (television) {
+                    withFrameNanos {}
+                    memory?.requesters?.get(initial)?.requestFocus()
+                }
+            }
+            content()
+        }
+    }
+}
+
 /** Restore the last target when a page re-enters composition, never on ordinary recomposition. */
 @Composable
 fun Modifier.focusTarget(key: String, enabled: Boolean = true): Modifier {
