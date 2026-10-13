@@ -11,6 +11,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.testTag
 import dev.joyfin.playback.SeekPreviewActions
 import dev.joyfin.ui.device.LocalDeviceLayout
 
@@ -22,16 +23,19 @@ fun BoxScope.VideoGestureSurface(
     actions: SeekPreviewActions,
     onWake: () -> Unit,
     onTap: () -> Unit,
+    onConfirm: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
     var width by remember { mutableIntStateOf(1) }
     val currentActions by rememberUpdatedState(actions)
     val wake by rememberUpdatedState(onWake)
     val tap by rememberUpdatedState(onTap)
+    val confirm by rememberUpdatedState(onConfirm)
     val tv = LocalDeviceLayout.current.television
     LaunchedEffect(visible) { if (!visible && tv) focus.requestFocus() }
     Box(
         Modifier.matchParentSize()
+            .testTag("player:surface")
             .onSizeChanged { width = it.width.coerceAtLeast(1) }
             .focusRequester(focus)
             .onPreviewKeyEvent {
@@ -48,9 +52,14 @@ fun BoxScope.VideoGestureSurface(
                                 Key.Enter,
                             )
                 ) {
-                    if (it.key == Key.DirectionLeft || it.key == Key.DirectionRight)
-                        currentActions.adjust(if (it.key == Key.DirectionLeft) -10_000 else 10_000)
-                    wake()
+                    if (it.key == Key.DirectionLeft || it.key == Key.DirectionRight) {
+                        if (seekEnabled)
+                            currentActions.adjust(
+                                if (it.key == Key.DirectionLeft) -10_000 else 10_000
+                            )
+                    } else if (it.key == Key.DirectionCenter || it.key == Key.Enter) {
+                        if (it.nativeKeyEvent.repeatCount == 0) confirm()
+                    } else wake()
                     true
                 } else false
             }
@@ -62,7 +71,6 @@ fun BoxScope.VideoGestureSurface(
                         onDragStart = {
                             distance = 0f
                             currentActions.beginSwipe()
-                            wake()
                         },
                         onHorizontalDrag = { change, delta ->
                             change.consume()

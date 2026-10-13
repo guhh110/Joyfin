@@ -1,29 +1,76 @@
 package dev.joyfin.ui.features.home.tv
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.HomeUiState
-import dev.joyfin.data.*
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.home.components.*
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.ui.model.FirstViewportScrollSpec
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource) {
     val home = homeContent(ui)
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
-        item("hero", contentType = "hero") {
-            Box(Modifier.padding(bottom = 24.dp)) {
-                HeroBackdrop(featured, images, 360.dp) {
-                    HomeHeroContent(home, images, actions, 40.dp, 10.dp)
-                }
+    val scroll = rememberLazyListState()
+    val platformScroll = LocalBringIntoViewSpec.current
+    val viewportScroll =
+        remember(platformScroll, scroll) {
+            FirstViewportScrollSpec(platformScroll) {
+                scroll.firstVisibleItemIndex == 0 && scroll.firstVisibleItemScrollOffset == 0
             }
         }
-        homeRails(home, images, actions)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val viewportHeight = maxHeight
+        CompositionLocalProvider(LocalBringIntoViewSpec provides viewportScroll) {
+            LazyColumn(
+                Modifier.fillMaxSize().testTag("home:scroll"),
+                state = scroll,
+                contentPadding = PaddingValues(bottom = 36.dp),
+            ) {
+                item("hero", contentType = "hero") {
+                    // Horizontal rails keep platform navigation; only the outer vertical scroll
+                    // holds fully visible first-screen controls in place.
+                    CompositionLocalProvider(LocalBringIntoViewSpec provides platformScroll) {
+                        HeroBackdrop(
+                            featured,
+                            images,
+                            0.dp,
+                            Modifier.height(viewportHeight).testTag("home:hero"),
+                        ) {
+                            Column(Modifier.fillMaxSize()) {
+                                AppHeader(actions)
+                                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                                    HomeHeroContent(
+                                        home,
+                                        images,
+                                        actions,
+                                        0.dp,
+                                        8.dp,
+                                        modifier = Modifier.align(Alignment.BottomStart),
+                                        showHeader = false,
+                                        compact =
+                                            maxHeight / LocalDensity.current.fontScale < 380.dp,
+                                    )
+                                }
+                                HomeResumeRail(home, images, actions)
+                            }
+                        }
+                    }
+                }
+                homeRails(home, images, actions, includeResume = false)
+            }
+        }
     }
 }

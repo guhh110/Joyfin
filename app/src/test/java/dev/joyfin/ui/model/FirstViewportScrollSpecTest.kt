@@ -6,7 +6,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 @OptIn(ExperimentalFoundationApi::class)
-class SeriesHeroScrollSpecTest {
+class FirstViewportScrollSpecTest {
     @Test
     fun visibleHeroIsHeldButSecondScreenUsesTheExactPlatformDistance() {
         var hold = true
@@ -22,7 +22,7 @@ class SeriesHeroScrollSpecTest {
                     return -123f
                 }
             }
-        val spec = SeriesHeroScrollSpec(platform) { hold }
+        val spec = FirstViewportScrollSpec(platform) { hold }
         assertEquals(0f, spec.calculateScrollDistance(620f, 60f, 720f), 0f)
         assertEquals(0, calls)
         hold = false
@@ -40,7 +40,7 @@ class SeriesHeroScrollSpecTest {
                     containerSize: Float,
                 ) = 87f
             }
-        val spec = SeriesHeroScrollSpec(platform) { true }
+        val spec = FirstViewportScrollSpec(platform) { true }
         assertEquals(87f, spec.calculateScrollDistance(700f, 60f, 720f), 0f)
         assertEquals(87f, spec.calculateScrollDistance(-1f, 60f, 720f), 0f)
         assertEquals(87f, spec.calculateScrollDistance(0f, 800f, 720f), 0f)

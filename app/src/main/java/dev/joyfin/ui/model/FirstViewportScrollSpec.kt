@@ -5,7 +5,7 @@ import androidx.compose.foundation.gestures.BringIntoViewSpec
 
 /** Only fully visible controls on the initial hero bypass platform scrolling. */
 @OptIn(ExperimentalFoundationApi::class)
-internal class SeriesHeroScrollSpec(
+internal class FirstViewportScrollSpec(
     private val platform: BringIntoViewSpec,
     private val holdHero: () -> Boolean,
 ) : BringIntoViewSpec {

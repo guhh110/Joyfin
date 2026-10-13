@@ -60,6 +60,113 @@ class SelectionFocusTest {
         }
 
     @Test
+    fun repeatedSkipButtonConfirmationsAccumulateAndAllowDirectionChanges() {
+        var ui by
+            mutableStateOf(PlayerUiState(canSeek = true, positionMs = 50_000, durationMs = 500_000))
+        var commits = 0
+        val preview =
+            SeekPreviewActions(
+                { delta ->
+                    val target = (ui.seekPreview?.targetMs ?: ui.positionMs) + delta
+                    ui = ui.copy(seekPreview = SeekPreviewState(50_000, target, SeekInput.REMOTE))
+                },
+                {},
+                {},
+                {},
+                { commits++ },
+                {},
+            )
+        val scenario = mount {
+            dev.joyfin.ui.features.player.PlayerRoute(ui, actions.copy(preview = preview))
+        }
+        try {
+            val forward = compose.onNodeWithTag("player:forward")
+            forward.performSemanticsAction(SemanticsActions.RequestFocus)
+            repeat(3) {
+                forward.performKeyInput {
+                    pressKey(androidx.compose.ui.input.key.Key.DirectionCenter)
+                }
+                forward.assertIsFocused()
+            }
+            compose.runOnIdle {
+                org.junit.Assert.assertEquals(80_000L, ui.seekPreview?.targetMs)
+                org.junit.Assert.assertEquals(0, commits)
+            }
+            forward.performKeyInput {
+                pressKey(androidx.compose.ui.input.key.Key.DirectionLeft)
+                pressKey(androidx.compose.ui.input.key.Key.DirectionLeft)
+            }
+            val rewind = compose.onNodeWithTag("player:rewind")
+            rewind.assertIsFocused()
+            repeat(2) {
+                rewind.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+                rewind.assertIsFocused()
+            }
+            compose.runOnIdle {
+                org.junit.Assert.assertEquals(60_000L, ui.seekPreview?.targetMs)
+                org.junit.Assert.assertEquals(0, commits)
+            }
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun nextEpisodePopupStartsOnConfirmAndKeepsDirectionalFocusInside() {
+        var ui by
+            mutableStateOf(
+                PlayerUiState(nextSeconds = 10, nextItem = Media("next", "下一集", "Episode"))
+            )
+        var confirmed = 0
+        var cancelled = 0
+        val scenario = mount {
+            dev.joyfin.ui.features.player.PlayerRoute(
+                ui,
+                actions.copy(nextNow = { confirmed++ }, cancelNext = { cancelled++ }),
+            )
+        }
+        try {
+            val confirm = compose.onNodeWithTag("player:confirm-next")
+            val cancel = compose.onNodeWithTag("player:cancel-next")
+            confirm.assertIsDisplayed().assertIsFocused()
+            for (key in
+                listOf(
+                    androidx.compose.ui.input.key.Key.DirectionLeft,
+                    androidx.compose.ui.input.key.Key.DirectionUp,
+                    androidx.compose.ui.input.key.Key.DirectionDown,
+                )) {
+                confirm.performKeyInput { pressKey(key) }
+                confirm.assertIsFocused()
+            }
+            confirm.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
+            cancel.assertIsFocused()
+            compose.runOnIdle { ui = ui.copy(nextSeconds = 9) }
+            cancel.assertIsFocused()
+            for (key in
+                listOf(
+                    androidx.compose.ui.input.key.Key.DirectionRight,
+                    androidx.compose.ui.input.key.Key.DirectionUp,
+                    androidx.compose.ui.input.key.Key.DirectionDown,
+                )) {
+                cancel.performKeyInput { pressKey(key) }
+                cancel.assertIsFocused()
+            }
+            cancel.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionLeft) }
+            confirm.assertIsFocused().performKeyInput {
+                pressKey(androidx.compose.ui.input.key.Key.DirectionCenter)
+            }
+            compose.runOnIdle {
+                org.junit.Assert.assertEquals(1, confirmed)
+                org.junit.Assert.assertEquals(0, cancelled)
+            }
+            cancel.performClick()
+            compose.runOnIdle { org.junit.Assert.assertEquals(1, cancelled) }
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
     fun allPlayerSelectorsOpenOnCurrentValueAndScrollItIntoView() {
         var panel by mutableStateOf(PlayerPanel.Quality)
         var open by mutableStateOf(true)

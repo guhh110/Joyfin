@@ -34,7 +34,12 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun FilmTitle(text: String, modifier: Modifier = Modifier, large: Boolean = false) {
+fun FilmTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    large: Boolean = false,
+    maxLines: Int = 2,
+) {
     Text(
         text,
         modifier,
@@ -43,7 +48,7 @@ fun FilmTitle(text: String, modifier: Modifier = Modifier, large: Boolean = fals
         fontSize = if (large) 54.sp else 36.sp,
         lineHeight = if (large) 65.sp else 46.sp,
         fontWeight = FontWeight.Normal,
-        maxLines = 2,
+        maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
     )
 }

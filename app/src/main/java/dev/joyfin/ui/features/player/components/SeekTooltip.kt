@@ -27,7 +27,7 @@ fun SeekTooltip(state: SeekPreviewState, modifier: Modifier = Modifier) {
         Caption(
             if (!state.active) "已跳转"
             else if (state.input == dev.joyfin.playback.SeekInput.REMOTE)
-                "停止操作 1 秒后跳转 · 确认立即跳转 · 返回取消"
+                "停止操作 1 秒后跳转 · 返回取消"
             else "松手跳转"
         )
     }

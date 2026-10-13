@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
 import dev.joyfin.ui.components.*
@@ -29,8 +31,28 @@ fun NextEpisodeCard(
         Caption("${seconds} 秒后播放下一集", color = Palette.Gold)
         SectionTitle(item.label)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ActionButton("立即播放", onNext, icon = Glyph.Play, primary = true)
-            ActionButton("取消连播", onCancel, Modifier.focusTarget("player:cancel-next"))
+            ActionButton(
+                "立即播放",
+                onNext,
+                Modifier.focusProperties {
+                        left = FocusRequester.Cancel
+                        up = FocusRequester.Cancel
+                        down = FocusRequester.Cancel
+                    }
+                    .focusTarget("player:confirm-next"),
+                icon = Glyph.Play,
+                primary = true,
+            )
+            ActionButton(
+                "取消连播",
+                onCancel,
+                Modifier.focusProperties {
+                        right = FocusRequester.Cancel
+                        up = FocusRequester.Cancel
+                        down = FocusRequester.Cancel
+                    }
+                    .focusTarget("player:cancel-next"),
+            )
         }
     }
 }

@@ -263,4 +263,113 @@ class PlayerControlsLayoutTest {
             scenario.close()
         }
     }
+
+    @Test
+    fun hiddenSeekingAndBufferingKeepHudHiddenAndWakeFocusesPlay() {
+        var ui by mutableStateOf(dev.joyfin.playback.PlayerUiState(canSeek = true))
+        var adjustments = 0
+        var toggles = 0
+        var commits = 0
+        val actions =
+            dev.joyfin.playback.PlayerActions(
+                toggle = {
+                    toggles++
+                    ui = ui.copy(playing = !ui.playing)
+                },
+                preview =
+                    dev.joyfin.playback.SeekPreviewActions(
+                        { delta ->
+                            adjustments++
+                            ui =
+                                ui.copy(
+                                    seekPreview =
+                                        dev.joyfin.playback.SeekPreviewState(
+                                            30_000,
+                                            30_000 + delta,
+                                            dev.joyfin.playback.SeekInput.REMOTE,
+                                        )
+                                )
+                        },
+                        {},
+                        {},
+                        {},
+                        { commits++ },
+                        {},
+                    ),
+                seek = {},
+                selectEpisode = {},
+                selectSeason = {},
+                selectAudio = {},
+                selectSubtitle = {},
+                selectBitrate = {},
+                speed = {},
+                selectVersion = {},
+                compatible = {},
+                selectCompatibility = {},
+                retry = {},
+                cancelNext = {},
+                nextNow = {},
+                close = {},
+            )
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
+            scenario.onActivity { activity ->
+                activity.setContent {
+                    BoundlessTheme {
+                        CompositionLocalProvider(
+                            LocalDeviceLayout provides DeviceLayout(true, 960)
+                        ) {
+                            dev.joyfin.ui.features.player.PlayerRoute(ui, actions)
+                        }
+                    }
+                }
+            }
+            compose
+                .onNodeWithTag("player:forward")
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+            androidx.test.uiautomator.UiDevice.getInstance(
+                    androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                )
+                .pressBack()
+            compose.onNodeWithTag("player:toggle").assertDoesNotExist()
+            val surface = compose.onNodeWithTag("player:surface")
+            for (key in
+                listOf(
+                    androidx.compose.ui.input.key.Key.DirectionRight,
+                    androidx.compose.ui.input.key.Key.DirectionLeft,
+                )) {
+                surface.performKeyInput { pressKey(key) }
+                compose.onNodeWithTag("player:toggle").assertDoesNotExist()
+            }
+            compose.runOnIdle { assertEquals(2, adjustments) }
+            surface.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+            compose.runOnIdle {
+                assertEquals(1, toggles)
+                assertEquals(true, ui.playing)
+                assertEquals(0, commits)
+                assertEquals(true, ui.seekPreview?.active)
+            }
+            surface.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+            compose.runOnIdle {
+                assertEquals(2, toggles)
+                assertEquals(false, ui.playing)
+            }
+            compose.onNodeWithTag("player:toggle").assertDoesNotExist()
+            surface.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+            compose.runOnIdle {
+                assertEquals(3, toggles)
+                assertEquals(true, ui.playing)
+                assertEquals(0, commits)
+                ui = ui.copy(loading = true)
+            }
+            surface.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+            compose.runOnIdle { assertEquals(3, toggles) }
+            compose.onNodeWithTag("player:toggle").assertDoesNotExist()
+            compose.runOnIdle { ui = ui.copy(loading = false) }
+            surface.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
+            compose.onNodeWithTag("player:toggle").assertIsDisplayed().assertIsFocused()
+        } finally {
+            scenario.close()
+        }
+    }
 }

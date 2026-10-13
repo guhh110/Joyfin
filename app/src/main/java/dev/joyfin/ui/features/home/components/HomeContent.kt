@@ -36,31 +36,37 @@ internal fun HomeHeroContent(
     actions: BrowseActions,
     topPadding: Dp,
     spacing: Dp,
+    modifier: Modifier = Modifier,
+    showHeader: Boolean = true,
+    compact: Boolean = false,
 ) {
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
-    Column {
-        AppHeader(actions)
+    Column(modifier) {
+        if (showHeader) AppHeader(actions)
         Column(
             Modifier.padding(horizontal = LocalDeviceLayout.current.gutter)
                 .padding(top = topPadding, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(spacing),
         ) {
-            Caption(
-                if (featured?.resumeTicks?.let { it > 0 } == true) "继续你的故事"
-                else "YOUR PERSONAL CINEMA"
-            )
+            if (!compact)
+                Caption(
+                    if (featured?.resumeTicks?.let { it > 0 } == true) "继续你的故事"
+                    else "YOUR PERSONAL CINEMA"
+                )
             FilmTitle(
                 featured?.seriesName?.ifBlank { featured.name } ?: featured?.name ?: "你的私人影院",
-                large = true,
+                large = !compact,
+                maxLines = if (compact || !showHeader) 1 else 2,
             )
             if (featured != null) {
                 MediaMetadata(featured)
-                androidx.tv.material3.Text(
-                    featured.overview,
-                    modifier = Modifier.widthIn(max = 540.dp),
-                    color = dev.joyfin.ui.theme.Palette.Muted,
-                    maxLines = 2,
-                )
+                if (!compact)
+                    androidx.tv.material3.Text(
+                        featured.overview,
+                        modifier = Modifier.widthIn(max = 540.dp),
+                        color = dev.joyfin.ui.theme.Palette.Muted,
+                        maxLines = 2,
+                    )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ActionButton(
                         if (featured.resumeTicks > 0) "继续观看"
@@ -89,19 +95,15 @@ internal fun HomeHeroContent(
     }
 }
 
-internal fun LazyListScope.homeRails(home: Home, images: ArtworkSource, actions: BrowseActions) {
+internal fun LazyListScope.homeRails(
+    home: Home,
+    images: ArtworkSource,
+    actions: BrowseActions,
+    includeResume: Boolean = true,
+) {
     run {
-        item("resume", contentType = "rail") {
-            LoadingMediaRail(
-                "继续观看",
-                home.resume,
-                home.resumeLoad,
-                images,
-                actions,
-                wide = true,
-                retry = { actions.retryHome(HomeRegion.RESUME) },
-            )
-        }
+        if (includeResume)
+            item("resume", contentType = "rail") { HomeResumeRail(home, images, actions) }
         item("latest", contentType = "rail") {
             LoadingMediaRail(
                 "最近加入",
@@ -135,4 +137,17 @@ internal fun LazyListScope.homeRails(home: Home, images: ArtworkSource, actions:
             }
         }
     }
+}
+
+@Composable
+internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions) {
+    LoadingMediaRail(
+        "继续观看",
+        home.resume,
+        home.resumeLoad,
+        images,
+        actions,
+        wide = true,
+        retry = { actions.retryHome(HomeRegion.RESUME) },
+    )
 }

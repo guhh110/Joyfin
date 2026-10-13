@@ -106,7 +106,7 @@ class SeekPreviewControllerTest {
     }
 
     @Test
-    fun earlyConfirmCommitsOnceAndNextOperationHasNewBase() = runTest {
+    fun explicitCommitRunsOnceAndNextOperationHasNewBase() = runTest {
         var actual = 50_000L
         val seeks = mutableListOf<Long>()
         val controller =

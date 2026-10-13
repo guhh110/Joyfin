@@ -31,7 +31,7 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
     val platformScroll = LocalBringIntoViewSpec.current
     val visibilityScroll =
         remember(platformScroll, content.scroll, content.focus) {
-            SeriesHeroScrollSpec(platformScroll) {
+            FirstViewportScrollSpec(platformScroll) {
                 content.scroll.value == 0 &&
                     (content.focus.pending ?: content.focus.target) in
                         setOf("header:back", "detail:play", "favorite")

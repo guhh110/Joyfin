@@ -7,6 +7,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.playback.SeekInput
@@ -17,6 +19,7 @@ import dev.joyfin.ui.features.player.mobile.MobilePlayerLayout
 import dev.joyfin.ui.features.player.tv.TvPlayerLayout
 import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.RememberScreenFocus
+import dev.joyfin.ui.interaction.RememberSelectionFocus
 import kotlinx.coroutines.delay
 
 /** Presentation only: never creates a player, requests an API or submits playback reports. */
@@ -52,8 +55,7 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
             visible = false
         }
     }
-    LaunchedEffect(ui.loading, ui.error) { if (tv && (ui.loading || ui.error != null)) touch() }
-    LaunchedEffect(ui.seekPreview?.active) { if (ui.seekPreview?.active == true) touch() }
+    LaunchedEffect(ui.error) { if (tv && ui.error != null) touch() }
     BackHandler(
         enabled = panel != null || ui.nextSeconds > 0 || visible || ui.seekPreview?.active == true
     ) {
@@ -69,6 +71,13 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
     }
     RememberScreenFocus("player:toggle") {
         val focusMemory = LocalScreenFocus.current
+        LaunchedEffect(visible) {
+            if (tv && visible) {
+                focusMemory?.rememberTarget?.invoke("player:toggle")
+                withFrameNanos {}
+                focusMemory?.requesters?.get("player:toggle")?.requestFocus()
+            }
+        }
         LaunchedEffect(ui.error) {
             if (
                 tv &&
@@ -89,18 +98,16 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
             Modifier.fillMaxSize().onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && ui.seekPreview?.active == true) {
                     when (event.key) {
-                        Key.DirectionCenter,
-                        Key.Enter -> {
-                            actions.preview.commit()
-                            return@onPreviewKeyEvent true
-                        }
                         Key.DirectionLeft,
                         Key.DirectionRight ->
-                            if (ui.seekPreview.input == SeekInput.REMOTE) {
+                            if (
+                                ui.seekPreview.input == SeekInput.REMOTE &&
+                                    (!visible || focusMemory?.target?.invoke() == "player:progress")
+                            ) {
                                 actions.preview.adjust(
                                     if (event.key == Key.DirectionLeft) -10_000 else 10_000
                                 )
-                                touch()
+                                if (visible) touch()
                                 return@onPreviewKeyEvent true
                             }
                         Key.DirectionUp,
@@ -120,8 +127,11 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                     visible = !visible
                     interaction++
                 },
+                onConfirm = {
+                    if (!ui.loading && ui.error == null && ui.nextSeconds == 0) actions.toggle()
+                },
             )
-            if (visible || ui.loading || panel != null || ui.error != null || ui.nextSeconds > 0) {
+            if (visible || panel != null || ui.error != null || ui.nextSeconds > 0) {
                 val onPanel: (PlayerPanel) -> Unit = {
                     touch()
                     actions.preview.cancel()
@@ -134,14 +144,20 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                 SeekTooltip(preview, Modifier.align(Alignment.Center).offset(y = (-100).dp))
             }
             if (ui.nextSeconds > 0 && ui.nextItem != null)
-                RememberScreenFocus("player:cancel-next") {
-                    NextEpisodeCard(
-                        ui.nextItem,
-                        ui.nextSeconds,
-                        actions.nextNow,
-                        actions.cancelNext,
-                        Modifier.align(Alignment.BottomEnd).padding(24.dp),
-                    )
+                Popup(
+                    alignment = Alignment.BottomEnd,
+                    onDismissRequest = actions.cancelNext,
+                    properties = PopupProperties(focusable = true, dismissOnClickOutside = false),
+                ) {
+                    RememberSelectionFocus("player:confirm-next") {
+                        NextEpisodeCard(
+                            ui.nextItem,
+                            ui.nextSeconds,
+                            actions.nextNow,
+                            actions.cancelNext,
+                            Modifier.padding(24.dp),
+                        )
+                    }
                 }
             panel?.let { current ->
                 PlayerSettingsSheet(
