@@ -5,6 +5,51 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlaybackTrackPreferencesTest {
+    @Test
+    fun oldTrackPreferencesKeepAutomaticPlaybackDefaults() {
+        val saved = PlaybackTrackPreferences.fromJson(JSONObject("""{"subtitlesOff":true}"""))
+        assertTrue(saved.subtitlesOff)
+        assertFalse(saved.compatible)
+        assertNull(saved.bitrate)
+    }
+
+    @Test
+    fun playbackSettingsRoundTripAlongsideTracks() {
+        val streams = listOf(track(4, "jpn", "Audio"), track(8))
+        val saved =
+            PlaybackTrackPreferences(bitrate = 4_000_000, compatible = true)
+                .selected("Audio", 4, streams)
+                .selected("Subtitle", 8, streams)
+        val restored = PlaybackTrackPreferences.fromJson(JSONObject(saved.toJson().toString()))
+        assertEquals(saved, restored)
+        assertEquals(4_000_000, restored.bitrate)
+        assertTrue(restored.compatible)
+        assertEquals(4, restored.audio?.match("Audio", streams))
+        assertEquals(8, restored.subtitleIndex(streams))
+    }
+
+    @Test
+    fun automaticModeAndSubtitleOffDoNotEraseBitrateOrAudio() {
+        val streams = listOf(track(4, "jpn", "Audio"))
+        val saved =
+            PlaybackTrackPreferences(bitrate = 8_000_000, compatible = true)
+                .selected("Audio", 4, streams)
+        val updated = saved.copy(compatible = false).selected("Subtitle", -1, streams)
+        val restored = PlaybackTrackPreferences.fromJson(JSONObject(updated.toJson().toString()))
+        assertFalse(restored.compatible)
+        assertEquals(8_000_000, restored.bitrate)
+        assertEquals(saved.audio, restored.audio)
+        assertEquals(-1, restored.subtitleIndex(emptyList()))
+    }
+
+    @Test
+    fun invalidRememberedBitrateFallsBackToDefault() {
+        for (value in listOf("null", "0", "-1", "\"invalid\"")) {
+            val saved = PlaybackTrackPreferences.fromJson(JSONObject("""{"bitrate":$value}"""))
+            assertNull(saved.bitrate)
+        }
+    }
+
     private fun track(
         index: Int,
         language: String = "eng",

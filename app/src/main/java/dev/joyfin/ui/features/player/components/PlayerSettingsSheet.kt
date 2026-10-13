@@ -52,9 +52,12 @@ fun PlayerSettingsSheet(
                     }
                     ChoiceRow("播放速度", subtitle = "${ui.speed}×") { onPanel(PlayerPanel.Speed) }
                     ChoiceRow("媒体版本") { onPanel(PlayerPanel.Versions) }
-                    ChoiceRow("兼容播放", subtitle = "请求服务器转换当前媒体") {
+                    ChoiceRow(
+                        "播放方式",
+                        subtitle = if (ui.compatible) "兼容转码 · 点击恢复自动" else "自动 · 点击使用兼容转码",
+                    ) {
                         onDismiss()
-                        actions.compatible()
+                        actions.selectCompatibility(!ui.compatible)
                     }
                 }
                 PlayerPanel.Quality -> {

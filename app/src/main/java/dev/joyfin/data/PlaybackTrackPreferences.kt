@@ -105,6 +105,8 @@ data class PlaybackTrackPreferences(
     val audio: TrackPreference? = null,
     val subtitle: TrackPreference? = null,
     val subtitlesOff: Boolean = false,
+    val bitrate: Int? = null,
+    val compatible: Boolean = false,
 ) {
     fun subtitleIndex(streams: List<JSONObject>): Int? =
         if (subtitlesOff) -1 else subtitle?.match("Subtitle", streams)
@@ -114,12 +116,13 @@ data class PlaybackTrackPreferences(
             .put("audio", audio?.toJson())
             .put("subtitle", subtitle?.toJson())
             .put("subtitlesOff", subtitlesOff)
+            .put("bitrate", bitrate)
+            .put("compatible", compatible)
 
     /** Unknown language clears the old choice rather than guessing from an index or name. */
     fun selected(type: String, index: Int, streams: List<JSONObject>): PlaybackTrackPreferences {
-        val track = streams.firstOrNull {
-            it.optString("Type") == type && it.optInt("Index", -1) == index
-        }
+        val track =
+            streams.firstOrNull { it.optString("Type") == type && it.optInt("Index", -1) == index }
         val choice = track?.let(TrackPreference::fromTrack)
         return when (type) {
             "Audio" -> copy(audio = choice)
@@ -134,6 +137,8 @@ data class PlaybackTrackPreferences(
                 json.optJSONObject("audio")?.let(TrackPreference::fromJson),
                 json.optJSONObject("subtitle")?.let(TrackPreference::fromJson),
                 json.optBoolean("subtitlesOff"),
+                json.optInt("bitrate").takeIf { it > 0 },
+                json.optBoolean("compatible"),
             )
     }
 }

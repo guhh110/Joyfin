@@ -44,6 +44,8 @@ class PlaybackController(
         restored?.takeIf { it.containsKey("subtitle") }?.getInt("subtitle")
     private var compatible = restored?.getBoolean("compatible") ?: false
     private var fallbackUsed = restored?.getBoolean("fallbackUsed") ?: false
+    private var settingsItemId: String? = if (restored != null) currentId else null
+    private var playbackGeneration = 0L
     private var item: Media? = null
     private var plan: PlaybackPlan? = null
     private var next: Media? = null
@@ -123,9 +125,13 @@ class PlaybackController(
                 }
             },
             selectBitrate = {
-                if (bitrate != it) {
-                    bitrate = it
-                    load(positionTicks())
+                if (it > 0 && !mutable.value.loading && mutable.value.error == null && started) {
+                    stagePreference { preference -> preference.copy(bitrate = it) }
+                    if (bitrate == it) commitPreference()
+                    else {
+                        bitrate = it
+                        load(positionTicks())
+                    }
                 }
             },
             speed = {
@@ -142,11 +148,8 @@ class PlaybackController(
                     load(positionTicks())
                 }
             },
-            compatible = {
-                compatible = true
-                fallbackUsed = true
-                load(positionTicks())
-            },
+            compatible = { selectCompatibility(true) },
+            selectCompatibility = ::selectCompatibility,
             retry = { load(positionTicks()) },
             cancelNext = ::cancelCountdown,
             nextNow = { next?.let(::playEpisode) },
@@ -179,7 +182,8 @@ class PlaybackController(
                     }
                     if (playbackState == Player.STATE_READY && plan != null) {
                         completion.ready(player.currentMediaItem?.localConfiguration?.tag as? Long)
-                        commitPreference()
+                        if (player.currentMediaItem?.localConfiguration?.tag == playbackGeneration)
+                            commitPreference()
                     }
                     if (playbackState == Player.STATE_READY && plan != null && !started) {
                         started = true
@@ -262,6 +266,7 @@ class PlaybackController(
             pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
     ) {
         val generation = completion.begin()
+        playbackGeneration = generation
         seekPreview.cancel()
         loadJob?.cancel()
         cancelCountdown()
@@ -302,9 +307,18 @@ class PlaybackController(
             try {
                 if (fetch || item == null) item = api.item(currentId)
                 val media = requireNotNull(item)
+                val preferences = api.session?.let { preferenceStore.load(it, media) }
+                if (settingsItemId != media.id) {
+                    bitrate = preferences?.bitrate ?: 80_000_000
+                    compatible = preferences?.compatible ?: false
+                    fallbackUsed = compatible
+                    settingsItemId = media.id
+                }
                 mutable.update {
                     it.copy(
                         itemId = media.id,
+                        bitrate = bitrate,
+                        compatible = compatible,
                         title = media.seriesName.ifBlank { media.name },
                         subtitle =
                             if (media.type == "Episode")
@@ -341,7 +355,7 @@ class PlaybackController(
                         subtitleIndex,
                         sourceId,
                         compatible,
-                        api.session?.let { preferenceStore.load(it, media) },
+                        preferences,
                     )
                 unclaimed = prepared
                 currentCoroutineContext().ensureActive()
@@ -403,6 +417,7 @@ class PlaybackController(
                                 },
                         subtitleIndex = prepared.subtitleIndex,
                         bitrate = bitrate,
+                        compatible = compatible,
                         sourceId = sourceId,
                     )
                 }
@@ -488,6 +503,7 @@ class PlaybackController(
         subtitleIndex = null
         compatible = false
         fallbackUsed = false
+        settingsItemId = null
         load(0, fetch = true, autoPlay = true)
     }
 
@@ -501,11 +517,28 @@ class PlaybackController(
     }
 
     private fun stagePreference(type: String, index: Int) {
+        val current = plan ?: return
+        stagePreference { it.selected(type, index, current.streams) }
+    }
+
+    private fun stagePreference(update: (PlaybackTrackPreferences) -> PlaybackTrackPreferences) {
         val media = item ?: return
         val session = api.session ?: return
-        val current = plan ?: return
-        pendingPreference =
-            media.id to preferenceStore.load(session, media).selected(type, index, current.streams)
+        val previous =
+            pendingPreference?.takeIf { it.first == media.id }?.second
+                ?: preferenceStore.load(session, media)
+        pendingPreference = media.id to update(previous)
+    }
+
+    private fun selectCompatibility(value: Boolean) {
+        if (mutable.value.loading || item == null) return
+        stagePreference { it.copy(compatible = value) }
+        if (compatible == value && started && mutable.value.error == null) commitPreference()
+        else {
+            compatible = value
+            fallbackUsed = value
+            load(positionTicks())
+        }
     }
 
     private fun commitPreference() {
@@ -644,6 +677,7 @@ class PlaybackController(
         if (decode && !fallbackUsed) {
             fallbackUsed = true
             compatible = true
+            stagePreference { it.copy(compatible = true) }
             load(positionTicks())
         } else
             showError(

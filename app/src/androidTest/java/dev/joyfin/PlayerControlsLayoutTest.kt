@@ -188,6 +188,7 @@ class PlayerControlsLayoutTest {
                 speed = {},
                 selectVersion = {},
                 compatible = {},
+                selectCompatibility = {},
                 retry = {},
                 cancelNext = {},
                 nextNow = {},
