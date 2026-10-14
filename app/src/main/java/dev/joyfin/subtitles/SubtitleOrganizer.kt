@@ -89,16 +89,7 @@ class SubtitleOrganizer(
                 else if (m == null || media.any { it.id == m.itemId && it.sources.any { source -> source.id == m.versionId } }) file
                 else file.copy(mapping = null, upload = "", uploadError = null)
             }
-        val defaults = pack.defaults.toMutableMap()
-        val session = requireNotNull(owner)
-        rows.filter { it.mapping != null }.groupBy { row -> requireNotNull(row.mapping).let { it.itemId + ":" + it.versionId } }.forEach { (key, files) ->
-            if (files.none { it.fileId == defaults[key] }) {
-                val target = requireNotNull(files.first().mapping)
-                val selected = withContext(Dispatchers.IO) { store.choice(LocalSubtitleStore.key(session.server, session.userId, target.itemId, target.versionId))?.first?.id }
-                defaults[key] = selected?.takeIf { id -> files.any { it.fileId == id } } ?: files.first().fileId
-            }
-        }
-        mutable.update { it.copy(media = media, pack = updated.copy(files = rows, defaults = defaults,
+        mutable.update { it.copy(media = media, pack = updated.copy(files = rows,
             localSaved = pack.localSaved && !reset && rows == pack.files), dirty = it.dirty || reset || rows != pack.files) }
     }
     private fun match(rows: List<ManagedSubtitleFile>, media: List<Media>, movie: Boolean): List<ManagedSubtitleFile> {
@@ -123,12 +114,6 @@ class SubtitleOrganizer(
             val rows = if (pack.files.any { it.fileId == fileId }) pack.files.map { if (it.fileId == fileId) changed else it }
                 else pack.files + changed
             pack.copy(files = rows)
-        }
-    }
-    fun defaultFile(mediaId: String, versionId: String, fileId: String) {
-        edit { pack ->
-            if (pack.files.none { it.fileId == fileId && it.mapping?.let { m -> m.itemId == mediaId && m.versionId == versionId } == true }) pack
-            else pack.copy(defaults = pack.defaults + ("$mediaId:$versionId" to fileId))
         }
     }
     fun versionFamily(name: String) {

@@ -102,11 +102,9 @@ class LocalSubtitleStore private constructor(context: Context) {
         }
         (oldGroups.keys + keys).forEach { binding ->
             val available = downloads[binding].orEmpty()
-            val preferred = assigned.firstOrNull { row -> row.mapping?.let { key(server, user, it.itemId, it.versionId) == binding && value.defaults[it.itemId + ":" + it.versionId] == row.fileId } == true }?.fileId
+            // Organization only changes availability; playback alone chooses a subtitle.
             val current = choices[binding]
-            val selected = preferred ?: current?.fileId?.takeIf { it in available } ?: available.firstOrNull()
-            if (selected == null) choices.remove(binding)
-            else choices[binding] = current?.takeIf { it.fileId == selected } ?: LocalSubtitleChoice(selected)
+            if (current != null && current.fileId !in available) choices.remove(binding)
         }
         val saved = value.copy(localSaved = true, boundFiles = assigned)
         write(index.copy(choices = choices, downloads = downloads, packages = index.packages + (value.id to saved)))

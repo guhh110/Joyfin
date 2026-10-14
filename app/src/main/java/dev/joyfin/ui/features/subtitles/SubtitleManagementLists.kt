@@ -15,6 +15,8 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.theme.Palette
+import dev.joyfin.ui.features.subtitles.tv.TvSubtitleEpisodeLayout
+import dev.joyfin.ui.features.subtitles.mobile.MobileSubtitleEpisodeLayout
 
 @Composable
 internal fun SubtitlePackageList(packages: List<ManagedSubtitle>, group: String, loading: Boolean, busy: Boolean, scroll: LazyListState, open: (String) -> Unit) {
@@ -53,29 +55,40 @@ internal fun SubtitlePackageList(packages: List<ManagedSubtitle>, group: String,
 @Composable
 internal fun SubtitleEpisodeList(editor: SubtitleOrganizerState, scroll: LazyListState, choose: (dev.joyfin.data.Media) -> Unit) {
     val pack = editor.pack
+    val tv = LocalDeviceLayout.current.television
     LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-        if (editor.loading) item("skeleton") { SubtitleRowsSkeleton(90) }
+        if (editor.loading) item("skeleton") { SubtitleRowsSkeleton(if (tv) 82 else 86) }
         else if (pack?.workId == null) item("choose") { SubtitleEmpty("为字幕选择作品", "选定作品与季后，自动整理每集对应关系") }
         else if (pack != null) {
             if (editor.media.isEmpty()) item("empty") { SubtitleEmpty("当前季没有剧集", "切换季或作品后继续整理") }
             items(editor.media, key = { it.id }) { media ->
                 val files = pack.files.filter { it.mapping?.itemId == media.id }
                 val error = files.firstNotNullOfOrNull { it.uploadError }
+                val pendingUpload = files.any { it.upload in setOf("failed", "uncertain", "sending", "identifying") }
                 FocusSurface({ choose(media) }, Modifier.fillMaxWidth().focusTarget("subtitles:episode:${media.id}"), enabled = !editor.loading && !editor.saving) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    val number: @Composable () -> Unit = {
                         SubtitleNumber(if (media.type == "Episode") media.episode.toString().padStart(2, '0') else "片")
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            SubtitleTitle(media.name)
-                            files.firstOrNull()?.let { SubtitleFileName(it.name) } ?: Caption("选择字幕")
-                            if (error != null) Caption(error, color = Palette.Error, maxLines = 2)
-                        }
-                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            if (error != null) SubtitleStatus("待处理", warning = true)
-                            else if (files.isNotEmpty()) SubtitleStatus("${files.size} 份字幕")
-                            else Caption("未关联")
-                            Caption("编辑  ›", color = Palette.Text)
+                    }
+                    val details: @Composable () -> Unit = {
+                        SubtitleTitle(media.name, maxLines = if (tv) 1 else 2)
+                        val formats = files.map { it.name.substringAfterLast('.', "").uppercase() }.filter(String::isNotBlank).distinct()
+                        val versions = files.mapNotNull { it.mapping?.versionId }.distinct().size
+                        val failed = error != null || pendingUpload
+                        Caption(when {
+                            failed -> "回传未完成，进入本集查看"
+                            files.isEmpty() -> "选择字幕文件"
+                            else -> listOf(formats.joinToString(" / "), "$versions 个媒体版本").filter(String::isNotBlank).joinToString(" · ")
+                        }, color = if (failed) Palette.Error else Palette.Muted, maxLines = 1)
+                    }
+                    val status: @Composable () -> Unit = {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SubtitleStatus(when { error != null || pendingUpload -> "待处理"; files.isEmpty() -> "未对应"; else -> "${files.size} 份" },
+                                warning = error != null || pendingUpload, subdued = error == null && !pendingUpload && files.isNotEmpty())
+                            AppIcon(Glyph.Next, color = Palette.Muted)
                         }
                     }
+                    if (tv) TvSubtitleEpisodeLayout(number, details, status)
+                    else MobileSubtitleEpisodeLayout(number, details, status)
                 }
             }
             val unassigned = pack.files.count { it.mapping == null }

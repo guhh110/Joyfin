@@ -52,7 +52,6 @@ data class ManagedSubtitle(
     val hearingImpaired: Boolean = false,
     val localSaved: Boolean = false,
     val boundFiles: List<ManagedSubtitleFile> = emptyList(),
-    val defaults: Map<String, String> = emptyMap(),
     val receipts: List<SubtitleReceipt> = emptyList(),
     val pendingDeletes: List<SubtitleReceipt> = emptyList(),
     val cleanupError: String? = null,
