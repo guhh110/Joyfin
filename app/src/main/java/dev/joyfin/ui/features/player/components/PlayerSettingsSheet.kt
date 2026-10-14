@@ -14,6 +14,7 @@ enum class PlayerPanel(val title: String) {
     Quality("画质"),
     Audio("音轨"),
     Subtitle("字幕"),
+    SubtitleOffset("字幕时间偏移"),
     Speed("播放速度"),
     Episodes("选集"),
     Seasons("选择季"),
@@ -45,7 +46,8 @@ fun PlayerSettingsSheet(
                         ChoiceRow(
                             "字幕",
                             subtitle =
-                                if (ui.subtitleIndex < 0) "关闭"
+                                if (ui.localSubtitle != null) ui.localSubtitle.label
+                                else if (ui.subtitleIndex < 0) "关闭"
                                 else
                                     ui.subtitles
                                         .firstOrNull { it.index == ui.subtitleIndex }
@@ -101,11 +103,25 @@ fun PlayerSettingsSheet(
                             }
                         }
                     }
+                    PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.subtitles.SubtitleOffsetContent(ui, actions)
                     PlayerPanel.Subtitle -> {
+                        ui.localSubtitle?.let { local ->
+                            ChoiceRow(local.label, Modifier.focusTarget("player:local-subtitle"),
+                                subtitle = "本地字幕 · ${local.offsetMs / 1000.0} 秒偏移", selected = true) {
+                                onPanel(PlayerPanel.SubtitleOffset)
+                            }
+                        }
+                        ui.localSubtitles.filter { it.id != ui.localSubtitle?.id }.forEach { file ->
+                            ChoiceRow(file.label, Modifier.focusTarget("player:local-file:${file.id}"), subtitle = "本地字幕") {
+                                onDismiss()
+                                actions.selectLocalFile(file.id)
+                            }
+                        }
+                        ui.localSubtitleError?.let { Caption(it) }
                         ChoiceRow(
                             "关闭",
                             subtitle = "不显示字幕",
-                            selected = ui.subtitleIndex < 0,
+                            selected = ui.subtitleIndex < 0 && ui.localSubtitle == null,
                             modifier = Modifier.focusTarget(panel.choiceKey(-1)),
                         ) {
                             onDismiss()
@@ -115,7 +131,7 @@ fun PlayerSettingsSheet(
                             ChoiceRow(
                                 track.title,
                                 subtitle = track.detail,
-                                selected = track.index == ui.subtitleIndex,
+                                selected = track.index == ui.subtitleIndex && ui.localSubtitle == null,
                                 modifier = Modifier.focusTarget(panel.choiceKey(track.index)),
                             ) {
                                 onDismiss()

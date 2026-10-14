@@ -42,6 +42,8 @@ internal fun MovieHero(
             ) {
                 IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
                 Text("Joyfin", color = Palette.Text, fontSize = 18.sp)
+                ActionButton("字幕管理", actions.subtitles, Modifier.focusTarget("detail:subtitles"),
+                    enabled = ready, quiet = true)
                 IconButton(
                     if (media?.favorite == true) "取消收藏" else "收藏",
                     if (media?.favorite == true) Glyph.Check else Glyph.Plus,

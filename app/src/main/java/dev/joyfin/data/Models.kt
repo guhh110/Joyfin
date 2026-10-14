@@ -46,8 +46,11 @@ data class Media(
     val language: String = "",
     val collectionType: String = "",
     val parentId: String = "",
+    val originalTitle: String = "",
+    val providerIds: Map<String, String> = emptyMap(),
     val seriesImageTag: String = "",
     val episodeImageTag: String = "",
+    val path: String = "",
 ) {
     val isFolder
         get() = type in setOf("Series", "Season", "CollectionFolder", "Folder", "BoxSet")
@@ -63,7 +66,12 @@ data class Media(
             return Media(
                 id = dto.id,
                 name = dto.name.validText().ifBlank { "未命名" },
+                originalTitle = dto.originalTitle.validText(),
+                providerIds = dto.providerIds.mapNotNull { (key, value) ->
+                    value?.takeIf { it.isNotBlank() }?.let { key.lowercase(java.util.Locale.ROOT) to it }
+                }.toMap(),
                 type = dto.type,
+                path = dto.path,
                 overview = dto.overview.validText(),
                 year = dto.year,
                 ticks = dto.ticks,

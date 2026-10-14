@@ -26,7 +26,7 @@ class JellyfinApi(
 ) : SessionConnection {
     @Volatile override var session: Session? = null
     private val browseFields =
-        "Overview,People,Genres,MediaSources,ProductionLocations,ChildCount,SeasonUserData"
+        "Overview,People,Genres,MediaSources,ProductionLocations,ChildCount,SeasonUserData,OriginalTitle,ProviderIds,Path"
     private var serviceBase: String? = null
     private var cachedService: JellyfinService? = null
 
@@ -120,6 +120,41 @@ class JellyfinApi(
     }
 
     private fun requireSession() = session ?: throw ApiException(401, "请先登录")
+
+    suspend fun subtitleWorks(search: String, start: Int = 0): MediaPage =
+        service().items(authorization(), params(
+            "UserId" to requireSession().userId, "SearchTerm" to search,
+            "Recursive" to true, "IncludeItemTypes" to "Movie,Series",
+            "Fields" to browseFields, "StartIndex" to start, "Limit" to 40,
+            "SortBy" to "SortName", "SortOrder" to "Ascending",
+        )).value().toMediaPage()
+
+    suspend fun uploadSubtitle(owner: Session, itemId: String, body: UploadSubtitleRequest) {
+        check(session == owner) { "账号已切换，请重新打开字幕管理" }
+        service(owner.server).uploadSubtitle(authorization(owner.token), itemId, body).checked()
+    }
+
+    suspend fun deleteSubtitle(owner: Session, itemId: String, index: Int) {
+        check(session == owner) { "账号已切换，请重新打开字幕管理" }
+        service(owner.server).deleteSubtitle(authorization(owner.token), itemId, index).checked()
+    }
+
+    suspend fun subtitleContent(owner: Session, itemId: String, index: Int, format: String): ByteArray = withContext(Dispatchers.IO) {
+        check(session == owner) { "账号已切换" }
+        service(owner.server).subtitleContent(authorization(owner.token), itemId, itemId, index, format).value().use { body ->
+            val output = java.io.ByteArrayOutputStream()
+            body.byteStream().use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    require(output.size() + count <= 20 * 1024 * 1024) { "服务器字幕过大" }
+                    output.write(buffer, 0, count)
+                }
+            }
+            output.toByteArray()
+        }
+    }
 
     override suspend fun connect(server: String): ServerInfo =
         service(server).publicInfo(authorization(null)).value()

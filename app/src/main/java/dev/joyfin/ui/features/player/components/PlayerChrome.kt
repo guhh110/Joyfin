@@ -91,10 +91,10 @@ fun PlayerBottomBar(
                 }
                 item {
                     ActionButton(
-                        ui.subtitles.firstOrNull { it.index == ui.subtitleIndex }?.title ?: "字幕关闭",
+                        ui.localSubtitle?.label ?: ui.subtitles.firstOrNull { it.index == ui.subtitleIndex }?.title ?: "字幕关闭",
                         { onPanel(PlayerPanel.Subtitle) },
                         modifier = Modifier.focusTarget("player:subtitle"),
-                        enabled = !tv || ui.subtitles.isNotEmpty(),
+                        enabled = !tv || ui.subtitles.isNotEmpty() || ui.localSubtitle != null || ui.localSubtitles.isNotEmpty(),
                         icon = Glyph.Subtitle,
                         quiet = true,
                     )

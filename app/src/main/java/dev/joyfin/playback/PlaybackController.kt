@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.media3.common.*
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -63,6 +64,12 @@ class PlaybackController(
     private var pollJob: Job? = null
     private var reportJob: Job? = null
 
+    private val localStore = dev.joyfin.data.subtitles.LocalSubtitleStore.get(context)
+    private val localPlayback = LocalSubtitlePlayback(localStore)
+    private var localSubtitle: PreparedLocalSubtitle? = null
+    private var localSubtitleKey: String? = null
+    private var subtitleJob: Job? = null
+
     private val completion = PlaybackCompletionGate()
     private val subtitleRendering = SubtitleRendering()
     private val http =
@@ -73,7 +80,7 @@ class PlaybackController(
             .setReadTimeoutMs(30_000)
     val player: ExoPlayer =
         subtitleRendering
-            .configure(ExoPlayer.Builder(context), context, http)
+            .configure(ExoPlayer.Builder(context), context, DefaultDataSource.Factory(context, http))
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
@@ -119,7 +126,21 @@ class PlaybackController(
             selectSubtitle = { index ->
                 if (canSelectTrack("Subtitle", index)) {
                     stagePreference("Subtitle", index)
-                    if (subtitleIndex == index || selectLocalSubtitle(index)) commitPreference()
+                    if (localSubtitle != null) {
+                        // Explicit server/off choice clears only this media version's local selection.
+                        subtitleJob?.cancel()
+                        val key = localSubtitleKey
+                        subtitleJob = scope.launch {
+                            try {
+                                key?.let { withContext(Dispatchers.IO) { localStore.select(it, null) } }
+                                localSubtitle = null
+                                mutable.update { it.copy(localSubtitle = null, localSubtitleError = null) }
+                                if (selectLocalSubtitle(index)) commitPreference()
+                                else { subtitleIndex = index; load(positionTicks()) }
+                            } catch (e: CancellationException) { throw e }
+                            catch (e: Exception) { mutable.update { it.copy(localSubtitleError = "无法清除本地字幕选择，请重试") } }
+                        }
+                    } else if (subtitleIndex == index || selectLocalSubtitle(index)) commitPreference()
                     else {
                         subtitleIndex = index
                         load(positionTicks())
@@ -160,6 +181,8 @@ class PlaybackController(
             cancelNext = ::cancelCountdown,
             nextNow = { next?.let(::playEpisode) },
             close = { onClose(false) },
+            subtitleOffset = ::setSubtitleOffset,
+            selectLocalFile = ::selectManagedSubtitle,
         )
 
     init {
@@ -273,6 +296,9 @@ class PlaybackController(
     ) {
         val generation = completion.begin()
         playbackGeneration = generation
+        subtitleJob?.cancel()
+        localSubtitle = null
+        localSubtitleKey = null
         seekPreview.cancel()
         loadJob?.cancel()
         cancelCountdown()
@@ -285,6 +311,10 @@ class PlaybackController(
         player.clearMediaItems()
         mutable.update {
             it.copy(
+                localSubtitle = null,
+                localSubtitles = emptyList(),
+                localSubtitleError = null,
+                subtitleApplying = false,
                 loading = true,
                 hasRenderedFrame = false,
                 canSeek = false,
@@ -352,6 +382,18 @@ class PlaybackController(
                 if (fetch) loadEpisodeMetadata(media)
                 val source =
                     media.sources.firstOrNull { sourceId == null || it.id == sourceId }
+                val localKey = api.session?.let { session -> source?.id?.let { version ->
+                    dev.joyfin.data.subtitles.LocalSubtitleStore.key(session.server, session.userId, media.id, version)
+                } }
+                var localError: String? = null
+                val localOptions = try {
+                    localKey?.let { key -> withContext(Dispatchers.IO) { localStore.files(key) } }.orEmpty()
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { emptyList() }
+                val selectedLocal = try {
+                    localKey?.let { localPlayback.selected(it) }
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { localError = "本地字幕无法读取，请在详情页重新选择"; null }
                 var profile = DeviceProfile.build(context, source, bitrate, audioIndex)
                 val prepared =
                     api.playback(
@@ -360,7 +402,7 @@ class PlaybackController(
                         ticks,
                         bitrate,
                         audioIndex,
-                        subtitleIndex,
+                        if (selectedLocal != null) -1 else subtitleIndex,
                         sourceId,
                         compatible,
                         preferences,
@@ -396,6 +438,8 @@ class PlaybackController(
                 sourceId = prepared.sourceId
                 audioIndex = prepared.audioIndex ?: prepared.source.defaultAudioIndex.takeIf { it >= 0 }
                 subtitleIndex = prepared.subtitleIndex
+                localSubtitle = selectedLocal?.takeIf { prepared.sourceId == source?.id }
+                localSubtitleKey = localKey?.takeIf { prepared.sourceId == source?.id }
                 val builder =
                     MediaItem.Builder()
                         .setUri(prepared.url)
@@ -417,13 +461,13 @@ class PlaybackController(
                             )
                             .setId(SubtitleTrackId.external(subtitle.index))
                             .build()
-                    },
+                    } + listOfNotNull(localSubtitle?.configuration),
                 )
                 player.trackSelectionParameters =
                     player.trackSelectionParameters
                         .buildUpon()
                         .clearOverrides()
-                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, subtitleIndex == -1)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, subtitleIndex == -1 && localSubtitle == null)
                         .build()
                 mutable.update {
                     it.copy(
@@ -437,6 +481,9 @@ class PlaybackController(
                                     index >= 0
                                 },
                         subtitleIndex = prepared.subtitleIndex,
+                        localSubtitle = localSubtitle?.let { local -> LocalSubtitleSelection(local.file.name, local.offsetMs, local.file.id) },
+                        localSubtitles = if (prepared.sourceId == source?.id) localOptions.map { LocalSubtitleOption(it.id, it.name) } else emptyList(),
+                        localSubtitleError = localError,
                         bitrate = bitrate,
                         compatible = compatible,
                         sourceId = sourceId,
@@ -593,7 +640,9 @@ class PlaybackController(
         }?.let { return it }
         val target = current.streams.firstOrNull { it.type == "Subtitle" && it.index == index } ?: return null
         if (current.method != "DirectPlay" || !SubtitleDelivery.embedded(target, current.source.container)) return null
-        val embedded = text.filterNot { (group, track) -> SubtitleTrackId.isExternal(group.getTrackFormat(track).id) }
+        val embedded = text.filterNot { (group, track) ->
+            SubtitleTrackId.isExternal(group.getTrackFormat(track).id) || LocalSubtitlePlayback.matches(group.getTrackFormat(track).id)
+        }
         val ordinal = EmbeddedSubtitleMatcher.find(index, current.streams, embedded.map { (group, track) ->
             val format = group.getTrackFormat(track)
             EmbeddedSubtitleMatcher.Track(
@@ -664,13 +713,74 @@ class PlaybackController(
                 }
             }
         }
-        if (current.subtitleIndex >= 0) subtitleTrack(tracks, current, current.subtitleIndex)?.let { (group, index) ->
+        if (localSubtitle != null) {
+            tracks.groups.filter { it.type == C.TRACK_TYPE_TEXT }.forEach { group ->
+                (0 until group.length).firstOrNull { LocalSubtitlePlayback.matches(group.getTrackFormat(it).id) && group.isTrackSupported(it) }?.let { index ->
+                    if (!group.isTrackSelected(index)) {
+                        builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(index)))
+                        changed = true
+                    }
+                }
+            }
+        } else if (current.subtitleIndex >= 0) subtitleTrack(tracks, current, current.subtitleIndex)?.let { (group, index) ->
             if (!group.isTrackSelected(index)) {
                 builder.setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(index)))
                 changed = true
             }
         }
         if (changed) player.trackSelectionParameters = builder.build()
+    }
+
+    private fun selectManagedSubtitle(id: String) {
+        val key = localSubtitleKey ?: return
+        if (mutable.value.loading || mutable.value.subtitleApplying || mutable.value.localSubtitles.none { it.id == id }) return
+        val generation = playbackGeneration
+        val ticks = positionTicks()
+        val playing = player.playWhenReady
+        mutable.update { it.copy(subtitleApplying = true) }
+        subtitleJob?.cancel()
+        subtitleJob = scope.launch {
+            try {
+                withContext(Dispatchers.IO) { localStore.select(key, id) }
+                ensureActive()
+                if (generation == playbackGeneration) load(ticks, autoPlay = playing)
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { mutable.update { it.copy(subtitleApplying = false, localSubtitleError = "切换本地字幕失败") } }
+        }
+    }
+
+    private fun setSubtitleOffset(offset: Long) {
+        val selected = localSubtitle ?: return
+        val key = localSubtitleKey ?: return
+        val mediaItem = player.currentMediaItem ?: return
+        if (mutable.value.loading || mutable.value.subtitleApplying || offset !in -60_000..60_000) return
+        val generation = playbackGeneration
+        mutable.update { it.copy(subtitleApplying = true, localSubtitleError = null) }
+        subtitleJob = scope.launch {
+            try {
+                val shifted = localPlayback.shifted(selected, offset)
+                ensureActive()
+                if (generation != playbackGeneration) return@launch
+                withContext(Dispatchers.IO) { localStore.offset(key, offset) }
+                ensureActive()
+                if (generation != playbackGeneration) return@launch
+                val position = player.currentPosition.coerceAtLeast(0)
+                val playing = player.playWhenReady
+                val speed = player.playbackParameters.speed
+                val configurations = mediaItem.localConfiguration?.subtitleConfigurations.orEmpty()
+                    .filterNot { LocalSubtitlePlayback.matches(it.id) } + shifted.configuration
+                localSubtitle = shifted
+                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                    .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
+                player.setMediaItem(mediaItem.buildUpon().setSubtitleConfigurations(configurations).build(), position)
+                player.prepare()
+                player.setPlaybackSpeed(speed)
+                player.playWhenReady = playing
+                mutable.update { it.copy(localSubtitle = LocalSubtitleSelection(shifted.file.name, shifted.offsetMs, shifted.file.id), subtitleApplying = false) }
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { mutable.update { it.copy(subtitleApplying = false, localSubtitleError = "字幕偏移调整失败，请重试") } }
+        }
     }
 
     private fun handleError(error: PlaybackException) {
@@ -786,6 +896,7 @@ class PlaybackController(
         wasPlaying = pendingPlay ?: player.playWhenReady
         suspendedPlayback = true
         loadJob?.cancel()
+        subtitleJob?.cancel()
         metadataJob?.cancel()
         seasonJob?.cancel()
         stopCurrentStream()
@@ -824,6 +935,7 @@ class PlaybackController(
         if (released) return
         released = true
         loadJob?.cancel()
+        subtitleJob?.cancel()
         metadataJob?.cancel()
         seasonJob?.cancel()
         countdown?.cancel()

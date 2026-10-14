@@ -5,6 +5,27 @@ import retrofit2.http.*
 
 /** Retrofit owns HTTP execution, coroutine cancellation and generated JSON conversion. */
 internal interface JellyfinService {
+    @GET("Videos/{id}/{source}/Subtitles/{index}/Stream.{format}")
+    suspend fun subtitleContent(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Path("source") source: String,
+        @Path("index") index: Int,
+        @Path("format") format: String,
+        @Query("CopyTimestamps") copyTimestamps: Boolean = true,
+    ): Response<okhttp3.ResponseBody>
+    @DELETE("Videos/{id}/Subtitles/{index}")
+    suspend fun deleteSubtitle(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Path("index") index: Int,
+    ): Response<Unit>
+    @POST("Videos/{id}/Subtitles")
+    suspend fun uploadSubtitle(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Body body: UploadSubtitleRequest,
+    ): Response<Unit>
     @Headers("Accept: application/json")
     @GET("System/Info/Public")
     suspend fun publicInfo(@Header("Authorization") auth: String): Response<ServerInfo>

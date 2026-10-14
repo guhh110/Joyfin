@@ -31,4 +31,6 @@ data class BrowseActions(
     val retry: () -> Unit,
     val logout: () -> Unit,
     val setAutoNext: (Boolean) -> Unit,
+    val subtitles: () -> Unit = {},
+    val subtitleManager: () -> Unit = {},
 )

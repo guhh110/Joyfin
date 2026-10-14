@@ -20,6 +20,8 @@ internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         IconButton("返回", Glyph.Back, actions.back, Modifier.seriesFocus("header:back", focus))
         Text("Joyfin", color = Palette.Text, fontSize = 18.sp, modifier = Modifier.padding(12.dp))
+        ActionButton("字幕管理", actions.subtitles, Modifier.seriesFocus("detail:subtitles", focus),
+            enabled = content.ui.ready, quiet = true)
     }
 }
 

@@ -66,6 +66,7 @@ data class MediaStream(
     @SerialName("BitDepth") val bitDepth: Int = 8,
     @SerialName("VideoRange") val videoRange: String = "",
     @SerialName("VideoRangeType") val videoRangeType: String = "",
+    @SerialName("Path") val path: String = "",
 )
 
 @Serializable
@@ -81,6 +82,7 @@ data class MediaSource(
     @SerialName("TranscodingUrl") val transcodingUrl: String? = null,
     @SerialName("DefaultAudioStreamIndex") val defaultAudioIndex: Int = -1,
     @SerialName("MediaStreams") val streams: List<MediaStream> = emptyList(),
+    @SerialName("Path") val path: String = "",
 )
 
 @Serializable
@@ -88,6 +90,7 @@ data class ItemDto(
     @SerialName("Id") val id: String,
     @SerialName("Name") val name: String = "",
     @SerialName("Type") val type: String = "",
+    @SerialName("Path") val path: String = "",
     @SerialName("Overview") val overview: String = "",
     @SerialName("ProductionYear") val year: Int = 0,
     @SerialName("RunTimeTicks") val ticks: Long = 0,
@@ -118,6 +121,8 @@ data class ItemDto(
     @SerialName("OriginalLanguage") val language: String = "",
     @SerialName("CollectionType") val collectionType: String = "",
     @SerialName("ParentId") val parentId: String = "",
+    @SerialName("OriginalTitle") val originalTitle: String = "",
+    @SerialName("ProviderIds") val providerIds: Map<String, String?> = emptyMap(),
 )
 
 @Serializable

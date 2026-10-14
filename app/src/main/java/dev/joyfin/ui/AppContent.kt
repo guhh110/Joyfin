@@ -34,6 +34,7 @@ fun AppContent(
     images: ArtworkSource,
     autoNext: Boolean,
     entryActions: EntryActions,
+    subtitles: dev.joyfin.subtitles.SubtitlePageController? = null,
 ) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
@@ -55,6 +56,7 @@ fun AppContent(
                 else "detail:play"
             Page.SEARCH -> "search:input"
             Page.SETTINGS -> "settings:back"
+            Page.SUBTITLES -> "subtitles:back"
             else -> "header:back"
         }
     Box(
@@ -86,6 +88,9 @@ fun AppContent(
                         Page.PERSON -> PersonRoute(ui.collection, actions, images)
                         Page.SEARCH -> SearchRoute(ui.collection, actions, images)
                         Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings)
+                        Page.SUBTITLES -> subtitles?.let {
+                            dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, actions.back)
+                        }
                     }
                 }
             }

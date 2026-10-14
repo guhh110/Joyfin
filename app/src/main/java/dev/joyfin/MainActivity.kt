@@ -144,6 +144,8 @@ private fun BrowseHost(vm: AppViewModel) {
                 submitSearch = vm::submitSearch,
                 loadMore = { vm.loadItems(true) },
                 settings = vm::settings,
+                subtitles = vm::openSubtitles,
+                subtitleManager = vm::openSubtitleManager,
                 favorite = vm::toggleFavorite,
                 play = play,
                 retry = vm::retry,
@@ -168,7 +170,7 @@ private fun BrowseHost(vm: AppViewModel) {
         remember(vm) {
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry)
         }
-    AppContent(ui, actions, images, autoNext, entryActions)
+    AppContent(ui, actions, images, autoNext, entryActions, vm.subtitlePage)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() })
     if (logout)

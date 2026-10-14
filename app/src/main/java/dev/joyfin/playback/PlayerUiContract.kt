@@ -6,6 +6,9 @@ import dev.joyfin.data.PlaybackPlan
 /** Presentation data contains no player, API or authenticated streaming URL. */
 data class TrackChoice(val index: Int, val title: String, val detail: String)
 
+data class LocalSubtitleSelection(val label: String, val offsetMs: Long, val id: String = "")
+data class LocalSubtitleOption(val id: String, val label: String)
+
 data class VersionChoice(val id: String, val title: String)
 
 data class PlayerUiState(
@@ -37,6 +40,10 @@ data class PlayerUiState(
     val nextItem: Media? = null,
     val nextSeconds: Int = 0,
     val episodeError: String? = null,
+    val localSubtitle: LocalSubtitleSelection? = null,
+    val localSubtitleError: String? = null,
+    val subtitleApplying: Boolean = false,
+    val localSubtitles: List<LocalSubtitleOption> = emptyList(),
 )
 
 data class PlayerActions(
@@ -56,6 +63,8 @@ data class PlayerActions(
     val cancelNext: () -> Unit,
     val nextNow: () -> Unit,
     val close: () -> Unit,
+    val subtitleOffset: (Long) -> Unit = {},
+    val selectLocalFile: (String) -> Unit = {},
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =

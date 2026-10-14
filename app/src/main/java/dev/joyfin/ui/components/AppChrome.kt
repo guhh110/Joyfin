@@ -24,6 +24,7 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false) {
         if (back) IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
         else Text("Joyfin ·", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Text)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ActionButton("字幕管理", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), quiet = true)
             IconButton("搜索", Glyph.Search, actions.search, Modifier.focusTarget("header:search"))
             IconButton(
                 "账号与设置",

@@ -51,6 +51,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             session::backToConnection,
         )
 
+    val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(application, viewModelScope, api, ::expireSession)
+
     init {
         session.start()
     }
@@ -117,15 +119,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private fun cancelSections() {
         homeController.cancel()
         details.cancel()
+        subtitlePage.close()
     }
 
     fun home() = navigation.home()
 
     private fun push(page: Page): Unit = navigation.push(page)
 
+
+    fun openSubtitles() {
+        val detail = mutable.value.detail
+        push(Page.SUBTITLES)
+        subtitlePage.open(detail)
+    }
+
+    fun openSubtitleManager() {
+        push(Page.SUBTITLES)
+        subtitlePage.open()
+    }
+
     fun settings() = navigation.settings()
 
-    fun back(): Boolean = navigation.back()
+    fun back(): Boolean {
+        if (mutable.value.page == Page.SUBTITLES && subtitlePage.back()) return true
+        return navigation.back()
+    }
 
     fun refreshAfterPlayback() {
         if (api.session == null) return
