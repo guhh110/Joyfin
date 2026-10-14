@@ -52,7 +52,7 @@ fun SkeletonBlock(modifier: Modifier = Modifier) {
     Box(
         modifier
             .alpha(if (visible) 1f else 0f)
-            .background(Palette.Surface, RoundedCornerShape(7.dp))
+            .background(Palette.Surface, RoundedCornerShape(10.dp))
             .clearAndSetSemantics {}
     )
 }
@@ -83,7 +83,13 @@ fun MediaCardSkeleton(
     visible: Boolean = rememberSkeletonVisible(true),
 ) {
     CompositionLocalProvider(LocalSkeletonVisibility provides true) {
-        Column(modifier.alpha(if (visible) 1f else 0f).padding(6.dp).clearAndSetSemantics {}) {
+        Column(
+            modifier
+                .alpha(if (visible) 1f else 0f)
+                .padding(vertical = dev.joyfin.ui.theme.MotionTokens.MediaCardVerticalReserve)
+                .padding(3.dp)
+                .clearAndSetSemantics {}
+        ) {
             SkeletonBlock(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f))
             Spacer(Modifier.height(10.dp))
             SkeletonTextLine(14.sp, 20.sp)
@@ -138,7 +144,9 @@ fun PeopleRailSkeleton() {
                 ) {
                     items(count) {
                         Column(
-                            Modifier.width(104.dp).padding(8.dp),
+                            Modifier.width(104.dp)
+                                .padding(vertical = dev.joyfin.ui.theme.MotionTokens.PeopleCardVerticalReserve)
+                                .padding(5.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             SkeletonBlock(

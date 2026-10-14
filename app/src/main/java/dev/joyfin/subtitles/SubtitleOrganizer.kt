@@ -7,12 +7,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
+data class SubtitleCandidatePackages(
+    val packages: List<ManagedSubtitle> = emptyList(),
+    val loaded: Boolean = false,
+    val loading: Boolean = false,
+    val error: String? = null,
+)
+
 data class SubtitleOrganizerState(
     val pack: ManagedSubtitle? = null,
     val work: Media? = null,
     val seasons: List<Media> = emptyList(),
     val media: List<Media> = emptyList(),
-    val available: List<ManagedSubtitleFile> = emptyList(),
+    val candidatePackages: SubtitleCandidatePackages = SubtitleCandidatePackages(),
     val loading: Boolean = false,
     val saving: Boolean = false,
     val dirty: Boolean = false,
@@ -30,17 +37,42 @@ class SubtitleOrganizer(
     private val mutable = MutableStateFlow(SubtitleOrganizerState())
     val state = mutable.asStateFlow()
     private var job: Job? = null
+    private var candidateJob: Job? = null
     private var owner: Session? = null
 
     fun open(pack: ManagedSubtitle) {
         job?.cancel()
+        candidateJob?.cancel()
         owner = api.session
         mutable.value = SubtitleOrganizerState(pack = pack)
         load {
-            val candidates = withContext(Dispatchers.IO) { store.files(pack.owner) }
-                .map { ManagedSubtitleFile(it.id, it.name) }
-            mutable.update { it.copy(available = candidates) }
             pack.workId?.let { loadWork(api.item(it), pack.seasonId) }
+        }
+    }
+    fun loadCandidatePackages(reload: Boolean = false) {
+        val ui = mutable.value
+        val pack = ui.pack ?: return
+        val session = owner ?: return
+        if (ui.candidatePackages.loading || ui.candidatePackages.loaded && !reload) return
+        if (api.session != session || pack.owner != LocalSubtitleStore.owner(session.server, session.userId)) return
+        mutable.update { it.copy(candidatePackages = it.candidatePackages.copy(loading = true, error = null)) }
+        candidateJob = scope.launch {
+            try {
+                val packages = withContext(Dispatchers.IO) { store.packages(session.server, session.userId) }
+                ensureActive()
+                check(api.session == session) { "账号已切换" }
+                if (mutable.value.pack?.id != pack.id) return@launch
+                mutable.update { it.copy(candidatePackages = SubtitleCandidatePackages(
+                    packages = packages.filter { source -> source.owner == pack.owner && source.id != pack.id },
+                    loaded = true,
+                )) }
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                if (mutable.value.pack?.id == pack.id)
+                    mutable.update { it.copy(candidatePackages = it.candidatePackages.copy(
+                        loading = false, error = "读取下载包失败，请重试",
+                    )) }
+            }
         }
     }
     fun work(media: Media) = load { loadWork(media, null) }
@@ -103,15 +135,26 @@ class SubtitleOrganizer(
             row.copy(mapping = item?.sources?.singleOrNull()?.let { mapping(item, it) }, upload = "", uploadError = null, manualMapping = false)
         }
     }
-    fun toggleAvailable(fileId: String, mediaId: String, versionId: String) {
+    fun toggleCandidate(sourcePackId: String, fileId: String, mediaId: String, versionId: String) {
         edit { pack ->
+            val session = owner ?: return@edit pack
+            if (api.session != session || pack.owner != LocalSubtitleStore.owner(session.server, session.userId)) return@edit pack
             val media = mutable.value.media.firstOrNull { it.id == mediaId } ?: return@edit pack
             val version = media.sources.firstOrNull { it.id == versionId } ?: return@edit pack
-            val row = pack.files.firstOrNull { it.fileId == fileId }
-                ?: mutable.value.available.firstOrNull { it.fileId == fileId } ?: return@edit pack
+            val source = if (sourcePackId == pack.id) pack else mutable.value.candidatePackages.packages
+                .firstOrNull { it.id == sourcePackId && it.owner == pack.owner } ?: return@edit pack
+            val existing = pack.files.firstOrNull { it.fileId == fileId }
+            // Already associated files stay selectable even when viewing a different source.
+            val member = source.files.firstOrNull { it.fileId == fileId }
+                ?: existing?.takeIf { it.mapping?.itemId == mediaId && it.mapping?.versionId == versionId }
+                ?: return@edit pack
+            // Borrow only the file identity and name; source mappings/receipts remain untouched.
+            val row = existing ?: ManagedSubtitleFile(member.fileId, member.name)
             val target = mapping(media, version)
-            val changed = row.copy(mapping = if (row.mapping == target) null else target, upload = "", uploadError = null, manualMapping = true)
-            val rows = if (pack.files.any { it.fileId == fileId }) pack.files.map { if (it.fileId == fileId) changed else it }
+            val selected = row.mapping?.itemId == mediaId && row.mapping?.versionId == versionId
+            val changed = row.copy(mapping = if (selected) null else target, upload = "", uploadError = null,
+                uploadBefore = null, manualMapping = true)
+            val rows = if (pack.files.any { it.fileId == fileId }) pack.files.map { if (it.fileId == fileId) changed.copy(name = it.name) else it }
                 else pack.files + changed
             pack.copy(files = rows)
         }
@@ -165,7 +208,11 @@ class SubtitleOrganizer(
     fun uploaded(pack: ManagedSubtitle) {
         if (mutable.value.pack?.id == pack.id) mutable.update { it.copy(pack = pack, saving = false, dirty = false) }
     }
-    fun close() { if (!mutable.value.saving) job?.cancel() }
+    fun close() {
+        candidateJob?.cancel()
+        mutable.update { it.copy(candidatePackages = it.candidatePackages.copy(loading = false)) }
+        if (!mutable.value.saving) job?.cancel()
+    }
     companion object {
         private fun mapping(item: Media, source: MediaSource) = SubtitleMapping(item.id, item.label,
             source.id, source.name.ifBlank { source.container.uppercase() }, source.path, item.episode)

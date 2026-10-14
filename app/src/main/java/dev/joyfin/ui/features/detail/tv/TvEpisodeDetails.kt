@@ -1,6 +1,7 @@
 package dev.joyfin.ui.features.detail.tv
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,15 +69,14 @@ fun TvEpisodeDetails(
                         detectTapGestures { dismissView() }
                     }
                 )
+                val sheetShape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
                 Column(
                     Modifier.widthIn(max = 960.dp)
                         .fillMaxWidth(.9f)
                         .height(height)
                         .testTag("episode:sheet")
-                        .background(
-                            Palette.Surface,
-                            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                        )
+                        .border(1.dp, Palette.BorderSubtle, sheetShape)
+                        .background(Palette.Surface, sheetShape)
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {

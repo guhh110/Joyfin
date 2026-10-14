@@ -22,6 +22,7 @@ fun Sheet(
     bottom: Boolean = false,
     modifier: Modifier = Modifier,
     actions: (@Composable ColumnScope.() -> Unit)? = null,
+    scrollContent: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -29,8 +30,8 @@ fun Sheet(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         if (LocalDeviceLayout.current.television)
-            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, content)
-        else MobileSheetLayout(title, onDismiss, side, modifier, actions, content)
+            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, content)
+        else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, content)
     }
 }
 
@@ -47,6 +48,7 @@ fun ChoiceRow(
         modifier.fillMaxWidth().heightIn(min = 64.dp),
         selected = selected,
         transparent = true,
+        focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
     ) {
         Row(
             Modifier.fillMaxWidth().padding(12.dp),

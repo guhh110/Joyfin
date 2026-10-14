@@ -90,23 +90,47 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, onExit:
     val pack = editor.pack
     val visiblePacks = ui.packages.filter { !ui.filterWork || it.workId == ui.context?.work?.id }
     val header: @Composable () -> Unit = {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconButton("返回", Glyph.Back, ::back, Modifier.focusTarget("subtitles:back"))
-            Column(Modifier.weight(1f)) {
-                if (ui.screen == SubtitleScreen.ORGANIZE) {
-                    SubtitleTitle(pack?.takeIf { it.workName.isNotBlank() }?.let {
-                        listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · ")
-                    } ?: "整理字幕", large = true, maxLines = if (tv) 2 else 3)
-                    Caption(listOf("字幕整理", pack?.origin?.substringBefore(" · ").orEmpty()).filter(String::isNotBlank).joinToString(" · "), maxLines = 1)
-                } else {
-                    SubtitleTitle(if (ui.screen == SubtitleScreen.MANAGEMENT) "字幕管理" else "搜索字幕", large = true)
-                    Caption(if (ui.filterWork) listOfNotNull(ui.context?.work?.name, ui.context?.seasonMedia?.name).joinToString(" · ") else "我的字幕库", maxLines = 1)
+        val narrow = !tv && LocalDeviceLayout.current.widthDp < 380
+        if (narrow) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    IconButton("返回", Glyph.Back, ::back, Modifier.focusTarget("subtitles:back"))
+                    Column(Modifier.weight(1f)) {
+                        if (ui.screen == SubtitleScreen.ORGANIZE) {
+                            SubtitleTitle(pack?.takeIf { it.workName.isNotBlank() }?.let {
+                                listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · ")
+                            } ?: "整理字幕", large = true, maxLines = if (tv) 2 else 3)
+                            Caption(listOf("字幕整理", pack?.origin?.substringBefore(" · ").orEmpty()).filter(String::isNotBlank).joinToString(" · "), maxLines = 1)
+                        } else {
+                            SubtitleTitle(if (ui.screen == SubtitleScreen.MANAGEMENT) "字幕管理" else "搜索字幕", large = true)
+                            Caption(if (ui.filterWork) listOfNotNull(ui.context?.work?.name, ui.context?.seasonMedia?.name).joinToString(" · ") else "我的字幕库", maxLines = 1)
+                        }
+                    }
                 }
+                if (ui.screen == SubtitleScreen.MANAGEMENT) ActionButton("搜索字幕", controller::showSearch,
+                    Modifier.fillMaxWidth().focusTarget("subtitles:search-entry"), primary = true, loading = ui.loading, enabled = !ui.loading)
+                if (ui.screen == SubtitleScreen.SEARCH) ActionButton("待整理 ${visiblePacks.count { it.pending }}", controller::management,
+                    Modifier.fillMaxWidth().focusTarget("subtitles:pending"))
             }
-            if (ui.screen == SubtitleScreen.MANAGEMENT) ActionButton("搜索字幕", controller::showSearch,
-                Modifier.focusTarget("subtitles:search-entry"), primary = true, loading = ui.loading, enabled = !ui.loading)
-            if (ui.screen == SubtitleScreen.SEARCH) ActionButton("待整理 ${visiblePacks.count { it.pending }}", controller::management,
-                Modifier.focusTarget("subtitles:pending"))
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                IconButton("返回", Glyph.Back, ::back, Modifier.focusTarget("subtitles:back"))
+                Column(Modifier.weight(1f)) {
+                    if (ui.screen == SubtitleScreen.ORGANIZE) {
+                        SubtitleTitle(pack?.takeIf { it.workName.isNotBlank() }?.let {
+                            listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · ")
+                        } ?: "整理字幕", large = true, maxLines = if (tv) 2 else 3)
+                        Caption(listOf("字幕整理", pack?.origin?.substringBefore(" · ").orEmpty()).filter(String::isNotBlank).joinToString(" · "), maxLines = 1)
+                    } else {
+                        SubtitleTitle(if (ui.screen == SubtitleScreen.MANAGEMENT) "字幕管理" else "搜索字幕", large = true)
+                        Caption(if (ui.filterWork) listOfNotNull(ui.context?.work?.name, ui.context?.seasonMedia?.name).joinToString(" · ") else "我的字幕库", maxLines = 1)
+                    }
+                }
+                if (ui.screen == SubtitleScreen.MANAGEMENT) ActionButton("搜索字幕", controller::showSearch,
+                    Modifier.focusTarget("subtitles:search-entry"), primary = true, loading = ui.loading, enabled = !ui.loading)
+                if (ui.screen == SubtitleScreen.SEARCH) ActionButton("待整理 ${visiblePacks.count { it.pending }}", controller::management,
+                    Modifier.focusTarget("subtitles:pending"))
+            }
         }
     }
     val controls: @Composable () -> Unit = {

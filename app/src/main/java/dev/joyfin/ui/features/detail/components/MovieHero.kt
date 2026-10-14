@@ -41,18 +41,19 @@ internal fun MovieHero(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
-                Text("Joyfin", color = Palette.Text, fontSize = 18.sp)
-                ActionButton("字幕管理", actions.subtitles, Modifier.focusTarget("detail:subtitles"),
-                    enabled = ready, quiet = true)
-                IconButton(
-                    if (media?.favorite == true) "取消收藏" else "收藏",
-                    if (media?.favorite == true) Glyph.Check else Glyph.Plus,
-                    actions.favorite,
-                    Modifier.focusTarget("favorite", canFavorite),
-                    selected = media?.favorite == true,
-                    enabled = canFavorite,
-                    loading = favoriteBusy,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ActionButton("字幕管理", actions.subtitles, Modifier.focusTarget("detail:subtitles"),
+                        enabled = ready, quiet = true)
+                    IconButton(
+                        if (media?.favorite == true) "取消收藏" else "收藏",
+                        if (media?.favorite == true) Glyph.Check else Glyph.Plus,
+                        actions.favorite,
+                        Modifier.focusTarget("favorite", canFavorite),
+                        selected = media?.favorite == true,
+                        enabled = canFavorite,
+                        loading = favoriteBusy,
+                    )
+                }
             }
             Column(
                 Modifier.padding(horizontal = gutter).padding(top = topPadding, bottom = 24.dp),

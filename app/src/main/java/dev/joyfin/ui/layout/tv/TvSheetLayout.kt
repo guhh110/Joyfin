@@ -10,6 +10,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import dev.joyfin.ui.components.SheetPanel
+import dev.joyfin.ui.components.SheetPresentationHost
+import dev.joyfin.ui.theme.MotionTokens
 
 @Composable
 internal fun TvSheetLayout(
@@ -19,6 +21,7 @@ internal fun TvSheetLayout(
     bottom: Boolean,
     modifier: Modifier,
     actions: (@Composable ColumnScope.() -> Unit)?,
+    scrollContent: Boolean,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
@@ -26,29 +29,40 @@ internal fun TvSheetLayout(
     val height =
         if (side) Modifier.fillMaxHeight()
         else Modifier.heightIn(max = config.screenHeightDp.dp * .85f)
-    Box(
-        Modifier.fillMaxSize(),
-        contentAlignment =
-            if (side) Alignment.CenterEnd
-            else if (!bottom) Alignment.Center else Alignment.BottomCenter,
-    ) {
+
+    SheetPresentationHost(
+        visible = true,
+        onDismissRequest = onDismiss,
+        slideDistance = if (side) MotionTokens.TvSheetSlideDistance else 0.dp,
+        slideHorizontal = side,
+    ) { isExiting ->
         Box(
-            Modifier.matchParentSize().pointerInput(onDismiss) { detectTapGestures { onDismiss() } }
-        )
-        SheetPanel(
-            title,
-            onDismiss,
-            modifier,
-            width,
-            height,
-            RoundedCornerShape(
-                topStart = 20.dp,
-                topEnd = if (side) 0.dp else 20.dp,
-                bottomStart = if (!side && !bottom) 20.dp else 0.dp,
-                bottomEnd = if (!side && !bottom) 20.dp else 0.dp,
-            ),
-            actions,
-            content,
-        )
+            Modifier.fillMaxSize(),
+            contentAlignment =
+                if (side) Alignment.CenterEnd
+                else if (!bottom) Alignment.Center else Alignment.BottomCenter,
+        ) {
+            Box(
+                Modifier.matchParentSize().pointerInput(onDismiss) {
+                    detectTapGestures { if (!isExiting) onDismiss() }
+                }
+            )
+            SheetPanel(
+                title,
+                onDismiss,
+                modifier,
+                width,
+                height,
+                RoundedCornerShape(
+                    topStart = 20.dp,
+                    topEnd = if (side) 0.dp else 20.dp,
+                    bottomStart = if (!side && !bottom) 20.dp else 0.dp,
+                    bottomEnd = if (!side && !bottom) 20.dp else 0.dp,
+                ),
+                actions,
+                scrollContent,
+                content,
+            )
+        }
     }
 }

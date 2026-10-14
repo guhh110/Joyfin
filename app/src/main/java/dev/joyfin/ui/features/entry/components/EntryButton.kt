@@ -1,14 +1,12 @@
 package dev.joyfin.ui.features.entry.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.PlatformTextStyle
@@ -20,6 +18,8 @@ import androidx.tv.material3.Text
 import dev.joyfin.ui.components.LoadingSpinner
 import dev.joyfin.ui.components.stableAction
 import dev.joyfin.ui.device.LocalDeviceLayout
+import dev.joyfin.ui.interaction.actionVisualFeedback
+import dev.joyfin.ui.theme.MotionTokens
 import dev.joyfin.ui.theme.Palette
 
 @Composable
@@ -31,27 +31,44 @@ internal fun EntryButton(
     quiet: Boolean = false,
     enabled: Boolean = true,
     enabledWhileBusy: Boolean = false,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
+    val tv = LocalDeviceLayout.current.television
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
+    val actionEnabled = enabled && (!busy || enabledWhileBusy)
+    val focusedScale = if (tv && !quiet) MotionTokens.ButtonFocusedScale else MotionTokens.FixedScale
+    val borderCol =
+        if (focused) EntryChampagne
+        else if (!quiet) Palette.BorderSubtle
+        else androidx.compose.ui.graphics.Color.Transparent
+    val bgCol =
+        if (quiet) {
+            if (focused) Palette.Surface else androidx.compose.ui.graphics.Color.Transparent
+        } else if (busy && !enabledWhileBusy) {
+            Palette.Text.copy(alpha = .6f)
+        } else {
+            Palette.Text
+        }
+
     Box(
         modifier
             .fillMaxWidth()
             .heightIn(
                 min =
-                    if (quiet) 48.dp else if (LocalDeviceLayout.current.television) 56.dp else 54.dp
+                    if (quiet) 48.dp else if (tv) 56.dp else 54.dp
             )
             .onFocusChanged { focused = it.isFocused }
-            .clip(shape)
-            .background(
-                if (quiet)
-                    if (focused) Palette.Surface else androidx.compose.ui.graphics.Color.Transparent
-                else if (busy && !enabledWhileBusy) Palette.Text.copy(alpha = .6f) else Palette.Text
-            )
-            .border(
-                if (focused) 2.dp else 1.dp,
-                if (focused) EntryChampagne else androidx.compose.ui.graphics.Color.Transparent,
-                shape,
+            .actionVisualFeedback(
+                focused = focused,
+                enabled = actionEnabled,
+                primary = !quiet,
+                transparent = quiet,
+                focusedScale = focusedScale,
+                shape = shape,
+                interactionSource = interactionSource,
+                overrideBorderColor = borderCol,
+                overrideBackgroundColor = bgCol,
             )
             .semantics {
                 if (busy) {
@@ -60,7 +77,7 @@ internal fun EntryButton(
                     progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
                 }
             }
-            .stableAction(enabled && (!busy || enabledWhileBusy), onClick)
+            .stableAction(actionEnabled, onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {

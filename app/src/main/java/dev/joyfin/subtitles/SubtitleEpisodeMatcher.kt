@@ -14,6 +14,9 @@ internal object SubtitleEpisodeMatcher {
     private data class FileNumbers(val base: String, val columns: List<Int?>, val explicit: Int?, val blocked: Boolean)
     private data class Candidate(val values: List<Int?>, val score: Double)
 
+    /** Explicit out-of-season labels can be excluded from related candidates without assigning them. */
+    fun explicitEpisode(name: String): Int? = analyse(name).explicit
+
     /** Results align with input indices, including duplicate episode files in different languages. */
     fun episodes(names: List<String>, seasonEpisodes: Set<Int>): List<Int?> {
         val files = names.map(::analyse)

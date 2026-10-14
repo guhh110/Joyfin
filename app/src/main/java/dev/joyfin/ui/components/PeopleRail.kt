@@ -1,5 +1,6 @@
 package dev.joyfin.ui.components
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -9,13 +10,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
 import dev.joyfin.data.Person
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
+import dev.joyfin.ui.theme.MotionTokens
+import dev.joyfin.ui.theme.Palette
 
 @Composable
 fun PeopleRail(
@@ -36,10 +41,14 @@ fun PeopleRail(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(people, key = { "${it.id}:${it.name}:${it.role}" }) { person ->
+                val tv = LocalDeviceLayout.current.television
                 FocusSurface(
                     { onOpen(person) },
-                    itemFocus(person).width(104.dp),
+                    itemFocus(person)
+                        .padding(vertical = MotionTokens.PeopleCardVerticalReserve)
+                        .width(104.dp),
                     transparent = true,
+                    focusedScale = if (tv) MotionTokens.CardFocusedScale else MotionTokens.FixedScale,
                 ) {
                     Column(
                         Modifier.padding(5.dp),
@@ -48,14 +57,17 @@ fun PeopleRail(
                         Artwork(
                             images.person(person),
                             images,
-                            Modifier.size(88.dp).clip(CircleShape),
+                            Modifier.size(88.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, Palette.BorderSubtle, CircleShape),
                             person.name.take(1),
                         )
-                        androidx.tv.material3.Text(
+                        Text(
                             person.name,
-                            color = dev.joyfin.ui.theme.Palette.Text,
-                            fontSize = 16.sp,
-                            lineHeight = 24.sp,
+                            color = Palette.Text,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            lineHeight = 22.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

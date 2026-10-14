@@ -10,6 +10,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import dev.joyfin.ui.components.SheetPanel
+import dev.joyfin.ui.components.SheetPresentationHost
+import dev.joyfin.ui.theme.MotionTokens
 
 @Composable
 internal fun MobileSheetLayout(
@@ -18,6 +20,7 @@ internal fun MobileSheetLayout(
     side: Boolean,
     modifier: Modifier,
     actions: (@Composable ColumnScope.() -> Unit)?,
+    scrollContent: Boolean,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
@@ -25,27 +28,38 @@ internal fun MobileSheetLayout(
     val height =
         if (side) Modifier.fillMaxHeight()
         else Modifier.heightIn(max = config.screenHeightDp.dp * .85f)
-    Box(
-        Modifier.fillMaxSize(),
-        contentAlignment = if (side) Alignment.CenterEnd else Alignment.BottomCenter,
-    ) {
+
+    SheetPresentationHost(
+        visible = true,
+        onDismissRequest = onDismiss,
+        slideDistance = if (side) MotionTokens.TvSheetSlideDistance else MotionTokens.MobileSheetSlideDistance,
+        slideHorizontal = side,
+    ) { isExiting ->
         Box(
-            Modifier.matchParentSize().pointerInput(onDismiss) { detectTapGestures { onDismiss() } }
-        )
-        SheetPanel(
-            title,
-            onDismiss,
-            modifier,
-            width,
-            height,
-            RoundedCornerShape(
-                topStart = 20.dp,
-                topEnd = if (side) 0.dp else 20.dp,
-                bottomStart = 0.dp,
-                bottomEnd = 0.dp,
-            ),
-            actions,
-            content,
-        )
+            Modifier.fillMaxSize(),
+            contentAlignment = if (side) Alignment.CenterEnd else Alignment.BottomCenter,
+        ) {
+            Box(
+                Modifier.matchParentSize().pointerInput(onDismiss) {
+                    detectTapGestures { if (!isExiting) onDismiss() }
+                }
+            )
+            SheetPanel(
+                title,
+                onDismiss,
+                modifier,
+                width,
+                height,
+                RoundedCornerShape(
+                    topStart = 20.dp,
+                    topEnd = if (side) 0.dp else 20.dp,
+                    bottomStart = 0.dp,
+                    bottomEnd = 0.dp,
+                ),
+                actions,
+                scrollContent,
+                content,
+            )
+        }
     }
 }

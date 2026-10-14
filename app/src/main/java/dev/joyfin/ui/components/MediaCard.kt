@@ -1,6 +1,7 @@
 package dev.joyfin.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -36,14 +37,19 @@ fun MediaCard(
     FocusSurface(
         onClick,
         modifier
+            .padding(vertical = dev.joyfin.ui.theme.MotionTokens.MediaCardVerticalReserve)
             .width(
                 cardWidth ?: if (wide) if (tv) 260.dp else 232.dp else if (tv) 156.dp else 132.dp
             )
             .then(focusModifier ?: Modifier.focusTarget(focusKey)),
         transparent = true,
+        focusedScale = if (tv) dev.joyfin.ui.theme.MotionTokens.CardFocusedScale else dev.joyfin.ui.theme.MotionTokens.FixedScale,
     ) {
         Column(Modifier.padding(3.dp)) {
-            Box {
+            Box(
+                Modifier.clip(RoundedCornerShape(10.dp))
+                    .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(10.dp))
+            ) {
                 if (item.type == "Episode")
                     EpisodeArtwork(item, images, Modifier.fillMaxWidth(), imageRatio)
                 else
@@ -52,24 +58,44 @@ fun MediaCard(
                         images,
                         Modifier.fillMaxWidth()
                             .aspectRatio(imageRatio)
-                            .clip(RoundedCornerShape(7.dp)),
+                            .clip(RoundedCornerShape(10.dp)),
                         item.name,
                     )
-                if (item.resumeTicks > 0 && item.ticks > 0)
+                if (item.resumeTicks > 0 && item.ticks > 0) {
+                    val progress = (item.resumeTicks.toFloat() / item.ticks).coerceIn(0.02f, 1f)
                     Box(
-                        Modifier.align(androidx.compose.ui.Alignment.BottomStart)
-                            .fillMaxWidth(
-                                (item.resumeTicks.toFloat() / item.ticks).coerceIn(0f, 1f)
+                        Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(22.dp)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f))
+                                )
                             )
-                            .height(2.dp)
-                            .background(Palette.Text)
                     )
+                    Box(
+                        Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.25f))
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth(progress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Palette.Gold)
+                        )
+                    }
+                }
             }
             Text(
                 if (wide && item.seriesName.isNotBlank()) item.seriesName else item.name,
                 modifier = Modifier.padding(top = 10.dp),
-                fontSize = 14.sp,
+                fontSize = 14.5.sp,
                 lineHeight = 20.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 color = Palette.Text,
                 minLines = 1,
                 maxLines = 1,
@@ -83,7 +109,8 @@ fun MediaCard(
                         .joinToString(" · "),
                 color = Palette.Muted,
                 fontSize = 12.sp,
-                lineHeight = 19.sp,
+                lineHeight = 18.sp,
+                letterSpacing = 0.2.sp,
                 minLines = 1,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

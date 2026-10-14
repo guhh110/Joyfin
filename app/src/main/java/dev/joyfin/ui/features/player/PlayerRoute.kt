@@ -131,7 +131,8 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                     if (!ui.loading && ui.error == null && ui.nextSeconds == 0) actions.toggle()
                 },
             )
-            if (visible || panel != null || ui.error != null || ui.nextSeconds > 0) {
+            val showControls = visible || panel != null || ui.error != null || ui.nextSeconds > 0
+            PlayerControlsExitHost(visible = showControls) {
                 val onPanel: (PlayerPanel) -> Unit = {
                     touch()
                     actions.preview.cancel()

@@ -15,23 +15,69 @@ import dev.joyfin.ui.theme.Palette
 
 @Composable
 fun AppHeader(actions: BrowseActions, back: Boolean = false) {
-    Row(
-        Modifier.fillMaxWidth()
-            .padding(horizontal = LocalDeviceLayout.current.gutter, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (back) IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
-        else Text("Joyfin ·", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Palette.Text)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ActionButton("字幕管理", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), quiet = true)
-            IconButton("搜索", Glyph.Search, actions.search, Modifier.focusTarget("header:search"))
-            IconButton(
-                "账号与设置",
-                Glyph.Account,
-                actions.settings,
-                Modifier.focusTarget("header:account"),
+    val device = LocalDeviceLayout.current
+    val narrow = !device.television && device.widthDp < 380
+    if (narrow && !back) {
+        Column(
+            Modifier.fillMaxWidth()
+                .padding(horizontal = device.gutter, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Joyfin",
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp,
+                    color = Palette.Text,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton("搜索", Glyph.Search, actions.search, Modifier.focusTarget("header:search"))
+                    IconButton(
+                        "账号与设置",
+                        Glyph.Account,
+                        actions.settings,
+                        Modifier.focusTarget("header:account"),
+                    )
+                }
+            }
+            ActionButton(
+                "字幕管理",
+                actions.subtitleManager,
+                Modifier.focusTarget("header:subtitles"),
+                quiet = true,
             )
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth()
+                .padding(horizontal = device.gutter, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (back) IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
+            else
+                Text(
+                    "Joyfin",
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.5).sp,
+                    color = Palette.Text,
+                )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButton("字幕管理", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), quiet = true)
+                IconButton("搜索", Glyph.Search, actions.search, Modifier.focusTarget("header:search"))
+                IconButton(
+                    "账号与设置",
+                    Glyph.Account,
+                    actions.settings,
+                    Modifier.focusTarget("header:account"),
+                )
+            }
         }
     }
 }

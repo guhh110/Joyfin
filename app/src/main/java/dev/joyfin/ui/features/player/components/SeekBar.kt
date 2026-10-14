@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -108,30 +109,59 @@ fun SeekBar(
         ) {
             val y = size.height / 2
             val end = size.width
-            drawLine(Palette.Line, Offset(0f, y), Offset(end, y), 3.dp.toPx())
-            // A saved resume position can arrive before duration; it must not look 100% complete.
+            val trackHeight = 4.dp.toPx()
+            val radius = trackHeight / 2
+
+            // 底槽
+            drawLine(
+                Palette.TrackBackground,
+                Offset(radius, y),
+                Offset(end - radius, y),
+                trackHeight,
+                cap = StrokeCap.Round,
+            )
+
             if (!knownDuration) return@Canvas
-            drawLine(
-                Palette.Muted.copy(alpha = .4f),
-                Offset(0f, y),
-                Offset(
-                    end * (bufferedMs.toFloat() / durationMs.coerceAtLeast(1)).coerceIn(0f, 1f),
-                    y,
-                ),
-                3.dp.toPx(),
-            )
-            val current = end * (draft ?: fraction)
-            drawLine(
-                if (focused) Palette.Gold else Palette.Text,
-                Offset(0f, y),
-                Offset(current, y),
-                3.dp.toPx(),
-            )
-            drawCircle(
-                if (focused) Palette.Gold else Palette.Text,
-                if (focused) 7.dp.toPx() else 5.dp.toPx(),
-                Offset(current, y),
-            )
+
+            // 缓冲进度
+            val bufferedEnd = (end * (bufferedMs.toFloat() / durationMs.coerceAtLeast(1))).coerceIn(radius, end - radius)
+            if (bufferedEnd > radius) {
+                drawLine(
+                    Palette.Muted.copy(alpha = 0.40f),
+                    Offset(radius, y),
+                    Offset(bufferedEnd, y),
+                    trackHeight,
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            // 当前播放/预览进度
+            val currentFrac = (draft ?: fraction).coerceIn(0f, 1f)
+            val currentX = (end * currentFrac).coerceIn(radius, end - radius)
+            if (currentX > radius) {
+                drawLine(
+                    Palette.Gold,
+                    Offset(radius, y),
+                    Offset(currentX, y),
+                    trackHeight,
+                    cap = StrokeCap.Round,
+                )
+            }
+
+            // 微光滑块
+            if (focused) {
+                // 外层发光晕环
+                drawCircle(Palette.Gold.copy(alpha = 0.32f), 9.dp.toPx(), Offset(currentX, y))
+                // 中层光圈
+                drawCircle(Palette.Gold, 6.dp.toPx(), Offset(currentX, y))
+                // 核心纯白实心
+                drawCircle(Palette.Text, 3.5.dp.toPx(), Offset(currentX, y))
+            } else if (preview != null) {
+                drawCircle(Palette.Gold.copy(alpha = 0.40f), 7.dp.toPx(), Offset(currentX, y))
+                drawCircle(Palette.Gold, 4.5.dp.toPx(), Offset(currentX, y))
+            } else {
+                drawCircle(Palette.Text, 4.dp.toPx(), Offset(currentX, y))
+            }
         }
     }
 }

@@ -17,11 +17,19 @@ import dev.joyfin.ui.theme.Palette
 internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
     val actions = content.actions
     val focus = content.focus
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
         IconButton("返回", Glyph.Back, actions.back, Modifier.seriesFocus("header:back", focus))
-        Text("Joyfin", color = Palette.Text, fontSize = 18.sp, modifier = Modifier.padding(12.dp))
-        ActionButton("字幕管理", actions.subtitles, Modifier.seriesFocus("detail:subtitles", focus),
-            enabled = content.ui.ready, quiet = true)
+        ActionButton(
+            "字幕管理",
+            actions.subtitles,
+            Modifier.seriesFocus("detail:subtitles", focus),
+            enabled = content.ui.ready,
+            quiet = true,
+        )
     }
 }
 

@@ -21,8 +21,9 @@ fun Caption(
         text,
         modifier,
         color = color,
-        fontSize = 12.sp,
-        lineHeight = 19.sp,
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.2.sp,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
     )
@@ -30,7 +31,14 @@ fun Caption(
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier, color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+    Text(
+        text,
+        modifier,
+        color = Palette.Text,
+        fontSize = 20.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.3).sp,
+    )
 }
 
 @Composable
@@ -44,10 +52,10 @@ fun FilmTitle(
         text,
         modifier,
         color = Palette.Text,
-        fontFamily = FontFamily.Serif,
-        fontSize = if (large) 54.sp else 36.sp,
-        lineHeight = if (large) 65.sp else 46.sp,
-        fontWeight = FontWeight.Normal,
+        fontSize = if (large) 52.sp else 36.sp,
+        lineHeight = if (large) 60.sp else 44.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = if (large) (-1.2).sp else (-0.8).sp,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
     )

@@ -2,14 +2,14 @@ package dev.joyfin.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.joyfin.app.Page
 import dev.joyfin.app.UiState
+import dev.joyfin.ui.components.PageFadeHost
 import dev.joyfin.ui.components.RequestStatus
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.detail.DetailRoute
@@ -59,6 +59,12 @@ fun AppContent(
             Page.SUBTITLES -> "subtitles:back"
             else -> "header:back"
         }
+    val visitedPages = remember { mutableSetOf<String>() }
+    val isReturn = visitedPages.contains(pageKey)
+    LaunchedEffect(pageKey) {
+        visitedPages.add(pageKey)
+    }
+
     Box(
         Modifier.fillMaxSize()
             .background(Palette.Background)
@@ -76,20 +82,22 @@ fun AppContent(
     ) {
         key(pageKey) {
             holder.SaveableStateProvider(pageKey) {
-                RememberScreenFocus(initial) {
-                    when (ui.page) {
-                        Page.CONNECT,
-                        Page.LOGIN ->
-                            ConnectionRoute(ui.entry, entryActions, login = ui.page == Page.LOGIN)
-                        Page.RESTORE -> SessionRestoreRoute(ui.entry, entryActions)
-                        Page.HOME -> HomeRoute(ui.home, actions, images)
-                        Page.DETAIL -> DetailRoute(ui.detail, actions, images)
-                        Page.LIBRARY -> LibraryRoute(ui.collection, actions, images)
-                        Page.PERSON -> PersonRoute(ui.collection, actions, images)
-                        Page.SEARCH -> SearchRoute(ui.collection, actions, images)
-                        Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings)
-                        Page.SUBTITLES -> subtitles?.let {
-                            dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, actions.back)
+                PageFadeHost(pageKey = pageKey, isReturn = isReturn) {
+                    RememberScreenFocus(initial) {
+                        when (ui.page) {
+                            Page.CONNECT,
+                            Page.LOGIN ->
+                                ConnectionRoute(ui.entry, entryActions, login = ui.page == Page.LOGIN)
+                            Page.RESTORE -> SessionRestoreRoute(ui.entry, entryActions)
+                            Page.HOME -> HomeRoute(ui.home, actions, images)
+                            Page.DETAIL -> DetailRoute(ui.detail, actions, images)
+                            Page.LIBRARY -> LibraryRoute(ui.collection, actions, images)
+                            Page.PERSON -> PersonRoute(ui.collection, actions, images)
+                            Page.SEARCH -> SearchRoute(ui.collection, actions, images)
+                            Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings)
+                            Page.SUBTITLES -> subtitles?.let {
+                                dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, actions.back)
+                            }
                         }
                     }
                 }

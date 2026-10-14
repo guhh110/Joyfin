@@ -11,13 +11,17 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.device.isTelevision
 
 object Palette {
-    val Background = Color(0xFF0B0D10)
-    val Surface = Color(0xFF191D21)
-    val Elevated = Color(0xFF23282C)
-    val Text = Color(0xFFF1EFE9)
-    val Muted = Color(0xFF9DA3A8)
-    val Gold = Color(0xFFCE9C6D)
+    val Background = Color(0xFF0A0C0F)
+    val Surface = Color(0xFF15181D)
+    val Elevated = Color(0xFF22262E)
+    val Text = Color(0xFFF5F3ED)
+    val Muted = Color(0xFF9EA3A9)
+    val Gold = Color(0xFFD4AF37)
     val Line = Color(0x1AFFFFFF)
+    val BorderSubtle = Color(0x1FFFFFFF)
+    val BorderFocus = Color(0xFFFAF8F5)
+    val GlowFocus = Color(0x33F5F3ED)
+    val TrackBackground = Color(0x26FFFFFF)
     val Error = Color(0xFFFFB4AB)
 }
 
@@ -39,7 +43,8 @@ fun BoundlessTheme(content: @Composable () -> Unit) {
         CompositionLocalProvider(
             LocalDeviceLayout provides
                 DeviceLayout(configuration.isTelevision(), configuration.screenWidthDp),
-            content = content,
-        )
+        ) {
+            ProvideMotionEnvironment(content = content)
+        }
     }
 }

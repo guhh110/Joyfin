@@ -1,6 +1,7 @@
 package dev.joyfin.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,6 +21,7 @@ internal fun SheetPanel(
     heightModifier: Modifier,
     shape: androidx.compose.ui.graphics.Shape,
     actions: (@Composable ColumnScope.() -> Unit)?,
+    scrollContent: Boolean,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -27,6 +29,7 @@ internal fun SheetPanel(
             .widthIn(max = sheetWidth)
             .fillMaxWidth()
             .then(heightModifier)
+            .border(1.dp, Palette.BorderSubtle, shape)
             .background(Palette.Surface, shape)
             .padding(22.dp)
     ) {
@@ -39,7 +42,8 @@ internal fun SheetPanel(
             IconButton("关闭", Glyph.Close, onDismiss, Modifier.focusTarget("sheet:close"))
         }
         Column(
-            Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+            Modifier.weight(1f, fill = false)
+                .then(if (scrollContent) Modifier.verticalScroll(rememberScrollState()) else Modifier),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = content,
         )
