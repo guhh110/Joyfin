@@ -131,25 +131,6 @@ class SubtitleOrganizer(
             else pack.copy(defaults = pack.defaults + ("$mediaId:$versionId" to fileId))
         }
     }
-    fun sequence(startId: String, versionName: String?) {
-        edit { pack ->
-            val media = mutable.value.media
-            val start = media.indexOfFirst { it.id == startId }
-            if (start < 0) return@edit pack
-            // Natural numeric order makes episode 2 precede episode 10.
-            val order = pack.files.indices.sortedWith { a, b -> naturalCompare(pack.files[a].name, pack.files[b].name) }
-            val assignments = order.mapIndexed { offset, index ->
-                index to media.getOrNull(start + offset)?.let { item ->
-                    val version = if (versionName == null) item.sources.singleOrNull()
-                        else item.sources.singleOrNull { it.name == versionName }
-                    version?.let { mapping(item, it) }
-                }
-            }.toMap()
-            pack.copy(files = pack.files.mapIndexed { i, row ->
-                if (row.mapping == assignments[i]) row else row.copy(mapping = assignments[i], upload = "", uploadError = null, manualMapping = true)
-            })
-        }
-    }
     fun versionFamily(name: String) {
         edit { pack ->
             val episodes = SubtitleEpisodeMatcher.episodes(pack.files.map { it.name }, mutable.value.media.map { it.episode }.toSet())
@@ -203,18 +184,5 @@ class SubtitleOrganizer(
     companion object {
         private fun mapping(item: Media, source: MediaSource) = SubtitleMapping(item.id, item.label,
             source.id, source.name.ifBlank { source.container.uppercase() }, source.path, item.episode)
-        private fun naturalCompare(a: String, b: String): Int {
-            val parts = Regex("\\d+|\\D+")
-            val x = parts.findAll(a.lowercase()).map { it.value }.toList()
-            val y = parts.findAll(b.lowercase()).map { it.value }.toList()
-            for (i in 0 until minOf(x.size, y.size)) {
-                val cmp = if (x[i].first().isDigit() && y[i].first().isDigit())
-                    x[i].trimStart('0').length.compareTo(y[i].trimStart('0').length).takeIf { it != 0 }
-                        ?: x[i].trimStart('0').compareTo(y[i].trimStart('0'))
-                else x[i].compareTo(y[i])
-                if (cmp != 0) return cmp
-            }
-            return x.size.compareTo(y.size)
-        }
     }
 }

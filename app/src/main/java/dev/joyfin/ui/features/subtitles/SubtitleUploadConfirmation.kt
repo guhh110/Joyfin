@@ -56,7 +56,7 @@ internal fun SubtitleUploadConfirmation(controller: SubtitlePageController, dism
             if (pack.files.any { it.upload in setOf("sending", "uncertain") }) Caption("有文件未收到服务器确认。请先核对服务器，重试可能重复添加。")
             pending.forEach { file ->
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Caption(file.name)
+                    SubtitleFileName(file.name)
                     Caption("→ ${file.mapping?.itemName} · ${file.mapping?.versionName}")
                 }
             }

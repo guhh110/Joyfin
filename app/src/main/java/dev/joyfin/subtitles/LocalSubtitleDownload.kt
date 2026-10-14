@@ -14,6 +14,7 @@ data class LocalDownloadState(
     val needsEncoding: Boolean = false,
     val error: String? = null,
     val notice: String? = null,
+    val source: String = "",
 )
 
 /** Resolves files to a persistent pending package; downloading never selects playback subtitles. */
@@ -40,15 +41,18 @@ class LocalSubtitleDownload(
         origin = source
         language = lang
         entries = emptyList()
-        mutable.value = LocalDownloadState(busy = true, fileName = if (references.size == 1) references.first().first else "整包文件")
+        mutable.value = LocalDownloadState(busy = true, fileName = if (references.size == 1) references.first().first else "整包文件", source = source.substringBefore(" · "))
         task = scope.launch {
             try {
-                require(references.isNotEmpty() && references.size <= 200)
+                if (references.isEmpty()) throw SubtitleOperationException("字幕站没有提供可下载文件")
+                if (references.size > 200) throw SubtitleOperationException("一次下载最多支持 200 个文件")
                 val downloaded = mutableListOf<SubtitleFiles.Entry>()
                 for ((name, url) in references) {
                     ensureActive()
                     downloaded += files.download(name, url, onRequest)
-                    require(downloaded.size <= 200 && downloaded.sumOf { it.bytes.size.toLong() } <= 20L * 1024 * 1024)
+                    if (downloaded.size > 200) throw SubtitleOperationException("整包字幕超过 200 个文件限制")
+                    if (downloaded.sumOf { it.bytes.size.toLong() } > 20L * 1024 * 1024)
+                        throw SubtitleOperationException("整包字幕内容超过 20 MiB 限制")
                 }
                 entries = downloaded
                 persist()
@@ -90,5 +94,6 @@ class LocalSubtitleDownload(
         mutable.update { it.copy(busy = false, needsEncoding = entries.isNotEmpty(),
             error = if (e is java.nio.charset.CharacterCodingException) "编码不符，请选择编码后重新保存" else subtitleFailure(e)) }
     }
+
     fun cancel() { task?.cancel(); entries = emptyList(); mutable.value = LocalDownloadState() }
 }

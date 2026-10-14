@@ -20,14 +20,15 @@ internal fun AssrtResults(controller: AssrtSearchController, download: dev.joyfi
         if (ui.selected != null) returning = true
         else if (returning) { withFrameNanos {}; focus?.restore(); returning = false }
     }
-    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
         item("attribution") { Caption("字幕服务由 assrt.net 提供") }
         if (!ui.loading && !ui.available) item("configure") { ActionButton("配置 ASSRT Token", settings) }
         if (ui.loading && ui.results.isEmpty()) item("skeleton") { repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(90.dp).padding(bottom = 8.dp)) } }
         items(ui.results, key = { it.id }) { item ->
-            Column {
-                Caption(item.nativeName.ifBlank { item.videoname })
-                Caption(listOf(item.lang.desc, item.subtype, item.videoname).filter { it.isNotBlank() }.joinToString(" · "))
+            SubtitleResultCard(item.nativeName.ifBlank { item.videoname },
+                listOf(item.lang.desc, item.subtype).filter { it.isNotBlank() }.joinToString(" · "), item.videoname,
+                error = ui.error.takeIf { ui.failedId == item.id }
+                    ?: transfer.error.takeIf { transfer.source == "ASSRT" && ui.transferringId == item.id }) {
                 ActionButton("下载", { controller.choose(item) }, Modifier.focusTarget("assrt:result:${item.id}"),
                     loading = ui.busyId == item.id || transfer.busy && ui.transferringId == item.id,
                     enabled = ui.busyId == null && !transfer.busy && !transfer.needsEncoding)
@@ -37,7 +38,7 @@ internal fun AssrtResults(controller: AssrtSearchController, download: dev.joyfi
             Caption(message, color = Palette.Error)
             ActionButton("重试 ASSRT 搜索", controller::retry, loading = ui.loading, enabled = !ui.loading)
         } }
-        if (ui.available && !ui.loading && ui.results.isEmpty() && ui.error == null) item("empty") { Caption("没有找到字幕，尝试修改关键词或语言") }
+        if (ui.available && !ui.loading && ui.results.isEmpty() && ui.error == null) item("empty") { SubtitleEmpty("没有找到字幕", "尝试修改关键词或语言") }
         if (ui.nextPosition != null || ui.loadingMore) item("more") {
             ActionButton("加载更多", controller::more,
                 loading = ui.loadingMore, enabled = !ui.loading && ui.nextPosition != null)
@@ -48,6 +49,7 @@ internal fun AssrtResults(controller: AssrtSearchController, download: dev.joyfi
             if (ui.selected?.filelist.orEmpty().size > 1)
                 ActionButton("下载全部文件（${ui.selected?.filelist.orEmpty().size}）", controller::downloadAllFiles,
                     loading = transfer.busy && transfer.fileName == "整包文件", enabled = !transfer.busy)
+            transfer.error?.takeIf { transfer.source == "ASSRT" }?.let { Caption(it, color = Palette.Error) }
             ui.files.forEachIndexed { index, file ->
                 ActionButton(file.f, { controller.download(file) }, Modifier.focusTarget("assrt:file:$index"),
                     loading = transfer.busy && transfer.fileName == file.f, enabled = !transfer.busy)

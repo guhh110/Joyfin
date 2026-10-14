@@ -12,7 +12,8 @@ Joyfin 本地打包（优化 Preview，使用现有 debug 签名）
 
 可用 JAVA_HOME 指定 JDK 21，GRADLE_BIN 指定 Gradle 可执行文件。
 Android SDK 由 local.properties 或 ANDROID_HOME 配置。
-需要 Python 3 读取 Gradle 产物版本；APK 命名为 Joyfin-版本号.apk。
+需要 Python 3 读取 Gradle 产物版本；APK 固定输出到项目根目录 dist/Joyfin-版本号.apk。
+日志、元数据和校验文件同样写入 dist/，重复构建覆盖同名文件。
 HELP
 }
 fail() { printf '错误：%s\n' "$*" >&2; exit 1; }
@@ -73,8 +74,8 @@ printf '\n'
 if "$dry_run"; then exit 0; fi
 
 cd -- "$root"
-mkdir -p "$root/dist"
-output_dir="$(mktemp -d "$root/dist/joyfin-$(date +%Y%m%d-%H%M%S)-XXXXXX")"
+output_dir="$root/dist"
+mkdir -p "$output_dir"
 printf '构建记录：%s/build.log\n' "$output_dir"
 if ! "${command_args[@]}" 2>&1 | tee "$output_dir/build.log"; then
     fail "打包失败，日志保留在 $output_dir/build.log"

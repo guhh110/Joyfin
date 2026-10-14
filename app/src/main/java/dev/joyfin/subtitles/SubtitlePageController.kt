@@ -59,8 +59,8 @@ class SubtitlePageController(
         close()
         searched = false
         val session = api.session ?: return
-        assrtApi.clearRequestUrls()
-        openSubtitlesApi.clearRequestUrls()
+        assrtApi.clearRequestHistory()
+        openSubtitlesApi.clearRequestHistory()
         val owner = LocalSubtitleStore.owner(session.server, session.userId)
         mutable.value = SubtitlePageState(context = SubtitleSearchContext(owner), loading = detail?.item != null)
         reloadPackages()

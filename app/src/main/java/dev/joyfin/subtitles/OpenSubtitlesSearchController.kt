@@ -27,7 +27,7 @@ class OpenSubtitlesSearchController(
 ) {
     private val mutable = MutableStateFlow(OpenSubtitlesSearchState())
     val state = mutable.asStateFlow()
-    val requestUrls = api.requestUrls
+    val requestHistory = api.requestHistory
     private var job: Job? = null
     private var downloadJob: Job? = null
     private var target: SubtitleSearchContext? = null

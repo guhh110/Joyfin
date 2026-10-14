@@ -1,0 +1,9 @@
+libarchive-android 1.1.6
+https://github.com/zhanghai/libarchive-android/tree/v1.1.6
+Copyright 2023 Google LLC
+Licensed under Apache License 2.0; see libarchive-android-Apache-2.0.txt.
+
+Bundled libarchive
+https://github.com/zhanghai/libarchive-android/tree/v1.1.6/third_party/libarchive
+Copyright Tim Kientzle and contributors.
+See libarchive-BSD.txt for upstream copyright and licensing notices.

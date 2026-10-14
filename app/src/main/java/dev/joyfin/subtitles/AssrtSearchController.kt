@@ -1,6 +1,7 @@
 package dev.joyfin.subtitles
 
 import dev.joyfin.data.subtitles.assrt.*
+import dev.joyfin.data.subtitles.SubtitleOperationException
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,7 @@ data class AssrtSearchState(
     val files: List<AssrtFile> = emptyList(),
     val busyId: Long? = null,
     val transferringId: Long? = null,
+    val failedId: Long? = null,
 )
 class AssrtSearchController(
     private val scope: CoroutineScope,
@@ -26,7 +28,7 @@ class AssrtSearchController(
 ) {
     private val mutable = MutableStateFlow(AssrtSearchState())
     val state = mutable.asStateFlow()
-    val requestUrls = api.requestUrls
+    val requestHistory = api.requestHistory
     private var job: Job? = null
     private var detailJob: Job? = null
     private var target: SubtitleSearchContext? = null
@@ -68,7 +70,7 @@ class AssrtSearchController(
     }
     fun choose(item: AssrtSubtitle) {
         if (mutable.value.busyId != null || download.state.value.busy || download.state.value.needsEncoding) return
-        mutable.update { it.copy(busyId = item.id, error = null) }
+        mutable.update { it.copy(busyId = item.id, error = null, failedId = null) }
         detailJob = scope.launch {
             try {
                 val account = withContext(Dispatchers.IO) { accounts.load() }
@@ -77,11 +79,11 @@ class AssrtSearchController(
                 val archive = if (detail.url.isNotBlank() && detail.filename.isNotBlank())
                     listOf(AssrtFile(detail.filename, detail.url)) else emptyList()
                 val files = (archive + detail.filelist).distinctBy { it.url }
-                check(files.isNotEmpty())
+                if (files.isEmpty()) throw SubtitleOperationException("ASSRT 未提供可下载文件")
                 mutable.update { it.copy(busyId = null, selected = detail, files = files) }
                 if (files.size == 1) download(files.first())
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { mutable.update { it.copy(busyId = null, error = assrtFailure("详情", e)) } }
+            catch (e: Exception) { mutable.update { it.copy(busyId = null, failedId = item.id, error = assrtFailure("详情", e)) } }
         }
     }
     fun download(file: AssrtFile) {

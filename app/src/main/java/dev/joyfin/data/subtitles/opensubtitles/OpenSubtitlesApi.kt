@@ -1,11 +1,9 @@
 package dev.joyfin.data.subtitles.opensubtitles
 
+import dev.joyfin.data.subtitles.SubtitleRequestHistory
 import dev.joyfin.data.subtitles.subtitleBody
 import dev.joyfin.data.subtitles.subtitleHttp
 import dev.joyfin.data.subtitles.subtitleRetrofit
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import retrofit2.Response
@@ -31,15 +29,14 @@ internal interface OpenSubtitlesService {
     @POST("download") suspend fun download(@Header("Api-Key") key: String, @Header("Authorization") auth: String?, @Body body: DownloadBody): Response<OpenSubtitlesDownload>
 }
 class OpenSubtitlesApi {
-    private val mutableRequestUrls = MutableStateFlow<List<String>>(emptyList())
-    val requestUrls = mutableRequestUrls.asStateFlow()
-    internal fun recordRequest(url: String) { mutableRequestUrls.update { it + url } }
-    fun clearRequestUrls() { mutableRequestUrls.value = emptyList() }
+    private val history = SubtitleRequestHistory()
+    val requestHistory = history.records
+    internal fun recordRequest(url: String) { history.recordRequest(url) }
+    fun clearRequestHistory() { history.clear() }
     // Official API normalizes search query URLs; authentication stays on this origin and path.
     private val client = subtitleHttp().newBuilder().addInterceptor { chain ->
         var request = chain.request()
-        recordRequest("${request.method} ${request.url}")
-        var response = chain.proceed(request)
+        var response = history.proceed(chain, request)
         if (request.method == "GET" && request.url.encodedPath == "/api/v1/subtitles") {
             var count = 0
             while (response.code in setOf(301, 302, 307, 308) && count++ < 3) {
@@ -49,8 +46,7 @@ class OpenSubtitlesApi {
                     target.username.isNotEmpty() || target.password.isNotEmpty()) break
                 response.close()
                 request = request.newBuilder().url(target).build()
-                recordRequest("${request.method} ${request.url}")
-                response = chain.proceed(request)
+                response = history.proceed(chain, request)
             }
         }
         response

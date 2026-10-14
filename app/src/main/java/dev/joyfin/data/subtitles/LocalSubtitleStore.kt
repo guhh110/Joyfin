@@ -131,8 +131,10 @@ class LocalSubtitleStore private constructor(context: Context) {
     @Synchronized fun save(key: String, name: String, origin: String, language: String?, text: String): LocalSubtitleFile {
         val safeName = name.replace('\\', '/').substringAfterLast('/')
         val extension = safeName.substringAfterLast('.', "").lowercase()
-        require(extension in setOf("srt", "vtt", "ass", "ssa") && text.isNotBlank())
-        require(!text.trimStart().startsWith("<html", true) && !text.trimStart().startsWith("<!doctype", true))
+        if (extension !in setOf("srt", "vtt", "ass", "ssa")) throw SubtitleOperationException("无法保存：文件不是支持的文本字幕格式")
+        if (text.isBlank()) throw SubtitleOperationException("下载的字幕内容为空")
+        if (text.trimStart().startsWith("<html", true) || text.trimStart().startsWith("<!doctype", true))
+            throw SubtitleOperationException("下载返回了网页内容，未取得字幕文件")
         val id = digest("$extension\u0000$text")
         check(directory.isDirectory || directory.mkdirs())
         val file = LocalSubtitleFile(id, safeName, origin, "$id.$extension", language)
