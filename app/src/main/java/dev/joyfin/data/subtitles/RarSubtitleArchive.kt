@@ -1,6 +1,7 @@
 package dev.joyfin.data.subtitles
 
 import java.io.ByteArrayOutputStream
+import java.lang.ref.Reference
 import java.nio.ByteBuffer
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -12,12 +13,18 @@ import me.zhanghai.android.libarchive.ArchiveException
 internal object RarSubtitleArchive {
     suspend fun unpack(bytes: ByteArray, limit: Int, supported: (String) -> Boolean): List<SubtitleFiles.Entry> {
         try {
+            // libarchive retains this address until free(). The 1.1.6 heap-buffer JNI path
+            // retains a local array reference, then releases it as a global reference.
+            // Use direct memory and fence its lifetime after native cleanup instead.
+            val input = ByteBuffer.allocateDirect(bytes.size)
+            input.put(bytes)
+            input.flip()
             val archive = Archive.readNew()
             try {
                 Archive.readSupportFilterNone(archive)
                 Archive.readSupportFormatRar(archive)
                 Archive.readSupportFormatRar5(archive)
-                Archive.readOpenMemory(archive, ByteBuffer.wrap(bytes))
+                Archive.readOpenMemory(archive, input)
                 val files = mutableListOf<SubtitleFiles.Entry>()
                 val buffer = ByteBuffer.allocateDirect(8192)
                 val chunk = ByteArray(8192)
@@ -56,7 +63,11 @@ internal object RarSubtitleArchive {
                 checkFile(files.isNotEmpty(), "压缩包内没有 SRT、VTT、ASS 或 SSA 字幕")
                 return files
             } finally {
-                Archive.free(archive)
+                try {
+                    Archive.free(archive)
+                } finally {
+                    Reference.reachabilityFence(input)
+                }
             }
         } catch (_: ArchiveException) {
             throw SubtitleOperationException("RAR 解压失败，请检查文件是否完整；暂不支持加密或分卷压缩包")
