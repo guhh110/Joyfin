@@ -23,6 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import dev.joyfin.playback.PlaybackController
 import dev.joyfin.ui.features.player.PlayerRoute
+import dev.joyfin.ui.features.player.PlayerSubtitleSearchRoute
 import dev.joyfin.ui.theme.BoundlessTheme
 
 /**
@@ -66,7 +67,10 @@ class PlayerActivity : ComponentActivity() {
             ComposeView(this).apply {
                 setContent {
                     val ui by controller.state.collectAsStateWithLifecycle()
-                    BoundlessTheme { PlayerRoute(ui, controller.actions) }
+                    BoundlessTheme {
+                        PlayerRoute(ui, controller.actions)
+                        PlayerSubtitleSearchRoute(controller.subtitleSearch)
+                    }
                 }
             },
             FrameLayout.LayoutParams(-1, -1),

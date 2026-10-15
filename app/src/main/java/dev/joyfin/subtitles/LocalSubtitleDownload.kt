@@ -22,6 +22,7 @@ class LocalSubtitleDownload(
     private val scope: CoroutineScope,
     private val store: LocalSubtitleStore,
     private val saved: () -> Unit,
+    private val completed: (ManagedSubtitle) -> Unit = {},
 ) {
     private val mutable = MutableStateFlow(LocalDownloadState())
     val state = mutable.asStateFlow()
@@ -74,21 +75,24 @@ class LocalSubtitleDownload(
         val value = requireNotNull(context)
         val decoded = withContext(Dispatchers.IO) { entries.map { it to files.decode(it, mutable.value.encoding) } }
         val id = UUID.randomUUID().toString()
-        withContext(Dispatchers.IO) {
+        val pack = withContext(Dispatchers.IO) {
             val records = decoded.map { (entry, text) ->
                 ensureActive()
                 val file = store.save(value.owner, entry.name, origin, language, text)
                 ManagedSubtitleFile(file.id, entry.name.replace('\\', '/'))
             }
             ensureActive()
-            store.putPackage(ManagedSubtitle(id, value.owner, mutable.value.fileName, origin, System.currentTimeMillis(), records,
+            val pack = ManagedSubtitle(id, value.owner, mutable.value.fileName, origin, System.currentTimeMillis(), records,
                 workId = value.work?.id, workName = value.work?.name.orEmpty(),
                 seasonId = value.seasonMedia?.id, seasonName = value.seasonMedia?.name.orEmpty(),
-                language = when (language) { "en" -> "eng"; "zh-tw" -> "cht"; "zh", "zh-cn" -> "chi"; else -> language ?: "chi" }))
+                language = when (language) { "en" -> "eng"; "zh-tw" -> "cht"; "zh", "zh-cn" -> "chi"; else -> language ?: "chi" })
+            store.putPackage(pack)
+            pack
         }
         entries = emptyList()
         mutable.update { it.copy(busy = false, needsEncoding = false, error = null, notice = "下载完成，已加入待整理") }
         saved()
+        completed(pack)
     }
     private fun failure(e: Exception) {
         mutable.update { it.copy(busy = false, needsEncoding = entries.isNotEmpty(),

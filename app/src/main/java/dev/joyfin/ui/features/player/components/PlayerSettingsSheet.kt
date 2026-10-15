@@ -2,12 +2,19 @@ package dev.joyfin.ui.features.player.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalWindowInfo
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.ui.components.*
-import dev.joyfin.ui.interaction.RememberSelectionFocus
+import dev.joyfin.ui.interaction.RememberScreenFocus
+import dev.joyfin.ui.interaction.LocalScreenFocus
+import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
+import kotlinx.coroutines.flow.first
 
 enum class PlayerPanel(val title: String) {
     Settings("播放设置"),
@@ -28,10 +35,22 @@ fun PlayerSettingsSheet(
     actions: PlayerActions,
     onPanel: (PlayerPanel) -> Unit,
     onDismiss: () -> Unit,
+    initialFocus: String = panel.initialFocus(ui),
 ) {
     key(panel) {
-        RememberSelectionFocus(panel.initialFocus(ui)) {
+        RememberScreenFocus(initialFocus) {
             Sheet(panel.title, onDismiss, side = true) {
+                val window = LocalWindowInfo.current
+                val focus = LocalScreenFocus.current
+                val tv = LocalDeviceLayout.current.television
+                LaunchedEffect(Unit) {
+                    if (tv) {
+                        snapshotFlow { window.isWindowFocused }.first { it }
+                        withFrameNanos {}
+                        focus?.rememberTarget?.invoke(initialFocus)
+                        focus?.requesters?.get(initialFocus)?.requestFocus()
+                    }
+                }
                 when (panel) {
                     PlayerPanel.Settings -> {
                         ChoiceRow(
@@ -105,6 +124,10 @@ fun PlayerSettingsSheet(
                     }
                     PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.subtitles.SubtitleOffsetContent(ui, actions)
                     PlayerPanel.Subtitle -> {
+                        ActionButton("搜索字幕", actions.searchSubtitles,
+                            Modifier.focusTarget("player:subtitle-search"), icon = Glyph.Search,
+                            enabled = !ui.loading && ui.error == null && !ui.subtitleApplying,
+                            focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale)
                         ui.localSubtitle?.let { local ->
                             ChoiceRow(local.label, Modifier.focusTarget("player:local-subtitle"),
                                 subtitle = "本地字幕 · ${local.offsetMs / 1000.0} 秒偏移", selected = true) {

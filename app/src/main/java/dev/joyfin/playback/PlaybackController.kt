@@ -14,6 +14,9 @@ import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.session.MediaSession
 import dev.joyfin.BuildConfig
 import dev.joyfin.data.*
+import dev.joyfin.data.subtitles.*
+import dev.joyfin.subtitles.PlayerSubtitleSearchController
+import dev.joyfin.subtitles.PlayerSubtitleTarget
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -69,6 +72,8 @@ class PlaybackController(
     private var localSubtitle: PreparedLocalSubtitle? = null
     private var localSubtitleKey: String? = null
     private var subtitleJob: Job? = null
+    private var subtitleSearchResume: Boolean? = null
+    private var searchSubtitleApplying = false
 
     private val completion = PlaybackCompletionGate()
     private val subtitleRendering = SubtitleRendering()
@@ -85,6 +90,9 @@ class PlaybackController(
             .setSeekForwardIncrementMs(10_000)
             .build()
     private val mediaSession = MediaSession.Builder(context, player).build()
+
+    val subtitleSearch = PlayerSubtitleSearchController(context, scope, api, localStore,
+        ::applySearchedSubtitle, ::subtitleSearchClosed)
 
     fun bindSubtitles(view: androidx.media3.ui.SubtitleView) = subtitleRendering.bind(view)
 
@@ -183,6 +191,7 @@ class PlaybackController(
             close = { onClose(false) },
             subtitleOffset = ::setSubtitleOffset,
             selectLocalFile = ::selectManagedSubtitle,
+            searchSubtitles = ::openSubtitleSearch,
         )
 
     init {
@@ -209,12 +218,12 @@ class PlaybackController(
                                         playbackState == Player.STATE_ENDED),
                         )
                     }
-                    if (playbackState == Player.STATE_READY && plan != null) {
+                    if (playbackState == Player.STATE_READY && plan != null && !searchSubtitleApplying) {
                         completion.ready(player.currentMediaItem?.localConfiguration?.tag as? Long)
                         if (player.currentMediaItem?.localConfiguration?.tag == playbackGeneration)
                             commitPreference()
                     }
-                    if (playbackState == Player.STATE_READY && plan != null && !started) {
+                    if (playbackState == Player.STATE_READY && plan != null && !started && !searchSubtitleApplying) {
                         started = true
                         mutable.update { it.copy(loading = false, error = null) }
                         report("")
@@ -223,6 +232,7 @@ class PlaybackController(
                         playbackState == Player.STATE_ENDED &&
                             player.playbackState == Player.STATE_ENDED &&
                             plan != null &&
+                            !searchSubtitleApplying &&
                             started
                     ) {
                         when (
@@ -267,7 +277,7 @@ class PlaybackController(
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    handleError(error)
+                    if (!searchSubtitleApplying) handleError(error)
                 }
             },
         )
@@ -292,8 +302,9 @@ class PlaybackController(
         ticks: Long,
         fetch: Boolean = false,
         autoPlay: Boolean =
-            pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
+            subtitleSearchResume ?: pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
     ) {
+        discardSubtitleSearch()
         val generation = completion.begin()
         playbackGeneration = generation
         subtitleJob?.cancel()
@@ -732,6 +743,137 @@ class PlaybackController(
         if (changed) player.trackSelectionParameters = builder.build()
     }
 
+    private fun openSubtitleSearch() {
+        val current = plan ?: return
+        val session = api.session ?: return
+        if (released || !started || mutable.value.loading || mutable.value.error != null ||
+            mutable.value.subtitleApplying || mutable.value.subtitleSearchOpen) return
+        seekPreview.cancel()
+        cancelCountdown()
+        subtitleSearchResume = player.playWhenReady
+        player.pause()
+        mutable.update { it.copy(subtitleSearchOpen = true) }
+        subtitleSearch.open(PlayerSubtitleTarget(session, item ?: current.item, current.source, playbackGeneration))
+    }
+
+    private fun subtitleSearchClosed(applied: Boolean) {
+        val resume = subtitleSearchResume ?: false
+        subtitleSearchResume = null
+        mutable.update { it.copy(subtitleSearchOpen = false,
+            subtitleSearchApplied = it.subtitleSearchApplied + if (applied) 1 else 0) }
+        if (!released && isStarted() && mutable.value.error == null) player.playWhenReady = resume
+    }
+
+    private fun discardSubtitleSearch() {
+        subtitleSearchResume = null
+        subtitleSearch.discard()
+        searchSubtitleApplying = false
+        mutable.update { it.copy(subtitleSearchOpen = false, subtitleApplying = false) }
+    }
+
+    private fun matchesSubtitleTarget(target: PlayerSubtitleTarget): Boolean =
+        !released && !suspendedPlayback && target.session == api.session &&
+            target.generation == playbackGeneration && target.media.id == currentId &&
+            target.source.id == plan?.sourceId
+
+    private suspend fun applySearchedSubtitle(target: PlayerSubtitleTarget, pack: ManagedSubtitle, fileId: String) {
+        check(matchesSubtitleTarget(target))
+        val key = LocalSubtitleStore.key(target.session.server, target.session.userId, target.media.id, target.source.id)
+        val (file, offset) = withContext(Dispatchers.IO) {
+            val owner = LocalSubtitleStore.owner(target.session.server, target.session.userId)
+            require(pack.owner == owner)
+            val file = localStore.files(owner).firstOrNull { it.id == fileId } ?: error("下载文件已失效")
+            file to (localStore.choice(key)?.takeIf { it.first.id == fileId }?.second ?: 0L)
+        }
+        val prepared = localPlayback.file(file).let { if (offset == 0L) it else localPlayback.shifted(it, offset) }
+        currentCoroutineContext().ensureActive()
+        check(matchesSubtitleTarget(target))
+        val oldItem = player.currentMediaItem ?: error("播放已结束")
+        val oldPlan = requireNotNull(plan)
+        val oldLocal = localSubtitle
+        val oldParameters = player.trackSelectionParameters
+        val position = player.currentPosition.coerceAtLeast(0)
+        val speed = player.playbackParameters.speed
+        var replacement: PlaybackPlan? = null
+        var committed = false
+        var replaced = false
+        mutable.update { it.copy(subtitleApplying = true) }
+        try {
+            // A burned-in subtitle cannot be removed by switching text tracks in the same stream.
+            val burnedIn = oldLocal == null && oldPlan.method == "Transcode" &&
+                SubtitleDelivery.requiresBurnIn(oldPlan.subtitleIndex, oldPlan.streams, oldPlan.source.container)
+            val playbackItem = if (burnedIn) {
+                val profile = DeviceProfile.build(context, target.source, bitrate, audioIndex)
+                val nextPlan = api.playback(target.media, profile, position * 10_000, bitrate,
+                    audioIndex, -1, target.source.id, compatible, audioTranscode = audioTranscode)
+                replacement = nextPlan
+                currentCoroutineContext().ensureActive()
+                check(matchesSubtitleTarget(target) && nextPlan.sourceId == target.source.id)
+                val builder = oldItem.buildUpon().setUri(nextPlan.url)
+                    .setMimeType(if (nextPlan.method == "Transcode" || nextPlan.url.contains(".m3u8")) "application/x-mpegURL" else null)
+                builder.setSubtitleConfigurations(nextPlan.subtitles.map { subtitle ->
+                    MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+                        .setMimeType(subtitle.mime).setLanguage(subtitle.language).setLabel(subtitle.label)
+                        .setId(SubtitleTrackId.external(subtitle.index)).build()
+                } + prepared.configuration).build()
+            } else oldItem.buildUpon().setSubtitleConfigurations(
+                oldItem.localConfiguration?.subtitleConfigurations.orEmpty()
+                    .filterNot { LocalSubtitlePlayback.matches(it.id) } + prepared.configuration).build()
+            searchSubtitleApplying = true
+            localSubtitle = prepared
+            replacement?.let { plan = it }
+            player.trackSelectionParameters = oldParameters.buildUpon()
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
+            replaced = true
+            player.prepareLocalSubtitle(playbackItem, position, speed)
+            currentCoroutineContext().ensureActive()
+            check(matchesSubtitleTarget(target) && subtitleSearch.state.value.open && !subtitleSearch.state.value.closing)
+            val mapping = SubtitleMapping(target.media.id, target.media.label, target.source.id,
+                target.source.name.ifBlank { target.source.container.uppercase() }, target.source.path, target.media.episode)
+            val mapped = pack.copy(files = pack.files.map { row ->
+                if (row.fileId == fileId) row.copy(mapping = mapping, manualMapping = true) else row
+            })
+            val options = withContext(Dispatchers.IO) { localStore.files(key) }
+            currentCoroutineContext().ensureActive()
+            check(matchesSubtitleTarget(target) && !subtitleSearch.state.value.closing)
+            // One synchronous atomic index commit: a close/switch cannot interleave a late binding.
+            localStore.bindPackage(mapped, target.session.server, target.session.userId, selectFileId = fileId)
+            committed = true
+            localSubtitleKey = key
+            mutable.update { it.copy(subtitleApplying = false, localSubtitleError = null,
+                localSubtitle = LocalSubtitleSelection(file.name, prepared.offsetMs, file.id),
+                localSubtitles = (options.map { option -> LocalSubtitleOption(option.id, option.name) } +
+                    LocalSubtitleOption(file.id, file.name)).distinctBy { it.id },
+                method = plan?.method ?: it.method,
+                subtitleIndex = plan?.subtitleIndex ?: it.subtitleIndex) }
+            replacement?.let {
+                reporter.send(oldPlan, "Stopped", position * 10_000, true)
+                subtitleIndex = it.subtitleIndex
+                report("")
+            }
+        } finally {
+            searchSubtitleApplying = false
+            if (!committed) {
+                replacement?.let { reporter.send(it, "Stopped", position * 10_000, true) }
+                if (matchesSubtitleTarget(target)) {
+                    plan = oldPlan
+                    localSubtitle = oldLocal
+                    if (replaced) {
+                        val playing = player.playWhenReady
+                        player.trackSelectionParameters = oldParameters
+                        player.setMediaItem(oldItem, position)
+                        player.prepare()
+                        player.setPlaybackSpeed(speed)
+                        player.playWhenReady = playing
+                    }
+                    mutable.update { it.copy(subtitleApplying = false) }
+                } else if (replacement != null) {
+                    reporter.send(oldPlan, "Stopped", position * 10_000, true)
+                }
+            }
+        }
+    }
+
     private fun selectManagedSubtitle(id: String) {
         val key = localSubtitleKey ?: return
         if (mutable.value.loading || mutable.value.subtitleApplying || mutable.value.localSubtitles.none { it.id == id }) return
@@ -824,6 +966,7 @@ class PlaybackController(
     }
 
     private fun showError(message: String) {
+        discardSubtitleSearch()
         seekPreview.cancel()
         stopCurrentStream()
         mutable.update { it.copy(loading = false, playing = false, canSeek = false, error = message) }
@@ -893,8 +1036,9 @@ class PlaybackController(
         cancelCountdown()
         pollJob?.cancel()
         reportJob?.cancel()
-        wasPlaying = pendingPlay ?: player.playWhenReady
+        wasPlaying = subtitleSearchResume ?: pendingPlay ?: player.playWhenReady
         suspendedPlayback = true
+        discardSubtitleSearch()
         loadJob?.cancel()
         subtitleJob?.cancel()
         metadataJob?.cancel()
@@ -903,6 +1047,10 @@ class PlaybackController(
     }
 
     fun handleMediaKey(code: Int): Boolean {
+        if (mutable.value.subtitleSearchOpen && code in setOf(
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY,
+                KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+                KeyEvent.KEYCODE_MEDIA_REWIND)) return true
         when (code) {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> toggle()
             KeyEvent.KEYCODE_MEDIA_PLAY ->
@@ -920,7 +1068,7 @@ class PlaybackController(
         out.putString("itemId", currentId)
         out.putLong("position", positionTicks())
         out.putString("source", sourceId)
-        out.putBoolean("playing", if (suspendedPlayback) wasPlaying else pendingPlay ?: player.playWhenReady)
+        out.putBoolean("playing", if (suspendedPlayback) wasPlaying else subtitleSearchResume ?: pendingPlay ?: player.playWhenReady)
         out.putBoolean("compatible", compatible)
         out.putBoolean("fallbackUsed", fallbackUsed)
         out.putBoolean("audioTranscode", audioTranscode)
@@ -934,6 +1082,7 @@ class PlaybackController(
         seekPreview.cancel()
         if (released) return
         released = true
+        discardSubtitleSearch()
         loadJob?.cancel()
         subtitleJob?.cancel()
         metadataJob?.cancel()

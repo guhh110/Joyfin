@@ -44,6 +44,8 @@ data class PlayerUiState(
     val localSubtitleError: String? = null,
     val subtitleApplying: Boolean = false,
     val localSubtitles: List<LocalSubtitleOption> = emptyList(),
+    val subtitleSearchOpen: Boolean = false,
+    val subtitleSearchApplied: Int = 0,
 )
 
 data class PlayerActions(
@@ -65,6 +67,7 @@ data class PlayerActions(
     val close: () -> Unit,
     val subtitleOffset: (Long) -> Unit = {},
     val selectLocalFile: (String) -> Unit = {},
+    val searchSubtitles: () -> Unit = {},
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =

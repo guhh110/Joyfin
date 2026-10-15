@@ -23,6 +23,9 @@ class LocalSubtitlePlayback(private val store: LocalSubtitleStore) {
         require(offset in -60_000..60_000)
         prepare(selected.file, offset)
     }
+    suspend fun file(file: LocalSubtitleFile): PreparedLocalSubtitle = withContext(Dispatchers.IO) {
+        prepare(file, 0)
+    }
     private fun prepare(file: LocalSubtitleFile, offset: Long): PreparedLocalSubtitle {
         val local = store.playbackFile(file, offset)
         val mime = when (local.extension) {

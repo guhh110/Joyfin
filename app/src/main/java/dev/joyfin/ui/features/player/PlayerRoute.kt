@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -21,6 +22,7 @@ import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.RememberScreenFocus
 import dev.joyfin.ui.interaction.RememberSelectionFocus
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 /** Presentation only: never creates a player, requests an API or submits playback reports. */
 @Composable
@@ -29,6 +31,19 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
     var focusReturn by remember { mutableIntStateOf(0) }
     var panel by remember { mutableStateOf<PlayerPanel?>(null) }
     var interaction by remember { mutableIntStateOf(0) }
+    var subtitleSearchReturn by remember { mutableStateOf(false) }
+    var lastSubtitleApplication by remember { mutableIntStateOf(ui.subtitleSearchApplied) }
+    LaunchedEffect(ui.subtitleSearchOpen) {
+        if (ui.subtitleSearchOpen) subtitleSearchReturn = true
+    }
+    LaunchedEffect(ui.subtitleSearchApplied) {
+        if (ui.subtitleSearchApplied > 0) {
+            panel = null
+            subtitleSearchReturn = false
+            focusReturn++
+            lastSubtitleApplication = ui.subtitleSearchApplied
+        }
+    }
     val tv = LocalDeviceLayout.current.television
     fun touch() {
         interaction++
@@ -71,6 +86,7 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
     }
     RememberScreenFocus("player:toggle") {
         val focusMemory = LocalScreenFocus.current
+        val window = LocalWindowInfo.current
         LaunchedEffect(visible) {
             if (tv && visible) {
                 focusMemory?.rememberTarget?.invoke("player:toggle")
@@ -90,6 +106,7 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
         }
         LaunchedEffect(focusReturn) {
             if (focusReturn > 0) {
+                snapshotFlow { window.isWindowFocused }.first { it }
                 withFrameNanos {}
                 focusMemory?.restore()
             }
@@ -160,20 +177,24 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                         )
                     }
                 }
-            panel?.let { current ->
+            panel?.takeUnless { ui.subtitleSearchOpen || ui.subtitleSearchApplied != lastSubtitleApplication }?.let { current ->
                 PlayerSettingsSheet(
                     current,
                     ui,
                     actions,
                     {
                         panel = it
+                        subtitleSearchReturn = false
                         touch()
                     },
                     {
                         panel = null
+                        subtitleSearchReturn = false
                         focusReturn++
                         touch()
                     },
+                    initialFocus = if (current == PlayerPanel.Subtitle && subtitleSearchReturn)
+                        "player:subtitle-search" else current.initialFocus(ui),
                 )
             }
         }

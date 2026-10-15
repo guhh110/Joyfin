@@ -56,8 +56,10 @@ class OpenSubtitlesSearchController(
                 if (!ready) { mutable.update { it.copy(loading = false, loadingMore = false, results = emptyList(), nextPage = null) }; return@launch }
                 val params = if (page > 1) successfulParams.toMutableMap().apply { put("page", page.toString()) }
                 else linkedMapOf<String, String>().apply {
-                    if (current.work != null) put("type", if (current.work.type == "Series") "episode" else "movie")
+                    if (current.work != null || current.episode != null)
+                        put("type", if (current.work?.type == "Series" || current.episode != null) "episode" else "movie")
                     current.season?.let { put("season_number", it.toString()) }
+                    current.episode?.let { put("episode_number", it.toString()) }
                     if (current.season == null && (current.work?.year ?: 0) > 0) put("year", (current.work?.year ?: 0).toString())
                     if (language.isNotBlank()) put("languages", if (language == "zh") "zh-cn,zh-tw" else language)
                 }

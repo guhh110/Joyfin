@@ -82,7 +82,7 @@ class LocalSubtitleStore private constructor(context: Context) {
     }
 
     /** Files, choices and workflow state share one atomic index commit. */
-    @Synchronized fun bindPackage(value: ManagedSubtitle, server: String, user: String): ManagedSubtitle {
+    @Synchronized fun bindPackage(value: ManagedSubtitle, server: String, user: String, selectFileId: String? = null): ManagedSubtitle {
         val index = read()
         val old = index.packages[value.id] ?: error("字幕下载记录不存在")
         require(old.owner == value.owner && value.owner == owner(server, user))
@@ -105,6 +105,14 @@ class LocalSubtitleStore private constructor(context: Context) {
             // Organization only changes availability; playback alone chooses a subtitle.
             val current = choices[binding]
             if (current != null && current.fileId !in available) choices.remove(binding)
+        }
+        // The quick player flow explicitly chooses one file; ordinary organization never does.
+        if (selectFileId != null) {
+            val row = assigned.first { it.fileId == selectFileId }
+            val mapping = requireNotNull(row.mapping)
+            val binding = key(server, user, mapping.itemId, mapping.versionId)
+            choices[binding] = choices[binding]?.takeIf { it.fileId == selectFileId }
+                ?: LocalSubtitleChoice(selectFileId)
         }
         val saved = value.copy(localSaved = true, boundFiles = assigned)
         write(index.copy(choices = choices, downloads = downloads, packages = index.packages + (value.id to saved)))
