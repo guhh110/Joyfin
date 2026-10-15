@@ -40,6 +40,7 @@ fun SearchRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
             )
         }
         val summary = if (ui.query.isBlank()) "搜索当前服务器的影片与剧集"
+            else if (ui.error != null && ui.media.isEmpty()) "“${ui.query}” · 暂时无法读取结果"
             else if (ui.busy && ui.media.isEmpty()) "“${ui.query}”"
             else "“${ui.query}” · ${ui.total} 个结果"
         if (LocalDeviceLayout.current.television) TvSearchHeader(actions.back, summary, field, submit)

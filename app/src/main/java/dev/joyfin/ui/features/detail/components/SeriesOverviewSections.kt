@@ -115,8 +115,8 @@ private fun SeriesEpisodePreview(
     // Season discovery precedes the episode request; retain the same skeleton across both.
     val awaitingSeason =
         episodes is SeriesResource.Idle &&
-            ui.series?.seasonId == null &&
-            ui.series?.entryError == null &&
+            ui.series.seasonId == null &&
+            ui.series.entryError == null &&
             !seasons?.data.isNullOrEmpty()
     val previewLoading =
         episodes?.loading == true ||
@@ -145,13 +145,14 @@ private fun SeriesEpisodePreview(
             }
         } else {
             if (previewLoading) RailSkeleton(true, Modifier.testTag("series:preview-skeleton"))
-            else if (episodes is SeriesResource.Ready)
+            else if (seasons is SeriesResource.Ready && seasons.error == null && seasons.data.isNullOrEmpty())
+                Caption("这部作品还没有季或剧集", Modifier.padding(horizontal = gutter))
+            else if (episodes is SeriesResource.Ready && episodes.error == null && seasons?.error == null)
                 Caption("本季暂无剧集", Modifier.padding(horizontal = gutter))
         }
-        ui.series?.entryError?.let { Caption(it, Modifier.padding(horizontal = gutter)) }
         RegionLoadFeedback(
             previewLoading,
-            episodes?.error,
+            episodes?.error ?: seasons?.error ?: ui.series?.entryError,
             null,
             items.isNotEmpty(),
             Modifier.padding(horizontal = gutter),

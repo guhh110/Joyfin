@@ -23,6 +23,7 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 @Composable
 internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource) {
     val home = homeContent(ui)
+    val result = rememberHomeResult(home)
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
     val scroll = rememberLazyListState()
     val platformScroll = LocalBringIntoViewSpec.current
@@ -59,17 +60,18 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                                     HomeHeroContent(
                                         home,
                                         actions,
-                                        modifier = Modifier.align(Alignment.BottomStart),
+                                        modifier = Modifier.align(if (result.visible) Alignment.CenterStart else Alignment.BottomStart),
+                                        result = result,
                                         compact =
                                             maxHeight / LocalDensity.current.fontScale < 240.dp,
                                     )
                                 }
-                                HomeResumeRail(home, images, actions, resumeWidth)
+                                if (!result.visible) HomeResumeRail(home, images, actions, resumeWidth)
                             }
                         }
                     }
                 }
-                homeRails(home, images, actions, includeResume = false)
+                homeRails(home, images, actions, includeResume = false, resultOnly = result.visible)
             }
         }
     }

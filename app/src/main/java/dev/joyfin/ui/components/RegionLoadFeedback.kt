@@ -51,6 +51,9 @@ fun RegionLoadFeedback(
 
 /** Keep transport details out of browse rows, while retaining server-provided explanations. */
 internal fun browseErrorText(message: String): String = when {
+    message.contains("JSON", ignoreCase = true) &&
+        (message.contains("token", ignoreCase = true) || message.contains("parse", ignoreCase = true) ||
+            message.contains("input", ignoreCase = true)) -> "服务器返回的数据格式异常，请稍后重试"
     message.contains("timeout", ignoreCase = true) ||
         message.contains("timed out", ignoreCase = true) ||
         message.contains("connect", ignoreCase = true) && message.contains("after ") &&

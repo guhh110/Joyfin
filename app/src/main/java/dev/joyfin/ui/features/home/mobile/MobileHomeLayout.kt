@@ -16,6 +16,7 @@ import dev.joyfin.ui.model.BrowseActions
 @Composable
 internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource) {
     val home = homeContent(ui)
+    val result = rememberHomeResult(home)
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val artworkHeight = (maxWidth * .75f).coerceIn(220.dp, 360.dp)
@@ -23,11 +24,11 @@ internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: A
             item("hero", contentType = "hero") {
                 HeroBackdrop(featured, images, 0.dp, artworkHeight = artworkHeight) {
                     HomeHeroContent(home, actions,
-                        Modifier.fillMaxWidth().statusBarsPadding().padding(top = artworkHeight * .58f))
+                        Modifier.fillMaxWidth().statusBarsPadding().padding(top = if (result.visible) 96.dp else artworkHeight * .58f), result = result)
                     Box(Modifier.align(Alignment.TopCenter)) { AppHeader(actions, statusBarInset = true) }
                 }
             }
-            homeRails(home, images, actions)
+            homeRails(home, images, actions, resultOnly = result.visible)
         }
     }
 }

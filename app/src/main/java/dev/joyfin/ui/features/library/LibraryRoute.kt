@@ -17,7 +17,7 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AppHeader(actions, true, horizontalInset = 0.dp)
             FilmTitle(ui.title.ifBlank { "媒体库" })
-            Caption(if (ui.busy && ui.media.isEmpty()) " "
+            Caption(if ((ui.busy || ui.error != null) && ui.media.isEmpty()) " "
                 else if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品")
         }
     }

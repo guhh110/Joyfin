@@ -2,7 +2,7 @@ package dev.joyfin.ui.features.home.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -29,6 +29,28 @@ internal fun homeContent(ui: HomeUiState): Home {
     return home
 }
 
+/** A completed empty/error result is a page state, not three repeated empty rails. */
+internal val Home.noContentResult: Boolean
+    get() = resume.isEmpty() && latest.isEmpty() && libraries.isEmpty() &&
+        listOf(resumeLoad, latestLoad, librariesLoad).let { loads ->
+            loads.none { it.loading } && (loads.all { it.loaded } || loads.any { it.error != null })
+        }
+
+internal data class HomeResultPresentation(val visible: Boolean, val error: String?)
+
+/** Keep the result and its retry button in place until a retry actually yields content. */
+@Composable
+internal fun rememberHomeResult(home: Home): HomeResultPresentation {
+    var shown by remember { mutableStateOf(false) }
+    var previousError by remember { mutableStateOf<String?>(null) }
+    val loads = listOf(home.resumeLoad, home.latestLoad, home.librariesLoad)
+    val visible = home.resume.isEmpty() && home.latest.isEmpty() && home.libraries.isEmpty() &&
+        (home.noContentResult || shown)
+    val error = loads.firstNotNullOfOrNull { it.error } ?: previousError.takeIf { loads.any { it.loading } }
+    SideEffect { shown = visible; previousError = error }
+    return HomeResultPresentation(visible, error)
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HomeHeroContent(
@@ -36,6 +58,7 @@ internal fun HomeHeroContent(
     actions: BrowseActions,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    result: HomeResultPresentation = HomeResultPresentation(home.noContentResult, null),
 ) {
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
     val tv = LocalDeviceLayout.current.television
@@ -45,11 +68,15 @@ internal fun HomeHeroContent(
             .padding(bottom = if (tv) 16.dp else 12.dp),
         verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
     ) {
-        if (featured == null && (home.resumeLoad.loading || home.latestLoad.loading)) {
+        if (featured == null && !result.visible && (home.resumeLoad.loading || home.latestLoad.loading)) {
             SkeletonText(Modifier.fillMaxWidth(), 3)
         } else {
             FilmTitle(
-                featured?.seriesName?.ifBlank { featured.name } ?: featured?.name ?: "媒体库",
+                featured?.seriesName?.ifBlank { featured.name } ?: featured?.name ?: when {
+                    result.visible && result.error != null -> "暂时无法加载媒体库"
+                    result.visible -> "媒体库还是空的"
+                    else -> "媒体库"
+                },
                 large = tv && !compact,
                 maxLines = if (tv) if (compact) 1 else 2 else 3,
             )
@@ -70,10 +97,13 @@ internal fun HomeHeroContent(
                 ActionButton("查看详情", { actions.open(featured) },
                     Modifier.focusTarget("hero:detail"), maxLines = 1)
             }
-        } else if (!home.resumeLoad.loading && !home.latestLoad.loading &&
-            home.resumeLoad.error == null && home.latestLoad.error == null) {
-            Caption("媒体库还没有内容")
-            ActionButton("刷新", actions.retry, Modifier.focusTarget("hero:refresh"))
+        } else if (result.visible) {
+            val error = result.error
+            val loading = listOf(home.resumeLoad, home.latestLoad, home.librariesLoad).any { it.loading }
+            Caption(error?.let(::browseErrorText) ?: "在服务器中添加影片或剧集后，回到这里刷新。")
+            ActionButton(if (error != null) "重新加载" else "刷新媒体库", {
+                HomeRegion.entries.forEach(actions.retryHome)
+            }, Modifier.focusTarget("hero:refresh"), Glyph.Refresh, primary = true, loading = loading)
         }
     }
 }
@@ -83,7 +113,9 @@ internal fun LazyListScope.homeRails(
     images: ArtworkSource,
     actions: BrowseActions,
     includeResume: Boolean = true,
+    resultOnly: Boolean = home.noContentResult,
 ) {
+    if (resultOnly) return
     run {
         if (includeResume)
             item("resume", contentType = "rail") { HomeResumeRail(home, images, actions) }

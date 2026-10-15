@@ -46,7 +46,9 @@ internal fun LazyGridScope.mediaCollectionItems(
             (ui.kind != CollectionKind.SEARCH || ui.query.isNotBlank())
     )
         item(span = { GridItemSpan(maxLineSpan) }, key = "empty") {
-            EmptyContent("暂无内容", if (ui.query.isNotBlank()) "试试其他关键词。" else "服务器没有返回媒体。")
+            EmptyContent(if (ui.kind == CollectionKind.SEARCH) "没有找到相关作品" else "这里还没有内容",
+                if (ui.kind == CollectionKind.SEARCH) "换一个片名、剧名或更短的关键词试试。"
+                else "在服务器中添加媒体后，重新进入此页面查看。")
         }
     items(ui.media, key = { it.id }) { media ->
         MediaCard(

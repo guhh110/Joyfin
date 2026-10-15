@@ -1,6 +1,7 @@
 package dev.joyfin.app
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.joyfin.browse.*
@@ -10,9 +11,12 @@ import dev.joyfin.session.SessionController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class AppViewModel(application: Application) : AndroidViewModel(application) {
-    val store = SessionStore(application)
-    val api = JellyfinApi(store.deviceId)
+class AppViewModel @JvmOverloads constructor(
+    application: Application,
+    val store: SessionStore = SessionStore(application),
+    val api: JellyfinApi = JellyfinApi(store.deviceId),
+    storageContext: Context = application,
+) : AndroidViewModel(application) {
     private val mutable =
         MutableStateFlow(
             UiState(entry = EntryState(server = store.server, serverName = store.serverName))
@@ -51,7 +55,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             session::backToConnection,
         )
 
-    val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(application, viewModelScope, api, ::expireSession)
+    val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(storageContext, viewModelScope, api, ::expireSession)
 
     init {
         session.start()

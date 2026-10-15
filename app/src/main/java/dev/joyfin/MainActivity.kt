@@ -80,7 +80,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun BrowseHost(vm: AppViewModel) {
+internal fun BrowseHost(
+    vm: AppViewModel,
+    imagesOverride: ArtworkSource? = null,
+    onPlayOverride: ((Media, Boolean, String?) -> Unit)? = null,
+) {
     val ui by vm.state.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     var exit by remember { mutableStateOf(false) }
@@ -92,9 +96,10 @@ private fun BrowseHost(vm: AppViewModel) {
             else vm.refreshAfterPlayback()
         }
     val play: (Media, Boolean, String?) -> Unit =
-        remember(context, player) {
+        remember(context, player, onPlayOverride) {
             { item, fromStart, source ->
-                player.launch(
+                if (onPlayOverride != null) onPlayOverride(item, fromStart, source)
+                else player.launch(
                     Intent(context, PlayerActivity::class.java)
                         .putExtra("itemId", item.id)
                         .putExtra("startTicks", if (fromStart) 0L else item.resumeTicks)
@@ -170,7 +175,7 @@ private fun BrowseHost(vm: AppViewModel) {
         remember(vm) {
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry)
         }
-    AppContent(ui, actions, images, autoNext, entryActions, vm.subtitlePage)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() })
     if (logout)
