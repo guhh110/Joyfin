@@ -36,7 +36,7 @@ internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
 internal fun SeriesOverviewFeedback(content: SeriesOverviewContent, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth()) {
         Text(
-            content.feedback,
+            browseErrorText(content.feedback),
             color = Palette.Muted,
             fontSize = 12.sp,
             maxLines = 2,

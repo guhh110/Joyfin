@@ -139,6 +139,7 @@ private fun SeriesEpisodePreview(
                 focusPrefix = "series:preview",
                 state = list,
                 showHeading = false,
+                preferSeriesTitle = false,
             ) { item ->
                 Modifier.seriesFocus("series:preview:${item.id}", focus)
             }

@@ -12,6 +12,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -74,13 +75,16 @@ fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: Artwork
     }
     val entryFocus = remember(ui.visit) { FocusRequester() }
     val focusManager = LocalFocusManager.current
+    val windowInfo = LocalWindowInfo.current
     LaunchedEffect(ui.visit) {
         withFrameNanos {}
         if (tv && focused.isBlank()) entryFocus.requestFocus()
         else if (!tv) focusManager.clearFocus(force = true)
     }
-    LaunchedEffect(focus.pending, seasonId, ids, modal, keys) {
-        if (!tv || modal != null) return@LaunchedEffect
+    LaunchedEffect(focus.pending, seasonId, ids, modal, keys, windowInfo.isWindowFocused) {
+        // Dialog removal and main-window focus arrive separately. Keep the explicit return
+        // request pending until the main window can accept it; redraws never create a request.
+        if (!tv || modal != null || !windowInfo.isWindowFocused) return@LaunchedEffect
         val requested = focus.pending ?: return@LaunchedEffect
         val target = requested.takeIf { it in keys } ?: "series:season"
         val previewIndex = entries.indexOfFirst { "series:preview:${it.id}" == target }
@@ -104,7 +108,8 @@ fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: Artwork
             relatedList.scrollToItem(relatedIndex)
         val requester = snapshotFlow { focus.attached[target] }.first { it != null }
         withFrameNanos {}
-        if (focus.pending == requested && requester?.requestFocus() == true) focus.focused(target)
+        if (windowInfo.isWindowFocused && focus.pending == requested && requester?.requestFocus() == true)
+            focus.focused(target)
     }
     var previousKeys by remember { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(keys, modal) {

@@ -201,7 +201,7 @@ fun TvEpisodeDetails(
                             Modifier.fillMaxWidth().height(38.dp * fontScale),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            CardText(feedback ?: details.error ?: " ", Modifier.weight(1f), lines = 2)
+                            CardText((feedback ?: details.error)?.let(::browseErrorText) ?: " ", Modifier.weight(1f), lines = 2)
                         }
                         FixedActionArea {
                             Row(

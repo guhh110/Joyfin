@@ -29,6 +29,7 @@ fun MediaCard(
     cardWidth: Dp? = null,
     focusModifier: Modifier? = null,
     showSubtitle: Boolean = true,
+    preferSeriesTitle: Boolean = true,
 ) {
     val tv = LocalDeviceLayout.current.television
     val imageUrl =
@@ -90,7 +91,7 @@ fun MediaCard(
                 }
             }
             Text(
-                if (wide && item.seriesName.isNotBlank()) item.seriesName else item.name,
+                if (preferSeriesTitle && wide && item.seriesName.isNotBlank()) item.seriesName else item.name,
                 modifier = Modifier.padding(top = MediaCardLayout.TextGap),
                 fontSize = 15.sp,
                 lineHeight = 20.sp,

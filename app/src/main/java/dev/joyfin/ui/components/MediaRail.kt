@@ -27,6 +27,7 @@ fun MediaRail(
     state: LazyListState = rememberLazyListState(),
     showHeading: Boolean = true,
     cardWidth: Dp? = null,
+    preferSeriesTitle: Boolean = true,
     itemFocus: @Composable (Media) -> Modifier = { Modifier.focusTarget("$focusPrefix:${it.id}") },
 ) {
     if (items.isEmpty()) return
@@ -55,6 +56,7 @@ fun MediaRail(
                     wide = wide,
                     cardWidth = cardWidth,
                     focusKey = "$focusPrefix:${item.id}",
+                    preferSeriesTitle = preferSeriesTitle,
                 )
             }
         }

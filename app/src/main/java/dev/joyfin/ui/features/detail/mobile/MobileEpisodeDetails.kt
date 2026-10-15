@@ -97,7 +97,7 @@ fun MobileEpisodeDetails(
                     else -> "未观看"
                 }
             )
-            feedback?.let { Caption(it) }
+            feedback?.let { Caption(browseErrorText(it)) }
             if (!mediaInfo) {
                 EpisodeArtwork(episode, images, Modifier.fillMaxWidth())
                 if (details.loading && episode.overview.isBlank()) SkeletonText()
@@ -123,7 +123,7 @@ fun MobileEpisodeDetails(
                     },
                 )
             } else if (details.loading) SkeletonText(lines = 5)
-            details.error?.let { Caption(it) }
+            details.error?.let { Caption(browseErrorText(it)) }
         }
     }
 }

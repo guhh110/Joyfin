@@ -97,7 +97,7 @@ fun ActionButton(
                 }
             },
         enabled && (!loading || enabledWhileLoading),
-        primary,
+        primary && (enabled || loading),
         selected,
         quiet,
         focusedScale = focusedScale,

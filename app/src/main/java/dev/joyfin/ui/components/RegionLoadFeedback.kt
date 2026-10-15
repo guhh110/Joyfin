@@ -50,7 +50,7 @@ fun RegionLoadFeedback(
 }
 
 /** Keep transport details out of browse rows, while retaining server-provided explanations. */
-private fun browseErrorText(message: String): String = when {
+internal fun browseErrorText(message: String): String = when {
     message.contains("timeout", ignoreCase = true) ||
         message.contains("timed out", ignoreCase = true) ||
         message.contains("connect", ignoreCase = true) && message.contains("after ") &&
@@ -58,5 +58,6 @@ private fun browseErrorText(message: String): String = when {
     message.contains("failed to connect", ignoreCase = true) ||
         message.contains("connection refused", ignoreCase = true) -> "暂时无法连接服务器，请检查网络后重试"
     message.contains("unable to resolve host", ignoreCase = true) -> "无法解析服务器地址，请检查网络后重试"
+    message.contains("not found:", ignoreCase = true) -> "内容或接口不存在，请检查服务器地址后重试"
     else -> message
 }

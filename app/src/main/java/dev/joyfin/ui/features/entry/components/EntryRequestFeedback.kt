@@ -8,11 +8,12 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.joyfin.ui.device.LocalDeviceLayout
+import dev.joyfin.ui.components.browseErrorText
 
 @Composable
 internal fun EntryError(message: String) {
     androidx.tv.material3.Text(
-        message,
+        browseErrorText(message),
         color = Palette.Error,
         fontSize = 12.sp,
         lineHeight = 20.sp,
@@ -24,7 +25,7 @@ internal fun EntryError(message: String) {
 @Composable
 internal fun EntryRequestFeedback(busy: Boolean, error: String?, modifier: Modifier = Modifier) {
     val tv = LocalDeviceLayout.current.television
-    val message = if (!busy) error ?: " " else " "
+    val message = if (!busy) error?.let(::browseErrorText) ?: " " else " "
     Box(modifier.fillMaxWidth().height(if (tv) 22.dp else 21.dp)) {
         androidx.tv.material3.Text(
             message,
