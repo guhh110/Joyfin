@@ -91,13 +91,13 @@ internal fun SubtitleEmpty(title: String, description: String) {
 /** Search results are unframed rows; only the download control carries a surface. */
 @Composable
 internal fun SubtitleResultRow(title: String, metadata: String, release: String,
-    error: String? = null, action: @Composable () -> Unit) {
+    error: String? = null, compact: Boolean = false, action: @Composable () -> Unit) {
     val tv = LocalDeviceLayout.current.television
-    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (tv) TvSubtitleResultLayout(details = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (release == title) SubtitleFileName(title, color = Palette.Text) else SubtitleTitle(title)
+    Column(Modifier.fillMaxWidth().padding(vertical = if (compact) 8.dp else 16.dp, horizontal = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
+        if (tv || compact) TvSubtitleResultLayout(details = {
+            Column(verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)) {
+                if (release == title || compact) SubtitleFileName(title, color = Palette.Text) else SubtitleTitle(title)
                 if (release.isNotBlank() && release != title) SubtitleFileName(release)
                 Caption(metadata)
             }

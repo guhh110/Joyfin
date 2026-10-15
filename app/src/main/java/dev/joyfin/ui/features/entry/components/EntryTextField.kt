@@ -52,6 +52,7 @@ internal fun EntryTextField(
     next: Boolean = false,
     keyboardRequest: Int = 0,
     visibilityModifier: Modifier = Modifier,
+    showLabel: Boolean = true,
     onSubmit: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -87,7 +88,7 @@ internal fun EntryTextField(
             showKeyboardOnFocus = enabled && (!tv || keyboardActivated),
         )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        EntryText(label)
+        if (showLabel) EntryText(label)
         Row(
             Modifier.fillMaxWidth()
                 .heightIn(min = 54.dp)

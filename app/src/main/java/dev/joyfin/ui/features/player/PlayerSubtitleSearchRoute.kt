@@ -94,14 +94,16 @@ private fun PlayerSubtitleSearchContent(controller: PlayerSubtitleSearchControll
     LaunchedEffect(ui.closing) { if (ui.closing) keyboard?.hide() }
     val searching = if (ui.source == PlayerSubtitleSource.ASSRT) assrt.loading else os.loading
     val close = { controller.close() }
-    val content: @Composable ColumnScope.() -> Unit = {
-        if (!compactInput) Caption(ui.contextLabel, maxLines = 2)
+    val controls: @Composable (Boolean) -> Unit = { vertical ->
         if (stage == "results") {
-            if (!compactInput) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (!compactInput) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextTab("ASSRT", { controller.query(fieldState.text.toString()); controller.source(PlayerSubtitleSource.ASSRT) },
-                    ui.source == PlayerSubtitleSource.ASSRT, Modifier.focusTarget("quick:source:assrt"), enabled = !controller.busy)
+                    ui.source == PlayerSubtitleSource.ASSRT, Modifier.focusTarget("quick:source:assrt"),
+                    enabled = !controller.busy, compact = true)
                 TextTab("OpenSubtitles", { controller.query(fieldState.text.toString()); controller.source(PlayerSubtitleSource.OPEN_SUBTITLES) },
-                    ui.source == PlayerSubtitleSource.OPEN_SUBTITLES, Modifier.focusTarget("quick:source:os"), enabled = !controller.busy)
+                    ui.source == PlayerSubtitleSource.OPEN_SUBTITLES, Modifier.focusTarget("quick:source:os"),
+                    enabled = !controller.busy, compact = true)
             }
             val search: () -> Unit = {
                 controller.query(fieldState.text.toString())
@@ -110,74 +112,88 @@ private fun PlayerSubtitleSearchContent(controller: PlayerSubtitleSearchControll
             }
             val field: @Composable (Modifier) -> Unit = { modifier ->
                 EntryTextField("搜索关键词", fieldState, "作品名或文件名", modifier.focusTarget("quick:query"),
-                    enabled = !controller.busy, onSubmit = search)
+                    enabled = !controller.busy, showLabel = false, onSubmit = search)
             }
             val action: @Composable () -> Unit = {
-                ActionButton("搜索", search, Modifier.focusTarget("quick:search"), Glyph.Search,
+                ActionButton("搜索", search,
+                    (if (vertical) Modifier.fillMaxWidth() else Modifier).focusTarget("quick:search"), Glyph.Search,
                     primary = true, loading = ui.initializing || searching,
                     enabled = !controller.busy && !searching)
             }
-            if (tv) TvSubtitleSearchInput(field, action) else MobileSubtitleSearchInput(field, action)
+            if (vertical) {
+                field(Modifier.fillMaxWidth())
+                action()
+            } else if (tv) TvSubtitleSearchInput(field, action) else MobileSubtitleSearchInput(field, action)
             ui.error?.let { Caption(it, color = Palette.Error) }
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (ui.source == PlayerSubtitleSource.ASSRT) QuickAssrtResults(controller, assrtScroll)
-                else QuickOpenSubtitlesResults(controller, osScroll)
+            if (!compactInput) {
+                Caption(if (ui.source == PlayerSubtitleSource.ASSRT) "字幕服务由 assrt.net 提供"
+                    else "字幕服务由 OpenSubtitles.com 提供", maxLines = 2)
+                if (ui.source == PlayerSubtitleSource.OPEN_SUBTITLES)
+                    os.remaining?.let { Caption("剩余下载额度：$it") }
             }
         } else {
+            Caption(when {
+                stage == "encoding" -> "字幕编码"
+                choosingPack -> "选择字幕"
+                else -> "选择下载文件"
+            })
             ActionButton("返回搜索", controller::back, Modifier.focusTarget("quick:files-back"), Glyph.Back, quiet = true)
-            if (stage == "encoding") {
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                    SubtitleEncodingContent(controller.download, "重新保存并继续")
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (stage != "encoding") {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     TextTab("本集相关", { controller.showAll(false) }, !ui.showAll,
-                        Modifier.focusTarget("quick:related"), enabled = !controller.busy)
+                        Modifier.focusTarget("quick:related"), enabled = !controller.busy, compact = true)
                     TextTab("包内全部", { controller.showAll(true) }, ui.showAll,
-                        Modifier.focusTarget("quick:all"), enabled = !controller.busy)
+                        Modifier.focusTarget("quick:all"), enabled = !controller.busy, compact = true)
                 }
                 val error = ui.error ?: transfer.error ?: if (ui.source == PlayerSubtitleSource.ASSRT) assrt.error else os.error
                 error?.let { Caption(it, color = Palette.Error, maxLines = 4) }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = filesScroll,
-                    contentPadding = PaddingValues(bottom = 12.dp)) {
-                    if (candidates.isEmpty()) item("empty") {
-                        SubtitleEmpty("没有本集相关文件", "可切换到“包内全部”手动选择")
+            }
+        }
+    }
+    val results: @Composable () -> Unit = {
+        when {
+            stage == "results" -> {
+                if (ui.source == PlayerSubtitleSource.ASSRT) QuickAssrtResults(controller, assrtScroll)
+                else QuickOpenSubtitlesResults(controller, osScroll)
+            }
+            stage == "encoding" -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                SubtitleEncodingContent(controller.download, "重新保存并继续")
+            }
+            else -> LazyColumn(Modifier.fillMaxSize(), state = filesScroll,
+                contentPadding = PaddingValues(bottom = 8.dp)) {
+                if (candidates.isEmpty()) item("empty") {
+                    SubtitleEmpty("没有本集相关文件", "可切换到“包内全部”手动选择")
+                }
+                items(candidates, key = { names[it] + ":" + it }) { index ->
+                    val pack = ui.pack.takeIf { choosingPack }
+                    val fileKey = when {
+                        pack != null -> "quick:local:${pack.files[index].fileId}"
+                        assrtFiles -> "quick:assrt-file:$index"
+                        else -> "quick:os-file:$index"
                     }
-                    items(candidates, key = { names[it] + ":" + it }) { index ->
-                        val pack = ui.pack.takeIf { choosingPack }
-                        val fileKey = when {
-                            pack != null -> "quick:local:${pack.files[index].fileId}"
-                            assrtFiles -> "quick:assrt-file:$index"
-                            else -> "quick:os-file:$index"
-                        }
-                        val loading = ui.applying && ui.downloadFocusKey == fileKey || when {
-                            pack != null -> ui.applying && ui.selectedFileId == pack.files[index].fileId
-                            assrtFiles -> transfer.busy && transfer.fileName == names[index]
-                            else -> os.busyFile == os.selected!!.attributes.files[index].id ||
-                                transfer.busy && os.transferringFile == os.selected!!.attributes.files[index].id
-                        }
-                        SubtitleResultRow(names[index], if (pack != null) "保存到当前集及版本并使用" else "下载后选择字幕", names[index]) {
-                            ActionButton(if (pack != null) "使用" else "下载", {
-                                when {
-                                    pack != null -> controller.use(pack.files[index].fileId)
-                                    assrtFiles -> controller.download(assrt.files[index])
-                                    else -> controller.download(os.selected!!.attributes.files[index])
-                                }
-                            }, Modifier.focusTarget(fileKey), loading = loading, enabled = !controller.busy)
-                        }
+                    val loading = ui.applying && ui.downloadFocusKey == fileKey || when {
+                        pack != null -> ui.applying && ui.selectedFileId == pack.files[index].fileId
+                        assrtFiles -> transfer.busy && transfer.fileName == names[index]
+                        else -> os.busyFile == os.selected!!.attributes.files[index].id ||
+                            transfer.busy && os.transferringFile == os.selected!!.attributes.files[index].id
+                    }
+                    SubtitleResultRow(names[index], if (pack != null) "保存到当前集及版本并使用" else "下载后选择字幕",
+                        names[index], compact = true) {
+                        ActionButton(if (pack != null) "使用" else "下载", {
+                            when {
+                                pack != null -> controller.use(pack.files[index].fileId)
+                                assrtFiles -> controller.download(assrt.files[index])
+                                else -> controller.download(os.selected!!.attributes.files[index])
+                            }
+                        }, Modifier.focusTarget(fileKey), loading = loading, enabled = !controller.busy)
                     }
                 }
             }
         }
     }
-    val title = when {
-        stage == "encoding" -> "字幕编码"
-        choosingPack -> "选择字幕"
-        stage != "results" -> "选择下载文件"
-        else -> "搜索字幕"
-    }
-    if (tv) TvPlayerSubtitleSearchLayout(ui.closing, close, controller::finishClose, title, content)
-    else MobilePlayerSubtitleSearchLayout(ui.closing, close, controller::finishClose, title, content)
+    val title = ui.contextLabel.ifBlank { "搜索字幕" }
+    if (tv) TvPlayerSubtitleSearchLayout(ui.closing, close, controller::finishClose, title, controls, results)
+    else MobilePlayerSubtitleSearchLayout(ui.closing, close, controller::finishClose, title, controls, results)
 }
 
 @Composable
@@ -185,8 +201,7 @@ private fun QuickAssrtResults(controller: PlayerSubtitleSearchController, scroll
     val ui by controller.assrt.state.collectAsState()
     val search by controller.state.collectAsState()
     val transfer by controller.download.state.collectAsState()
-    LazyColumn(state = scroll, contentPadding = PaddingValues(bottom = 12.dp)) {
-        item("attribution") { Caption("字幕服务由 assrt.net 提供") }
+    LazyColumn(Modifier.fillMaxSize(), state = scroll, contentPadding = PaddingValues(bottom = 8.dp)) {
         if (search.initializing || ui.loading && ui.results.isEmpty()) item("skeleton") { QuickSubtitleSkeleton() }
         if (!search.initializing && !ui.loading && !ui.available) item("configuration") {
             SubtitleEmpty("尚未配置 ASSRT", "请先在字幕管理的来源设置中启用 ASSRT 并填写 Token")
@@ -195,7 +210,7 @@ private fun QuickAssrtResults(controller: PlayerSubtitleSearchController, scroll
             SubtitleResultRow(entry.nativeName.ifBlank { entry.videoname },
                 listOf(entry.lang.desc, entry.subtype).filter { it.isNotBlank() }.joinToString(" · "), entry.videoname,
                 error = ui.error.takeIf { ui.failedId == entry.id }
-                    ?: transfer.error.takeIf { ui.transferringId == entry.id }) {
+                    ?: transfer.error.takeIf { ui.transferringId == entry.id }, compact = true) {
                 ActionButton("下载", { controller.choose(entry) }, Modifier.focusTarget("quick:assrt:${entry.id}"),
                     loading = ui.busyId == entry.id || transfer.busy && ui.transferringId == entry.id ||
                         search.applying && search.downloadFocusKey == "quick:assrt:${entry.id}",
@@ -223,9 +238,7 @@ private fun QuickOpenSubtitlesResults(controller: PlayerSubtitleSearchController
     val ui by controller.openSubtitles.state.collectAsState()
     val search by controller.state.collectAsState()
     val transfer by controller.download.state.collectAsState()
-    LazyColumn(state = scroll, contentPadding = PaddingValues(bottom = 12.dp)) {
-        item("attribution") { Caption("字幕服务由 OpenSubtitles.com 提供") }
-        ui.remaining?.let { item("quota") { Caption("剩余下载额度：$it") } }
+    LazyColumn(Modifier.fillMaxSize(), state = scroll, contentPadding = PaddingValues(bottom = 8.dp)) {
         if (search.initializing || ui.loading && ui.results.isEmpty()) item("skeleton") { QuickSubtitleSkeleton() }
         if (!search.initializing && !ui.loading && !ui.available) item("configuration") {
             SubtitleEmpty("尚未配置 OpenSubtitles", "请先在字幕管理的来源设置中配置并启用 OpenSubtitles")
@@ -233,7 +246,7 @@ private fun QuickOpenSubtitlesResults(controller: PlayerSubtitleSearchController
         items(ui.results, key = { it.id }) { entry ->
             val data = entry.attributes
             SubtitleResultRow(data.feature.title.ifBlank { data.release }, "${data.language} · ${data.files.size} 个文件", data.release,
-                error = (ui.error ?: transfer.error).takeIf { ui.selected?.id == entry.id }) {
+                error = (ui.error ?: transfer.error).takeIf { ui.selected?.id == entry.id }, compact = true) {
                 ActionButton("下载", { controller.choose(entry) }, Modifier.focusTarget("quick:os:${entry.id}"),
                     loading = ui.selected?.id == entry.id && (ui.busyFile != null || transfer.busy) ||
                         search.applying && search.downloadFocusKey == "quick:os:${entry.id}",
