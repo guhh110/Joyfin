@@ -161,6 +161,7 @@ fun TvEpisodeDetails(
                                         if (details.loading && tracks.isEmpty()) SkeletonText(lines = 3)
                                         else BoundedCardBody(text, maxHeight.value)
                                     }
+                                } else {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
