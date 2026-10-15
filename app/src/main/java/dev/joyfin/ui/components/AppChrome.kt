@@ -1,10 +1,15 @@
 package dev.joyfin.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -49,36 +54,84 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
     }
 }
 
-/** Navigation belongs to the same page focus scope; returning can restore the tapped tab. */
+/** Modern, refined bottom navigation for mobile with active pill indicator and smooth color animation. */
 @Composable
 fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
     val destinations = listOf(
-        Triple("home", "首页", Glyph.Home), Triple("library", "媒体库", Glyph.Library),
-        Triple("subtitles", "字幕", Glyph.Subtitle), Triple("search", "搜索", Glyph.Search),
+        Triple("home", "首页", Glyph.Home),
+        Triple("library", "媒体库", Glyph.Library),
+        Triple("subtitles", "字幕", Glyph.Subtitle),
+        Triple("search", "搜索", Glyph.Search),
     )
-    Column(Modifier.fillMaxWidth().background(Palette.Surface)) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.Line))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Palette.Surface.copy(alpha = 0.96f))
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(Palette.Line)
+        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             destinations.forEach { (id, label, glyph) ->
                 val current = active == id
-                FocusSurface({
-                    if (!current) when (id) {
-                        "home" -> actions.home()
-                        "library" -> actions.library(null, "媒体库")
-                        "subtitles" -> actions.subtitleManager()
-                        else -> actions.search()
+                val itemBgColor by animateColorAsState(
+                    targetValue = if (current) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                    animationSpec = tween(durationMillis = 180, easing = MotionTokens.Easing),
+                    label = "navTabBg",
+                )
+                val contentColor by animateColorAsState(
+                    targetValue = if (current) Palette.Text else Palette.Muted,
+                    animationSpec = tween(durationMillis = 180, easing = MotionTokens.Easing),
+                    label = "navTabContent",
+                )
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            if (!current) when (id) {
+                                "home" -> actions.home()
+                                "library" -> actions.library(null, "媒体库")
+                                "subtitles" -> actions.subtitleManager()
+                                else -> actions.search()
+                            }
+                        }
+                        .padding(vertical = 4.dp)
+                        .semantics {
+                            role = Role.Tab
+                            selected = current
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .height(30.dp)
+                            .background(itemBgColor, RoundedCornerShape(15.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        AppIcon(glyph, color = contentColor)
                     }
-                }, Modifier.weight(1f).heightIn(min = 48.dp).focusTarget("navigation:$id")
-                    .semantics { selected = current }, transparent = true,
-                    focusedScale = MotionTokens.FixedScale) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        val color = if (current) Palette.Text else Palette.Muted
-                        AppIcon(glyph, color = color)
-                        Text(label, color = color, fontSize = 11.sp, lineHeight = 16.sp,
-                            fontWeight = if (current) FontWeight.Medium else FontWeight.Normal)
-                    }
+                    Text(
+                        text = label,
+                        color = contentColor,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        fontWeight = if (current) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 1,
+                    )
                 }
             }
         }

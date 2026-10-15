@@ -40,10 +40,7 @@ fun AppContent(
 ) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
-    val immersiveBrowse =
-        ui.page == Page.HOME || ui.page == Page.DETAIL &&
-            (ui.detail.item?.type == "Series" ||
-                ui.detail.entryType in setOf("Series", "Season", "Episode"))
+    val immersiveBrowse = ui.page in setOf(Page.HOME, Page.DETAIL)
     val subtitleScreen = subtitles?.state?.collectAsState()?.value?.screen
     val showNavigation = !LocalDeviceLayout.current.television &&
         ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES) &&
@@ -71,27 +68,48 @@ fun AppContent(
         visitedPages.add(pageKey)
     }
 
-    Box(
-        Modifier.fillMaxSize()
+    val activeTab = when (ui.page) {
+        Page.HOME -> "home"
+        Page.LIBRARY -> "library"
+        Page.SUBTITLES -> "subtitles"
+        Page.SEARCH -> "search"
+        else -> ""
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
             .background(Palette.Background)
             .then(
                 if (LocalDeviceLayout.current.television || entry) Modifier
-                else if (immersiveBrowse)
-                    Modifier.windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(
-                            WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
-                        )
-                    )
-                else Modifier.safeDrawingPadding()
+                else Modifier.windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+                )
             )
             .then(if (entry) Modifier else Modifier.imePadding())
     ) {
-        key(pageKey) {
-            holder.SaveableStateProvider(pageKey) {
-                PageFadeHost(pageKey = pageKey, isReturn = isReturn) {
-                    RememberScreenFocus(initial) {
-                        Column(Modifier.fillMaxSize()) {
-                            Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            key(pageKey) {
+                holder.SaveableStateProvider(pageKey) {
+                    PageFadeHost(pageKey = pageKey, isReturn = isReturn) {
+                        RememberScreenFocus(initial) {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (LocalDeviceLayout.current.television || entry || immersiveBrowse) Modifier
+                                        else Modifier.statusBarsPadding()
+                                    )
+                                    .then(
+                                        if (!showNavigation && !LocalDeviceLayout.current.television && !entry)
+                                            Modifier.navigationBarsPadding()
+                                        else Modifier
+                                    )
+                            ) {
                                 when (ui.page) {
                                     Page.CONNECT,
                                     Page.LOGIN ->
@@ -108,24 +126,20 @@ fun AppContent(
                                     }
                                 }
                             }
-                            if (showNavigation) MobileBrowseNavigation(actions, when (ui.page) {
-                                Page.HOME -> "home"
-                                Page.LIBRARY -> "library"
-                                Page.SUBTITLES -> "subtitles"
-                                Page.SEARCH -> "search"
-                                else -> ""
-                            })
                         }
                     }
                 }
             }
+            if (!entry && ui.page == Page.SETTINGS)
+                RequestStatus(
+                    ui.settings.busy,
+                    ui.settings.error,
+                    actions.retry,
+                    Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                )
         }
-        if (!entry && ui.page == Page.SETTINGS)
-            RequestStatus(
-                ui.settings.busy,
-                ui.settings.error,
-                actions.retry,
-                Modifier.align(Alignment.BottomCenter).padding(16.dp),
-            )
+        if (showNavigation) {
+            MobileBrowseNavigation(actions, activeTab)
+        }
     }
 }
