@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionKind
 import dev.joyfin.browse.CollectionUiState
 import dev.joyfin.ui.components.*
@@ -24,20 +25,32 @@ internal fun LazyGridScope.mediaCollectionItems(
     item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
         Column {
             header()
-            RegionLoadFeedback(
-                ui.busy && !ui.appending,
-                ui.error.takeUnless { ui.appending },
-                actions.retry,
-                ui.media.isNotEmpty(),
-                requestKey = Triple(ui.parent, ui.query, ui.person?.id),
-                reserveSpace = false,
-            )
+            if (ui.media.isNotEmpty()) {
+                RegionLoadFeedback(
+                    ui.busy && !ui.appending,
+                    ui.error.takeUnless { ui.appending },
+                    actions.retry,
+                    true,
+                    requestKey = Triple(ui.parent, ui.query, ui.person?.id),
+                    reserveSpace = false,
+                )
+            }
         }
     }
     if (ui.media.isEmpty() && ui.busy)
         items(skeletonCount, key = { "skeleton:$it" }) {
             MediaCardSkeleton(Modifier.fillMaxWidth(), wide = directories, visible = skeletonVisible,
                 showSubtitle = !directories)
+        }
+    if (ui.media.isEmpty() && !ui.busy && ui.error != null)
+        item(span = { GridItemSpan(maxLineSpan) }, key = "error") {
+            ErrorContent(
+                title = if (ui.kind == CollectionKind.SEARCH) "暂时无法读取搜索结果" else "暂时无法加载媒体库",
+                error = ui.error,
+                action = if (ui.kind == CollectionKind.SEARCH) "重新搜索" else "重新加载",
+                onAction = actions.retry,
+                loading = ui.busy,
+            )
         }
     if (
         ui.media.isEmpty() &&
@@ -63,13 +76,18 @@ internal fun LazyGridScope.mediaCollectionItems(
     }
     if (ui.total > 0)
         item(span = { GridItemSpan(maxLineSpan) }, key = "more") {
-            Column {
-                if (ui.appending && !ui.busy)
-                    ui.error?.let { Caption(it, color = dev.joyfin.ui.theme.Palette.Error) }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (ui.appending && !ui.busy && ui.error != null)
+                    RegionLoadFeedback(
+                        false,
+                        ui.error,
+                        actions.loadMore,
+                        true,
+                        reserveSpace = false,
+                    )
                 val more = ui.nextOffset < ui.total
-                ActionButton(
+                if (!ui.appending || ui.error == null) ActionButton(
                     if (!more) "已加载全部 · ${ui.media.size}"
-                    else if (ui.appending && ui.error != null) "重试加载更多"
                     else "加载更多 · ${ui.media.size} / ${ui.total}",
                     actions.loadMore,
                     Modifier.focusTarget("collection:more"),

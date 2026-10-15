@@ -1,8 +1,11 @@
 package dev.joyfin.ui.features.home.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -14,6 +17,7 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.ui.theme.Palette
 
 internal fun homeContent(ui: HomeUiState): Home {
     val home =
@@ -70,13 +74,9 @@ internal fun HomeHeroContent(
     ) {
         if (featured == null && !result.visible && (home.resumeLoad.loading || home.latestLoad.loading)) {
             SkeletonText(Modifier.fillMaxWidth(), 3)
-        } else {
+        } else if (featured != null) {
             FilmTitle(
-                featured?.seriesName?.ifBlank { featured.name } ?: featured?.name ?: when {
-                    result.visible && result.error != null -> "暂时无法加载媒体库"
-                    result.visible -> "媒体库还是空的"
-                    else -> "媒体库"
-                },
+                featured.seriesName.ifBlank { featured.name },
                 large = tv && !compact,
                 maxLines = if (tv) if (compact) 1 else 2 else 3,
             )
@@ -100,6 +100,22 @@ internal fun HomeHeroContent(
         } else if (result.visible) {
             val error = result.error
             val loading = listOf(home.resumeLoad, home.latestLoad, home.librariesLoad).any { it.loading }
+            if (error != null) {
+                Box(
+                    Modifier.size(44.dp).background(Palette.Elevated, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AppIcon(Glyph.Info, Modifier.size(22.dp), color = Palette.Text)
+                }
+            }
+            FilmTitle(
+                when {
+                    result.error != null -> "暂时无法加载媒体库"
+                    else -> "媒体库还是空的"
+                },
+                large = tv && !compact,
+                maxLines = if (tv) if (compact) 1 else 2 else 3,
+            )
             Caption(error?.let(::browseErrorText) ?: "在服务器中添加影片或剧集后，回到这里刷新。")
             ActionButton(if (error != null) "重新加载" else "刷新媒体库", {
                 HomeRegion.entries.forEach(actions.retryHome)

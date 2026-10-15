@@ -35,10 +35,11 @@ internal fun OpenSubtitlesResults(controller: OpenSubtitlesSearchController, dow
                     enabled = ui.busyFile == null && !transfer.busy && !transfer.needsEncoding)
             }
         }
-        ui.error?.let { message -> item("error") {
-            Caption(message, color = Palette.Error)
-            ActionButton("重试 OpenSubtitles 搜索", controller::retry, loading = ui.loading, enabled = !ui.loading)
-        } }
+        if (ui.results.isEmpty() && ui.error != null && !ui.loading) item("error") {
+            ErrorContent("暂时无法读取字幕", ui.error ?: "搜索失败", "重试搜索", controller::retry, loading = ui.loading)
+        } else if (ui.error != null) item("error") {
+            RegionLoadFeedback(ui.loading, ui.error, controller::retry, true, reserveSpace = false)
+        }
         if (ui.available && !ui.loading && ui.results.isEmpty() && ui.error == null) item("empty") { SubtitleEmpty("没有找到字幕", "尝试修改关键词或语言") }
         if (ui.nextPage != null || ui.loadingMore) item("more") {
             ActionButton("加载更多", controller::more,

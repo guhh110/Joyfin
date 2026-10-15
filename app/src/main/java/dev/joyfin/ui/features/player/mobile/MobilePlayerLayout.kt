@@ -31,12 +31,19 @@ internal fun MobilePlayerLayout(
     )
     if (ui.error != null)
         RememberScreenFocus("player:retry") {
-            Sheet("无法播放", actions.close) {
-                Caption(ui.error, color = Palette.Error)
+            Sheet("播放失败", actions.close) {
+                Row(
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppIcon(Glyph.Info, Modifier.size(18.dp), color = Palette.Muted)
+                    Caption(browseErrorText(ui.error), color = Palette.Text)
+                }
                 ActionButton(
-                    "重试",
+                    "重试播放",
                     actions.retry,
                     Modifier.focusTarget("player:retry"),
+                    icon = Glyph.Refresh,
                     primary = true,
                 )
                 ActionButton("兼容转码", actions.compatible)

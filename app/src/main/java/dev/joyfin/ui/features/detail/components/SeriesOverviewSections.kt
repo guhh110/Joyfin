@@ -37,23 +37,16 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
     ) {
         SeriesEpisodePreview(ui, images, actions, focus, previewList, onSeason, onPreview,
             subtitleAction = { SeriesSubtitleAction(content) })
-        if (ui.error != null || ui.busy || recommendation?.error != null || recommendation?.loading == true) Row(
-            Modifier.padding(horizontal = layout.gutter),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            RetryAction(
-                "重试剧信息",
-                ui.error,
-                ui.busy,
-                actions.retry,
-                Modifier.seriesFocus("detail:retry", focus),
-            )
-            RetryAction(
-                "重试续看",
-                recommendation?.error,
-                recommendation?.loading == true,
-                actions.retrySeriesRecommendation,
-                Modifier.seriesFocus("recommendation:retry", focus),
+        val topError = ui.error ?: recommendation?.error
+        if (topError != null) {
+            RegionLoadFeedback(
+                ui.busy || recommendation?.loading == true,
+                topError,
+                if (ui.error != null) actions.retry else actions.retrySeriesRecommendation,
+                ui.ready,
+                Modifier.padding(horizontal = layout.gutter),
+                stableRetrySlot = true,
+                reserveSpace = false,
             )
         }
         if (ui.busy && !ui.ready && media?.people.isNullOrEmpty()) PeopleRailSkeleton()
@@ -82,18 +75,10 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
             RegionLoadFeedback(
                 ui.relatedLoad.loading,
                 ui.relatedLoad.error,
-                null,
+                actions.retryRelated,
                 ui.related.isNotEmpty(),
                 Modifier.padding(horizontal = layout.gutter),
                 reserveSpace = false,
-            )
-            RetryAction(
-                "重试相似作品",
-                ui.relatedLoad.error,
-                ui.relatedLoad.loading,
-                actions.retryRelated,
-                Modifier.padding(horizontal = layout.gutter)
-                    .seriesFocus("series:related:retry", focus),
             )
         }
     }
@@ -150,27 +135,19 @@ private fun SeriesEpisodePreview(
             else if (episodes is SeriesResource.Ready && episodes.error == null && seasons?.error == null)
                 Caption("本季暂无剧集", Modifier.padding(horizontal = gutter))
         }
+        val previewError = episodes?.error ?: seasons?.error ?: ui.series?.entryError
+        val retryPreviewAction = when {
+            seasons?.error != null -> actions.retrySeriesSeasons
+            episodes?.error != null -> actions.retrySeriesSeason
+            else -> actions.retry
+        }
         RegionLoadFeedback(
             previewLoading,
-            episodes?.error ?: seasons?.error ?: ui.series?.entryError,
-            null,
+            previewError,
+            retryPreviewAction,
             items.isNotEmpty(),
             Modifier.padding(horizontal = gutter),
             reserveSpace = false,
-        )
-        RetryAction(
-            "重试季信息",
-            ui.series?.seasons?.error,
-            ui.series?.seasons?.loading == true,
-            actions.retrySeriesSeasons,
-            Modifier.padding(horizontal = gutter).seriesFocus("series:seasons:retry", focus),
-        )
-        RetryAction(
-            "重试剧集预览",
-            episodes?.error,
-            episodes?.loading == true,
-            actions.retrySeriesSeason,
-            Modifier.padding(horizontal = gutter).seriesFocus("series:preview:retry", focus),
         )
     }
 }

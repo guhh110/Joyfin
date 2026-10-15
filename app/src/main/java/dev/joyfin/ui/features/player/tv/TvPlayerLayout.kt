@@ -13,6 +13,11 @@ import dev.joyfin.ui.features.player.components.*
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.theme.Palette
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+
 @Composable
 internal fun TvPlayerLayout(
     ui: PlayerUiState,
@@ -31,22 +36,33 @@ internal fun TvPlayerLayout(
     ) {
         if (ui.error != null)
             Column(
-                Modifier.align(Alignment.TopCenter).padding(top = 64.dp),
+                Modifier.align(Alignment.TopCenter).padding(top = 48.dp)
+                    .background(Color(0xE6141418), RoundedCornerShape(12.dp))
+                    .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Box(Modifier.height(24.dp)) { Caption(ui.error, color = Palette.Error) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppIcon(Glyph.Info, Modifier.size(18.dp), color = Palette.Muted)
+                    Caption(browseErrorText(ui.error), color = Palette.Text)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ActionButton(
                         "重试",
                         actions.retry,
                         Modifier.focusTarget("player:retry"),
-                        quiet = true,
+                        icon = Glyph.Refresh,
+                        primary = true,
                     )
                     ActionButton(
                         "兼容转码",
                         actions.compatible,
                         Modifier.focusTarget("player:compatible"),
-                        quiet = true,
+                        quiet = false,
                     )
                 }
             }

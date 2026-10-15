@@ -49,3 +49,43 @@ fun EmptyContent(
         if (action != null && onAction != null) ActionButton(action, onAction)
     }
 }
+
+@Composable
+fun ErrorContent(
+    title: String,
+    error: String,
+    action: String = "重新加载",
+    onAction: (() -> Unit)? = null,
+    loading: Boolean = false,
+    modifier: Modifier = Modifier,
+    icon: Glyph = Glyph.Info,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(vertical = 36.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .background(Palette.Elevated, RoundedCornerShape(12.dp)),
+            contentAlignment = androidx.compose.ui.Alignment.Center,
+        ) {
+            AppIcon(icon, Modifier.size(22.dp), color = Palette.Text)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionTitle(title)
+            Caption(browseErrorText(error), color = Palette.Muted)
+        }
+        if (onAction != null) {
+            ActionButton(
+                action,
+                onAction,
+                icon = Glyph.Refresh,
+                primary = true,
+                loading = loading,
+            )
+        }
+    }
+}
