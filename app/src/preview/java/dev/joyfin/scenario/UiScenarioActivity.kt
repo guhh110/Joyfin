@@ -67,6 +67,7 @@ class UiScenarioActivity : ComponentActivity() {
                         entered = true
                         when (intent.getStringExtra("page")) {
                             "detail" -> vm.open(Media.from(ScenarioMedia.series))
+                            "movie" -> vm.open(Media.from(ScenarioMedia.movies.first()))
                             "library" -> vm.library()
                             "search" -> { vm.search(); vm.submitSearch("群山") }
                             "subtitles" -> vm.openSubtitleManager()

@@ -9,7 +9,7 @@ adb shell am start -S -W -n dev.joyfin/.scenario.UiScenarioActivity --es scenari
 ```
 
 - `scenario`：`normal`、`empty`、`error`。页面顶部也可切换，切换会刷新当前页面。
-- `page`：`home`、`detail`、`library`、`search`、`subtitles`。
+- `page`：`home`、`detail`（剧集）、`movie`（电影）、`library`、`search`、`subtitles`。
 - `--el delayMs 1200`：每次响应延迟，范围 0–5000ms，用来人工查看按钮内加载和静态骨架。
 - `-S` 停止当前应用进程后进入独立场景，保留真实数据；每次冷启动可检查不含旧内容的结果状态。
 - 从正常切到错误／空数据，可检查刷新保留已有内容及成功清空；从错误切回正常，可检查恢复。
