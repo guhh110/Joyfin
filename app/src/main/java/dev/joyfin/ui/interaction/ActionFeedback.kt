@@ -24,7 +24,7 @@ import dev.joyfin.ui.theme.rememberMotionSpec
 /**
  * 统一交互反馈修饰符：
  * 1. 80ms 按压明暗反馈（控件形状内高亮/加深，快速确认亦可见）
- * 2. 140ms 焦点颜色/边框平滑过渡（暖白边框 2dp，选中状态保留暖金 1dp，两者可同时辨认）
+ * 2. 140ms 焦点颜色/边框平滑过渡（白色焦点边框 2dp，选中状态使用灰色底色与标记，两者可同时辨认）
  * 3. 140ms 绘图层平滑缩放，获焦提升 zIndex，不改变测量尺寸和焦点槽位
  */
 @Composable
@@ -51,7 +51,7 @@ fun Modifier.actionVisualFeedback(
     val animatedScale by
         animateFloatAsState(targetValue = targetScale, animationSpec = scaleSpec, label = "actionScale")
 
-    val targetBorderWidth = if (focused) 1.5.dp else if (selected) 1.5.dp else if (!transparent) 1.dp else 0.dp
+    val targetBorderWidth = if (focused) 2.dp else if (selected) 1.dp else 0.dp
     val animatedBorderWidth by
         animateDpAsState(
             targetValue = targetBorderWidth,
@@ -63,8 +63,7 @@ fun Modifier.actionVisualFeedback(
         overrideBorderColor
             ?: when {
                 focused -> Palette.BorderFocus
-                selected -> Palette.Gold
-                !transparent -> Palette.BorderSubtle
+                selected -> Palette.Muted
                 else -> Color.Transparent
             }
     val animatedBorderColor by
@@ -77,6 +76,7 @@ fun Modifier.actionVisualFeedback(
     val defaultBg =
         when {
             primary -> if (focused) Palette.Text else Palette.Text.copy(alpha = 0.92f)
+            selected -> Palette.Selected
             focused -> Palette.Elevated
             transparent -> Color.Transparent
             else -> Palette.Surface
@@ -89,7 +89,7 @@ fun Modifier.actionVisualFeedback(
                 primary -> Palette.Text.copy(alpha = 0.82f)
                 focused -> Palette.Elevated.copy(alpha = 0.90f)
                 transparent -> Color.White.copy(alpha = 0.12f)
-                else -> Color(0xFF282D35)
+                else -> Palette.Pressed
             }
         } else {
             baseBg

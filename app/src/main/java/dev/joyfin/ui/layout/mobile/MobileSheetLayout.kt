@@ -24,7 +24,7 @@ internal fun MobileSheetLayout(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
-    val width = if (side) (config.screenWidthDp.dp * .48f).coerceAtMost(380.dp) else 520.dp
+    val width = if (side) (config.screenWidthDp.dp * .48f).coerceAtMost(380.dp) else 518.dp
     val height =
         if (side) Modifier.fillMaxHeight()
         else Modifier.heightIn(max = config.screenHeightDp.dp * .85f)
@@ -36,7 +36,7 @@ internal fun MobileSheetLayout(
         slideHorizontal = side,
     ) { isExiting ->
         Box(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxSize().navigationBarsPadding().imePadding(),
             contentAlignment = if (side) Alignment.CenterEnd else Alignment.BottomCenter,
         ) {
             Box(
@@ -51,8 +51,8 @@ internal fun MobileSheetLayout(
                 width,
                 height,
                 RoundedCornerShape(
-                    topStart = 20.dp,
-                    topEnd = if (side) 0.dp else 20.dp,
+                    topStart = 18.dp,
+                    topEnd = if (side) 0.dp else 18.dp,
                     bottomStart = 0.dp,
                     bottomEnd = 0.dp,
                 ),

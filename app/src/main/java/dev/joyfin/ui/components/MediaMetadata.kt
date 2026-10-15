@@ -17,7 +17,7 @@ fun MediaMetadata(item: Media) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item.rating?.let {
-            Caption("★ ${String.format(Locale.ROOT,"%.1f",it)}", color = Palette.Gold)
+            Caption("★ ${String.format(Locale.ROOT,"%.1f",it)}", color = Palette.Text)
         }
         if (item.year > 0) Caption(item.year.toString())
         if (item.genres.isNotEmpty()) Caption(item.genres.take(2).joinToString(" / "))

@@ -11,7 +11,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import dev.joyfin.data.Media
 import dev.joyfin.ui.components.*
@@ -59,7 +58,7 @@ internal fun MovieHero(
                 Modifier.padding(horizontal = gutter).padding(top = topPadding, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Caption("电影", color = Palette.Gold)
+                Caption("电影", color = Palette.Text)
                 val knownName = media?.name?.takeIf { it.isNotBlank() }
                 Box(Modifier.fillMaxWidth()) {
                     // The same text metrics reserve the title slot, including larger system fonts.
@@ -68,7 +67,7 @@ internal fun MovieHero(
                         modifier =
                             if (knownName == null) Modifier.clearAndSetSemantics {} else Modifier,
                         color = Palette.Text,
-                        fontFamily = FontFamily.Serif,
+                        fontFamily = FontFamily.SansSerif,
                         fontSize = titleSize,
                         lineHeight = titleLineHeight,
                         maxLines = 2,

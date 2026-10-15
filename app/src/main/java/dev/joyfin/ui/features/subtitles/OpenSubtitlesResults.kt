@@ -20,14 +20,14 @@ internal fun OpenSubtitlesResults(controller: OpenSubtitlesSearchController, dow
         if (ui.selected != null) returning = true
         else if (returning) { withFrameNanos {}; focus?.restore(); returning = false }
     }
-    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
+    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
         item("attribution") { Caption("字幕服务由 OpenSubtitles.com 提供") }
         ui.remaining?.let { item("quota") { Caption("剩余下载额度：$it") } }
         if (!ui.loading && !ui.available) item("configure") { ActionButton("配置 OpenSubtitles", settings) }
         if (ui.loading && ui.results.isEmpty()) item("skeleton") { repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(90.dp).padding(bottom = 8.dp)) } }
         items(ui.results, key = { it.id }) { item ->
             val data = item.attributes
-            SubtitleResultCard(data.feature.title.ifBlank { data.release },
+            SubtitleResultRow(data.feature.title.ifBlank { data.release },
                 "${data.language} · ${data.files.size} 个文件", data.release,
                 error = if (ui.selected?.id == item.id) ui.error ?: transfer.error.takeIf { transfer.source == "OpenSubtitles" } else null) {
                 ActionButton("下载", { controller.choose(item) }, Modifier.focusTarget("opensubtitles:result:${item.id}"),

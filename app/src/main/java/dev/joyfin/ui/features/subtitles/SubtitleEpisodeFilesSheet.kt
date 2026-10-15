@@ -70,11 +70,11 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                 .any { it.contains(query, ignoreCase = true) }
         }
     }
-    fun returnToFiles(id: String = sourceId) {
+    fun returnToFiles(id: String = sourceId, focusSource: Boolean = true) {
         sourceId = id
         choosingPackage = false
         keyboard?.hide()
-        requestedFocus = "candidate:source"
+        requestedFocus = if (focusSource) "candidate:source" else null
         focusEvent++
     }
     fun dismissView() { if (choosingPackage) returnToFiles() else dismiss() }
@@ -108,12 +108,11 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                 }
             }
         }
-        Sheet(if (choosingPackage) "选择字幕来源包" else media.label, ::dismissView, scrollContent = false, actions = {
+        Sheet(if (choosingPackage) "选择字幕来源包" else media.label, ::dismissView, scrollContent = false, preferredWidth = if (tv) 680.dp else null, actions = {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Caption("已选 ${associated.size} 份", color = Palette.Text)
-                    Caption("返回后统一保存本地")
                 }
                 ActionButton(if (choosingPackage) "返回字幕选择" else "完成", ::dismissView,
                     Modifier.focusTarget("candidate:done"), primary = true)
@@ -122,11 +121,11 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
             if (choosingPackage) {
                 SubtitleCandidatePackagesContent(ui.candidatePackages, packages, sourceId, queryText, packagesScroll,
                     reload = { controller.loadCandidatePackages(reload = true) },
-                    select = { showAll = false; returnToFiles(it) })
+                    select = { showAll = false; returnToFiles(it, focusSource = false) })
             } else {
                 Caption(media.sources.firstOrNull { it.id == version }?.name.orEmpty(), maxLines = 2)
                 Caption("${if (source.id == pack.id) "当前包" else "来源包"} · ${source.title}",
-                    color = Palette.Gold, maxLines = 1)
+                    maxLines = 1)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     ActionButton("从其他包添加", {
                         queryText.edit { replace(0, length, "") }
@@ -135,15 +134,16 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                         val target = sortedPackages.firstOrNull { it.id == sourceId } ?: sortedPackages.firstOrNull()
                         requestedFocus = target?.let { "candidate:package:${it.id}" } ?: "candidate:packages-reload"
                         focusEvent++
-                    }, Modifier.focusTarget("candidate:source"), quiet = true)
+                    }, Modifier.focusTarget("candidate:source"), Glyph.Plus, quiet = true)
                     if (source.id != pack.id) ActionButton("返回当前包", { showAll = false; returnToFiles(pack.id) }, quiet = true)
-                    ActionButton("相关文件", { showAll = false }, Modifier.focusTarget("candidate:related"), selected = !showAll, quiet = true)
-                    ActionButton("包内全部", { showAll = true }, Modifier.focusTarget("candidate:all"), selected = showAll, quiet = true)
                 }
-                Caption("${candidates.size} 份候选 · 勾选多份，播放时在播放器中选择使用")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextTab("相关文件", { showAll = false }, !showAll, Modifier.focusTarget("candidate:related"))
+                    TextTab("包内全部 (${sourceFiles.size})", { showAll = true }, showAll, Modifier.focusTarget("candidate:all"))
+                }
                 SubtitleDivider()
-                LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = filesScroll,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth(), state = filesScroll,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // The complete source name scrolls with the list, so a long name cannot
                     // consume the file viewport or push the fixed footer off screen.
                     item("source:name") { SubtitleFileName(source.title) }

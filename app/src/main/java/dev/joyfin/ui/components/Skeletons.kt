@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,7 +53,7 @@ fun SkeletonBlock(modifier: Modifier = Modifier) {
     Box(
         modifier
             .alpha(if (visible) 1f else 0f)
-            .background(Palette.Surface, RoundedCornerShape(10.dp))
+            .background(Palette.Surface, RoundedCornerShape(MediaCardLayout.Corner))
             .clearAndSetSemantics {}
     )
 }
@@ -81,33 +82,34 @@ fun MediaCardSkeleton(
     modifier: Modifier = Modifier,
     wide: Boolean = false,
     visible: Boolean = rememberSkeletonVisible(true),
+    showSubtitle: Boolean = true,
 ) {
     CompositionLocalProvider(LocalSkeletonVisibility provides true) {
         Column(
             modifier
                 .alpha(if (visible) 1f else 0f)
                 .padding(vertical = dev.joyfin.ui.theme.MotionTokens.MediaCardVerticalReserve)
-                .padding(3.dp)
+                .padding(MediaCardLayout.ContentInset * 2)
                 .clearAndSetSemantics {}
         ) {
-            SkeletonBlock(Modifier.fillMaxWidth().aspectRatio(if (wide) 16f / 9f else 2f / 3f))
-            Spacer(Modifier.height(10.dp))
-            SkeletonTextLine(14.sp, 20.sp)
-            SkeletonTextLine(12.sp, 19.sp, .5f)
+            SkeletonBlock(Modifier.fillMaxWidth().aspectRatio(MediaCardLayout.ratio(wide)))
+            Spacer(Modifier.height(MediaCardLayout.TextGap))
+            SkeletonTextLine(15.sp, 20.sp)
+            if (showSubtitle) SkeletonTextLine(12.sp, 18.sp, .5f)
         }
     }
 }
 
 @Composable
-fun RailSkeleton(wide: Boolean = false, modifier: Modifier = Modifier) {
+fun RailSkeleton(wide: Boolean = false, modifier: Modifier = Modifier, cardWidth: Dp? = null) {
     val tv = LocalDeviceLayout.current.television
-    val width = if (wide) if (tv) 260.dp else 232.dp else if (tv) 156.dp else 132.dp
+    val width = cardWidth ?: MediaCardLayout.width(tv, wide)
     SkeletonRegion(modifier) {
         BoxWithConstraints {
             val count =
                 ceil(
-                        ((maxWidth - LocalDeviceLayout.current.gutter * 2 + 10.dp) /
-                                (width + 10.dp))
+                        ((maxWidth - LocalDeviceLayout.current.gutter * 2 + MediaCardLayout.RailGap) /
+                                (width + MediaCardLayout.RailGap))
                             .toDouble()
                     )
                     .toInt()
@@ -116,7 +118,7 @@ fun RailSkeleton(wide: Boolean = false, modifier: Modifier = Modifier) {
                 Modifier.clearAndSetSemantics {},
                 userScrollEnabled = false,
                 contentPadding = PaddingValues(horizontal = LocalDeviceLayout.current.gutter),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(MediaCardLayout.RailGap),
             ) {
                 items(count) { MediaCardSkeleton(Modifier.width(width), wide, visible = true) }
             }
@@ -154,7 +156,7 @@ fun PeopleRailSkeleton() {
                                     .clip(androidx.compose.foundation.shape.CircleShape)
                             )
                             SkeletonTextLine(16.sp, 24.sp)
-                            SkeletonTextLine(12.sp, 19.sp, .5f)
+                            SkeletonTextLine(12.sp, 18.sp, .5f)
                         }
                     }
                 }

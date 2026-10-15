@@ -1,71 +1,84 @@
 package dev.joyfin.ui.features.subtitles
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.joyfin.data.Media
 import dev.joyfin.data.subtitles.ManagedSubtitle
 import dev.joyfin.subtitles.SubtitleOrganizerState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
+import dev.joyfin.ui.model.ArtworkSource
+import dev.joyfin.ui.theme.MotionTokens
 import dev.joyfin.ui.theme.Palette
-import dev.joyfin.ui.features.subtitles.tv.TvSubtitleEpisodeLayout
-import dev.joyfin.ui.features.subtitles.mobile.MobileSubtitleEpisodeLayout
+import dev.joyfin.ui.features.subtitles.tv.*
+import dev.joyfin.ui.features.subtitles.mobile.*
 
 @Composable
-internal fun SubtitlePackageList(packages: List<ManagedSubtitle>, group: String, loading: Boolean, busy: Boolean, scroll: LazyListState, open: (String) -> Unit) {
-    val shown = packages.filter { when (group) { "linked" -> it.localSaved; "failed" -> it.failed; else -> it.pending } }
-    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-        if (loading && shown.isEmpty()) item("skeleton") { SubtitleRowsSkeleton(112) }
-        if (!loading && shown.isEmpty()) item("empty") { SubtitleEmpty(if (group == "pending") "一切就绪" else "暂无字幕",
-            if (group == "pending") "搜索并下载字幕后，在这里整理对应关系" else "保存的关联与回传状态会显示在这里") }
+internal fun SubtitlePackageList(packages: List<ManagedSubtitle>, group: String, loading: Boolean,
+    busy: Boolean, scroll: LazyListState, images: ArtworkSource, open: (String) -> Unit) {
+    val shown = packages.filter { when (group) {
+        "all" -> true; "linked" -> it.localSaved; "failed" -> it.failed; else -> it.pending
+    } }
+    val tv = LocalDeviceLayout.current.television
+    LazyColumn(state = scroll, contentPadding = PaddingValues(top = 6.dp, bottom = 14.dp)) {
+        if (loading && shown.isEmpty()) item("skeleton") { SubtitlePackageSkeleton() }
+        if (!loading && shown.isEmpty()) item("empty") {
+            SubtitleEmpty(if (group == "pending") "没有待整理的字幕" else "暂无字幕包",
+                if (group == "pending" || group == "all") "搜索下载后，字幕包会保存在这里" else "切换筛选查看其他字幕包")
+        }
         items(shown, key = { it.id }) { value ->
-            FocusSurface({ open(value.id) }, Modifier.fillMaxWidth().focusTarget("subtitles:package:${value.id}"), enabled = !busy) {
-                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        if (LocalDeviceLayout.current.television) SubtitleNumber(value.files.size.toString())
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            if (value.workName.isBlank()) SubtitleFileName(value.title)
-                            else SubtitleTitle(value.workName)
-                            Caption(listOf(value.seasonName, value.origin.substringBefore(" · "), "${value.files.size} 份字幕").filter { it.isNotBlank() }.joinToString(" · "), maxLines = 1)
+            FocusSurface({ open(value.id) }, Modifier.fillMaxWidth().focusTarget("subtitles:package:${value.id}"),
+                enabled = !busy, transparent = true, focusedScale = MotionTokens.FixedScale) {
+                val artwork: @Composable () -> Unit = { SubtitlePackageArtwork(value, images) }
+                val details: @Composable () -> Unit = {
+                    SubtitleTitle(listOf(value.workName.ifBlank { "未指定作品" }, value.seasonName)
+                        .filter(String::isNotBlank).joinToString(" · "))
+                    SubtitleFileName(value.title)
+                    Caption("${value.origin.substringBefore(" · ")} · ${value.files.size} 个文件", maxLines = 2)
+                }
+                val status: @Composable () -> Unit = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            SubtitleStatus(when {
+                                value.failed -> "回传失败"
+                                value.uploaded > 0 -> "已回传 ${value.uploaded} 份"
+                                value.localSaved -> "已关联"
+                                else -> "待整理"
+                            }, warning = value.failed)
+                            if (value.matched > 0) Caption("${value.matched} / ${value.files.size} 份已关联", maxLines = 1)
                         }
-                        SubtitleStatus(when { value.failed -> "回传异常"; value.uploaded > 0 -> "已回传 ${value.uploaded}"; value.localSaved -> "已关联"; else -> "待整理" }, value.failed)
-                    }
-                    if (value.workName.isNotBlank()) SubtitleFileName(value.title)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Caption(if (value.workId == null) "选择作品开始整理" else "${value.matched} / ${value.files.size} 已对应", maxLines = 1)
-                        Caption("查看详情  ›", color = Palette.Text)
-                    }
-                    Box(Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(Palette.Muted.copy(alpha = .12f))) {
-                        val fraction = value.matched.toFloat() / value.files.size.coerceAtLeast(1)
-                        if (fraction > 0f) Box(Modifier.fillMaxWidth(fraction.coerceIn(0f, 1f)).fillMaxHeight().background(Palette.Gold.copy(alpha = .65f)))
+                        AppIcon(Glyph.Next, color = Palette.Muted)
                     }
                 }
+                if (tv) TvSubtitlePackageLayout(artwork, details, status)
+                else MobileSubtitlePackageLayout(artwork, details, status)
             }
+            SubtitleDivider()
         }
     }
 }
 
 @Composable
-internal fun SubtitleEpisodeList(editor: SubtitleOrganizerState, scroll: LazyListState, choose: (dev.joyfin.data.Media) -> Unit) {
+internal fun SubtitleEpisodeList(editor: SubtitleOrganizerState, scroll: LazyListState, choose: (Media) -> Unit) {
     val pack = editor.pack
     val tv = LocalDeviceLayout.current.television
-    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-        if (editor.loading) item("skeleton") { SubtitleRowsSkeleton(if (tv) 82 else 86) }
-        else if (pack?.workId == null) item("choose") { SubtitleEmpty("为字幕选择作品", "选定作品与季后，自动整理每集对应关系") }
+    LazyColumn(state = scroll, contentPadding = PaddingValues(top = 6.dp, bottom = 14.dp)) {
+        if (editor.loading) item("skeleton") { SubtitleEpisodeSkeleton() }
+        else if (pack?.workId == null) item("choose") { SubtitleEmpty("为字幕选择作品", "选择作品与季后，按集整理字幕") }
         else if (pack != null) {
             if (editor.media.isEmpty()) item("empty") { SubtitleEmpty("当前季没有剧集", "切换季或作品后继续整理") }
             items(editor.media, key = { it.id }) { media ->
                 val files = pack.files.filter { it.mapping?.itemId == media.id }
                 val error = files.firstNotNullOfOrNull { it.uploadError }
-                val pendingUpload = files.any { it.upload in setOf("failed", "uncertain", "sending", "identifying") }
-                FocusSurface({ choose(media) }, Modifier.fillMaxWidth().focusTarget("subtitles:episode:${media.id}"), enabled = !editor.loading && !editor.saving) {
+                val incomplete = files.any { it.upload in setOf("failed", "uncertain", "sending", "identifying") }
+                FocusSurface({ choose(media) }, Modifier.fillMaxWidth().focusTarget("subtitles:episode:${media.id}"),
+                    enabled = !editor.loading && !editor.saving, transparent = true, focusedScale = MotionTokens.FixedScale) {
                     val number: @Composable () -> Unit = {
                         SubtitleNumber(if (media.type == "Episode") media.episode.toString().padStart(2, '0') else "片")
                     }
@@ -73,31 +86,53 @@ internal fun SubtitleEpisodeList(editor: SubtitleOrganizerState, scroll: LazyLis
                         SubtitleTitle(media.name, maxLines = if (tv) 1 else 2)
                         val formats = files.map { it.name.substringAfterLast('.', "").uppercase() }.filter(String::isNotBlank).distinct()
                         val versions = files.mapNotNull { it.mapping?.versionId }.distinct().size
-                        val failed = error != null || pendingUpload
                         Caption(when {
-                            failed -> "回传未完成，进入本集查看"
-                            files.isEmpty() -> "选择字幕文件"
-                            else -> listOf(formats.joinToString(" / "), "$versions 个媒体版本").filter(String::isNotBlank).joinToString(" · ")
-                        }, color = if (failed) Palette.Error else Palette.Muted, maxLines = 1)
+                            error != null || incomplete -> "回传未完成"
+                            files.isEmpty() -> "未关联字幕"
+                            else -> listOf("${files.size} 份字幕", formats.joinToString(" / "), "$versions 个版本")
+                                .filter(String::isNotBlank).joinToString(" · ")
+                        }, color = if (error != null || incomplete) Palette.Error else Palette.Muted, maxLines = 1)
                     }
                     val status: @Composable () -> Unit = {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SubtitleStatus(when { error != null || pendingUpload -> "待处理"; files.isEmpty() -> "未对应"; else -> "${files.size} 份" },
-                                warning = error != null || pendingUpload, subdued = error == null && !pendingUpload && files.isNotEmpty())
+                            SubtitleStatus(if (files.isEmpty()) "选择" else "编辑", subdued = true)
                             AppIcon(Glyph.Next, color = Palette.Muted)
                         }
                     }
                     if (tv) TvSubtitleEpisodeLayout(number, details, status)
                     else MobileSubtitleEpisodeLayout(number, details, status)
                 }
+                SubtitleDivider()
             }
-            val unassigned = pack.files.count { it.mapping == null }
-            if (unassigned > 0) item("unassigned") { Caption("$unassigned 份未分配文件 · 进入任一集可选择", Modifier.padding(vertical = 10.dp)) }
         }
     }
 }
 
 @Composable
-private fun SubtitleRowsSkeleton(height: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(height.dp)) } }
+private fun SubtitlePackageSkeleton() {
+    Column {
+        repeat(3) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                SkeletonBlock(Modifier.width(if (LocalDeviceLayout.current.television) 52.dp else 44.dp).aspectRatio(2f / 3f))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkeletonTextLine(16.sp, 23.sp); SkeletonTextLine(13.sp, 21.sp)
+                    SkeletonTextLine(13.sp, 21.sp, .7f); SkeletonTextLine(12.5.sp, 18.sp, .6f)
+                }
+            }
+            SubtitleDivider()
+        }
+    }
+}
+
+@Composable
+private fun SubtitleEpisodeSkeleton() {
+    Column {
+        repeat(4) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SkeletonBlock(Modifier.width(28.dp).height(20.dp))
+                Column(Modifier.weight(1f)) { SkeletonTextLine(16.sp, 23.sp); SkeletonTextLine(12.5.sp, 18.sp, .6f) }
+            }
+            SubtitleDivider()
+        }
+    }
 }

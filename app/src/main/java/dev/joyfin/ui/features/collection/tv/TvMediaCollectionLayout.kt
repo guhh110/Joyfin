@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.collection.mediaCollectionItems
+import dev.joyfin.ui.features.collection.directoryGrid
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import kotlin.math.ceil
@@ -27,14 +28,17 @@ internal fun TvMediaCollectionLayout(
                 .toInt()
                 .coerceAtLeast(1)
         val cardWidth = (maxWidth - 96.dp - 14.dp * (columns - 1)) / columns
+        val directories = ui.directoryGrid
+        val cardHeight = (cardWidth - 12.dp) / MediaCardLayout.ratio(directories) +
+            (if (directories) 53.dp else 81.dp)
         val rows =
-            ceil((maxHeight / ((cardWidth - 12.dp) * 1.5f + 81.dp)).toDouble())
+            ceil((maxHeight / cardHeight).toDouble())
                 .toInt()
                 .coerceAtLeast(2)
         val skeletonVisible =
             rememberSkeletonVisible(ui.busy, Triple(ui.parent, ui.query, ui.person?.name))
         LazyVerticalGrid(
-            GridCells.Adaptive(174.dp),
+            GridCells.Fixed(columns),
             Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),

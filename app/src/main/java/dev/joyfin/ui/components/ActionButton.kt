@@ -22,6 +22,14 @@ import dev.joyfin.ui.interaction.actionVisualFeedback
 import dev.joyfin.ui.theme.MotionTokens
 import dev.joyfin.ui.theme.Palette
 
+private val LocalActionFocusedScale = staticCompositionLocalOf<Float?> { null }
+
+/** Fixed footer actions keep their measured and drawn size, including retry/loading states. */
+@Composable
+fun FixedActionArea(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalActionFocusedScale provides MotionTokens.FixedScale, content = content)
+}
+
 @Composable
 fun FocusSurface(
     onClick: () -> Unit,
@@ -36,7 +44,7 @@ fun FocusSurface(
 ) {
     val tv = LocalDeviceLayout.current.television
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(8.dp)
     val scale = focusedScale ?: if (tv && !transparent) MotionTokens.ButtonFocusedScale else MotionTokens.FixedScale
     Box(
         modifier
@@ -51,7 +59,7 @@ fun FocusSurface(
                 shape = shape,
                 interactionSource = interactionSource,
             )
-            .stableAction(enabled, onClick)
+            .stableAction(enabled, interactionSource, onClick)
             .padding(3.dp),
         contentAlignment = Alignment.Center,
         content = content,
@@ -72,14 +80,15 @@ fun ActionButton(
     loading: Boolean = false,
     enabledWhileLoading: Boolean = false,
     loadingLabel: String = "正在加载",
+    focusedScale: Float? = LocalActionFocusedScale.current,
 ) {
     val color =
-        if (!enabled) Palette.Muted
-        else if (primary) Palette.Background else if (selected) Palette.Gold else Palette.Text
+        if (!enabled && !loading) Palette.Muted
+        else if (primary) Palette.Background else Palette.Text
     FocusSurface(
         onClick,
         modifier
-            .heightIn(min = if (LocalDeviceLayout.current.television) 46.dp else 48.dp)
+            .heightIn(min = 48.dp)
             .semantics {
                 if (loading) {
                     contentDescription = text
@@ -91,10 +100,11 @@ fun ActionButton(
         primary,
         selected,
         quiet,
+        focusedScale = focusedScale,
     ) {
         Box(contentAlignment = Alignment.Center) {
             Row(
-                Modifier.padding(horizontal = 18.dp, vertical = 11.dp)
+                Modifier.padding(horizontal = if (LocalDeviceLayout.current.television) 18.dp else 12.dp, vertical = 11.dp)
                     .then(if (loading) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
@@ -103,7 +113,7 @@ fun ActionButton(
                 Text(
                     text,
                     color = color,
-                    fontSize = 14.5.sp,
+                    fontSize = 15.sp,
                     fontWeight = if (primary) FontWeight.SemiBold else FontWeight.Medium,
                     letterSpacing = 0.2.sp,
                     textAlign = TextAlign.Center,
@@ -141,6 +151,6 @@ fun IconButton(
         transparent = true,
     ) {
         if (loading) LoadingSpinner()
-        else AppIcon(glyph, color = if (selected) Palette.Gold else Palette.Text)
+        else AppIcon(glyph, color = if (enabled) Palette.Text else Palette.Muted)
     }
 }

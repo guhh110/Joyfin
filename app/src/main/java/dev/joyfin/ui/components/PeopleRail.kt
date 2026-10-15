@@ -1,6 +1,5 @@
 package dev.joyfin.ui.components
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -58,8 +57,7 @@ fun PeopleRail(
                             images.person(person),
                             images,
                             Modifier.size(88.dp)
-                                .clip(CircleShape)
-                                .border(1.dp, Palette.BorderSubtle, CircleShape),
+                                .clip(CircleShape),
                             person.name.take(1),
                         )
                         Text(

@@ -28,7 +28,7 @@ fun NextEpisodeCard(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Caption("${seconds} 秒后播放下一集", color = Palette.Gold)
+        Caption("${seconds} 秒后播放下一集", color = Palette.Text)
         SectionTitle(item.label)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ActionButton(

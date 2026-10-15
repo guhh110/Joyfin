@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -67,7 +66,7 @@ internal fun EntryFooter(step: String, bottomPadding: androidx.compose.ui.unit.D
     ) {
         Text(
             "YOUR PERSONAL CINEMA",
-            color = Color(0xFF636E75),
+            color = Palette.Muted.copy(alpha = .75f),
             fontSize = 8.sp,
             letterSpacing = 1.5.sp,
         )
@@ -117,7 +116,7 @@ internal fun EntryStep(text: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
-        Box(Modifier.size(20.dp, 1.dp).background(EntryChampagne.copy(alpha = .6f)))
-        Text(text, color = EntryChampagne, fontSize = 9.sp, letterSpacing = 2.sp)
+        Box(Modifier.size(20.dp, 1.dp).background(Palette.Text.copy(alpha = .6f)))
+        Text(text, color = Palette.Text, fontSize = 9.sp, letterSpacing = 2.sp)
     }
 }

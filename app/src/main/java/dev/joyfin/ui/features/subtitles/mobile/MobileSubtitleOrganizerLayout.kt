@@ -5,11 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalDensity
 
 @Composable
 internal fun MobileSubtitleEpisodeLayout(number: @Composable () -> Unit, details: @Composable () -> Unit, status: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().height((80 * LocalDensity.current.fontScale.coerceAtLeast(1f)).dp).padding(horizontal = 12.dp),
+    Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 4.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         number()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) { details() }

@@ -20,19 +20,24 @@ internal fun LazyGridScope.mediaCollectionItems(
     skeletonCount: Int,
     skeletonVisible: Boolean,
 ) {
-    item(span = { GridItemSpan(maxLineSpan) }, key = "header") { header() }
-    item(span = { GridItemSpan(maxLineSpan) }, key = "feedback") {
-        RegionLoadFeedback(
-            ui.busy && !ui.appending,
-            ui.error.takeUnless { ui.appending },
-            actions.retry,
-            ui.media.isNotEmpty(),
-            requestKey = Triple(ui.parent, ui.query, ui.person?.id),
-        )
+    val directories = ui.directoryGrid
+    item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
+        Column {
+            header()
+            RegionLoadFeedback(
+                ui.busy && !ui.appending,
+                ui.error.takeUnless { ui.appending },
+                actions.retry,
+                ui.media.isNotEmpty(),
+                requestKey = Triple(ui.parent, ui.query, ui.person?.id),
+                reserveSpace = false,
+            )
+        }
     }
     if (ui.media.isEmpty() && ui.busy)
         items(skeletonCount, key = { "skeleton:$it" }) {
-            MediaCardSkeleton(Modifier.fillMaxWidth(), visible = skeletonVisible)
+            MediaCardSkeleton(Modifier.fillMaxWidth(), wide = directories, visible = skeletonVisible,
+                showSubtitle = !directories)
         }
     if (
         ui.media.isEmpty() &&
@@ -50,6 +55,8 @@ internal fun LazyGridScope.mediaCollectionItems(
             { actions.open(media) },
             Modifier.fillMaxWidth(),
             focusKey = "collection:${media.id}",
+            wide = directories,
+            showSubtitle = !directories,
         )
     }
     if (ui.total > 0)
@@ -71,6 +78,7 @@ internal fun LazyGridScope.mediaCollectionItems(
         }
     if (ui.appending && ui.busy)
         items(skeletonCount, key = { "append-skeleton:$it" }) {
-            MediaCardSkeleton(Modifier.fillMaxWidth(), visible = skeletonVisible)
+            MediaCardSkeleton(Modifier.fillMaxWidth(), wide = directories, visible = skeletonVisible,
+                showSubtitle = !directories)
         }
 }

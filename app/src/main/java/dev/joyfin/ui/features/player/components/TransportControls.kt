@@ -1,5 +1,6 @@
 package dev.joyfin.ui.features.player.components
 
+import dev.joyfin.ui.theme.Palette
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -54,7 +55,7 @@ fun TransportControls(ui: PlayerUiState, actions: PlayerActions, onInteraction: 
             Text(
                 "已暂停",
                 Modifier.align(Alignment.Center).offset(y = if (tv) 59.dp else 50.dp),
-                color = PlayerWarmWhite.copy(alpha = .65f),
+                color = Palette.Text.copy(alpha = .65f),
                 fontSize = if (tv) 14.sp else 12.sp,
             )
     }

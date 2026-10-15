@@ -31,7 +31,7 @@ internal fun SheetPanel(
             .then(heightModifier)
             .border(1.dp, Palette.BorderSubtle, shape)
             .background(Palette.Surface, shape)
-            .padding(22.dp)
+            .padding(if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) 24.dp else 20.dp)
     ) {
         Row(
             Modifier.fillMaxWidth(),
@@ -49,7 +49,7 @@ internal fun SheetPanel(
         )
         actions?.let {
             Spacer(Modifier.height(12.dp))
-            it()
+            FixedActionArea { it() }
         }
     }
 }

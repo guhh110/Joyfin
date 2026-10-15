@@ -3,11 +3,12 @@ package dev.joyfin.ui.features.home.mobile
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.HomeUiState
-import dev.joyfin.data.*
-import dev.joyfin.ui.components.*
+import dev.joyfin.ui.components.AppHeader
+import dev.joyfin.ui.components.HeroBackdrop
 import dev.joyfin.ui.features.home.components.*
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
@@ -16,14 +17,17 @@ import dev.joyfin.ui.model.BrowseActions
 internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource) {
     val home = homeContent(ui)
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 36.dp)) {
-        item("hero", contentType = "hero") {
-            Box(Modifier.padding(bottom = 24.dp)) {
-                HeroBackdrop(featured, images, 570.dp) {
-                    HomeHeroContent(home, images, actions, 205.dp, 14.dp)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val artworkHeight = (maxWidth * .75f).coerceIn(220.dp, 360.dp)
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            item("hero", contentType = "hero") {
+                HeroBackdrop(featured, images, 0.dp, artworkHeight = artworkHeight) {
+                    HomeHeroContent(home, actions,
+                        Modifier.fillMaxWidth().statusBarsPadding().padding(top = artworkHeight * .58f))
+                    Box(Modifier.align(Alignment.TopCenter)) { AppHeader(actions, statusBarInset = true) }
                 }
             }
+            homeRails(home, images, actions)
         }
-        homeRails(home, images, actions)
     }
 }

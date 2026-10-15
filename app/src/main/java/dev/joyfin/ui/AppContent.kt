@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.joyfin.app.Page
 import dev.joyfin.app.UiState
+import dev.joyfin.ui.components.MobileBrowseNavigation
+import dev.joyfin.subtitles.SubtitleScreen
 import dev.joyfin.ui.components.PageFadeHost
 import dev.joyfin.ui.components.RequestStatus
 import dev.joyfin.ui.device.LocalDeviceLayout
@@ -38,10 +40,14 @@ fun AppContent(
 ) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
-    val immersiveSeries =
-        ui.page == Page.DETAIL &&
+    val immersiveBrowse =
+        ui.page == Page.HOME || ui.page == Page.DETAIL &&
             (ui.detail.item?.type == "Series" ||
                 ui.detail.entryType in setOf("Series", "Season", "Episode"))
+    val subtitleScreen = subtitles?.state?.collectAsState()?.value?.screen
+    val showNavigation = !LocalDeviceLayout.current.television &&
+        ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES) &&
+        !(ui.page == Page.SUBTITLES && subtitleScreen == SubtitleScreen.ORGANIZE)
     val pageKey =
         if (ui.page == Page.DETAIL) "detail:${ui.detail.visit}"
         else "${ui.page}:${ui.collection.parent}:${ui.collection.person?.id}"
@@ -70,7 +76,7 @@ fun AppContent(
             .background(Palette.Background)
             .then(
                 if (LocalDeviceLayout.current.television || entry) Modifier
-                else if (immersiveSeries)
+                else if (immersiveBrowse)
                     Modifier.windowInsetsPadding(
                         WindowInsets.safeDrawing.only(
                             WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom
@@ -84,20 +90,31 @@ fun AppContent(
             holder.SaveableStateProvider(pageKey) {
                 PageFadeHost(pageKey = pageKey, isReturn = isReturn) {
                     RememberScreenFocus(initial) {
-                        when (ui.page) {
-                            Page.CONNECT,
-                            Page.LOGIN ->
-                                ConnectionRoute(ui.entry, entryActions, login = ui.page == Page.LOGIN)
-                            Page.RESTORE -> SessionRestoreRoute(ui.entry, entryActions)
-                            Page.HOME -> HomeRoute(ui.home, actions, images)
-                            Page.DETAIL -> DetailRoute(ui.detail, actions, images)
-                            Page.LIBRARY -> LibraryRoute(ui.collection, actions, images)
-                            Page.PERSON -> PersonRoute(ui.collection, actions, images)
-                            Page.SEARCH -> SearchRoute(ui.collection, actions, images)
-                            Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings)
-                            Page.SUBTITLES -> subtitles?.let {
-                                dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, actions.back)
+                        Column(Modifier.fillMaxSize()) {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                when (ui.page) {
+                                    Page.CONNECT,
+                                    Page.LOGIN ->
+                                        ConnectionRoute(ui.entry, entryActions, login = ui.page == Page.LOGIN)
+                                    Page.RESTORE -> SessionRestoreRoute(ui.entry, entryActions)
+                                    Page.HOME -> HomeRoute(ui.home, actions, images)
+                                    Page.DETAIL -> DetailRoute(ui.detail, actions, images)
+                                    Page.LIBRARY -> LibraryRoute(ui.collection, actions, images)
+                                    Page.PERSON -> PersonRoute(ui.collection, actions, images)
+                                    Page.SEARCH -> SearchRoute(ui.collection, actions, images)
+                                    Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings)
+                                    Page.SUBTITLES -> subtitles?.let {
+                                        dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, images, actions.back)
+                                    }
+                                }
                             }
+                            if (showNavigation) MobileBrowseNavigation(actions, when (ui.page) {
+                                Page.HOME -> "home"
+                                Page.LIBRARY -> "library"
+                                Page.SUBTITLES -> "subtitles"
+                                Page.SEARCH -> "search"
+                                else -> ""
+                            })
                         }
                     }
                 }

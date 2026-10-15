@@ -35,7 +35,7 @@ internal fun ConnectedServerSummary(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(Modifier.size(4.dp).background(EntryChampagne, CircleShape))
+                    Box(Modifier.size(4.dp).background(Palette.Text, CircleShape))
                     Text(
                         name.ifBlank { "Jellyfin" },
                         color = Palette.Text,

@@ -140,7 +140,7 @@ fun SeekBar(
             val currentX = (end * currentFrac).coerceIn(radius, end - radius)
             if (currentX > radius) {
                 drawLine(
-                    Palette.Gold,
+                    Palette.Text,
                     Offset(radius, y),
                     Offset(currentX, y),
                     trackHeight,
@@ -151,14 +151,14 @@ fun SeekBar(
             // 微光滑块
             if (focused) {
                 // 外层发光晕环
-                drawCircle(Palette.Gold.copy(alpha = 0.32f), 9.dp.toPx(), Offset(currentX, y))
+                drawCircle(Palette.Text.copy(alpha = 0.32f), 9.dp.toPx(), Offset(currentX, y))
                 // 中层光圈
-                drawCircle(Palette.Gold, 6.dp.toPx(), Offset(currentX, y))
+                drawCircle(Palette.Text, 6.dp.toPx(), Offset(currentX, y))
                 // 核心纯白实心
                 drawCircle(Palette.Text, 3.5.dp.toPx(), Offset(currentX, y))
             } else if (preview != null) {
-                drawCircle(Palette.Gold.copy(alpha = 0.40f), 7.dp.toPx(), Offset(currentX, y))
-                drawCircle(Palette.Gold, 4.5.dp.toPx(), Offset(currentX, y))
+                drawCircle(Palette.Text.copy(alpha = 0.40f), 7.dp.toPx(), Offset(currentX, y))
+                drawCircle(Palette.Text, 4.5.dp.toPx(), Offset(currentX, y))
             } else {
                 drawCircle(Palette.Text, 4.dp.toPx(), Offset(currentX, y))
             }

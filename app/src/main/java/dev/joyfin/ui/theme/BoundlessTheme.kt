@@ -11,18 +11,18 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.device.isTelevision
 
 object Palette {
-    val Background = Color(0xFF0A0C0F)
-    val Surface = Color(0xFF15181D)
-    val Elevated = Color(0xFF22262E)
-    val Text = Color(0xFFF5F3ED)
-    val Muted = Color(0xFF9EA3A9)
-    val Gold = Color(0xFFD4AF37)
+    val Background = Color(0xFF0B0B0D)
+    val Surface = Color(0xFF19191D)
+    val Elevated = Color(0xFF29292F)
+    val Text = Color(0xFFF4F4F6)
+    val Muted = Color(0xFFA6A6AF)
+    val Selected = Color(0xFF2B2B31)
+    val Pressed = Color(0xFF34343A)
     val Line = Color(0x1AFFFFFF)
     val BorderSubtle = Color(0x1FFFFFFF)
-    val BorderFocus = Color(0xFFFAF8F5)
-    val GlowFocus = Color(0x33F5F3ED)
+    val BorderFocus = Color(0xFFF4F4F6)
     val TrackBackground = Color(0x26FFFFFF)
-    val Error = Color(0xFFFFB4AB)
+    val Error = Color(0xFFE2E2E8)
 }
 
 @Composable

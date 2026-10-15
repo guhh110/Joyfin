@@ -3,6 +3,8 @@ package dev.joyfin.ui.features.detail.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,13 +25,10 @@ internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
         IconButton("返回", Glyph.Back, actions.back, Modifier.seriesFocus("header:back", focus))
-        ActionButton(
-            "字幕管理",
-            actions.subtitles,
-            Modifier.seriesFocus("detail:subtitles", focus),
-            enabled = content.ui.ready,
-            quiet = true,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            IconButton("搜索", Glyph.Search, actions.search, Modifier.seriesFocus("header:search", focus))
+            IconButton("账号与设置", Glyph.Settings, actions.settings, Modifier.seriesFocus("header:account", focus))
+        }
     }
 }
 
@@ -78,9 +77,17 @@ internal fun SeriesFavoriteAction(content: SeriesOverviewContent, modifier: Modi
         if (content.ui.item?.favorite == true) "已收藏" else "收藏",
         content.actions.favorite,
         modifier.seriesFocus("favorite", content.focus),
-        quiet = true,
+        icon = if (content.ui.item?.favorite == true) Glyph.Check else Glyph.Heart,
+        selected = content.ui.item?.favorite == true,
         enabled = content.ui.ready,
         loading = content.ui.favoriteBusy,
         maxLines = 2,
     )
+}
+
+@Composable
+internal fun SeriesSubtitleAction(content: SeriesOverviewContent) {
+    ActionButton("字幕", content.actions.subtitles,
+        Modifier.seriesFocus("detail:subtitles", content.focus).semantics { contentDescription = "管理字幕" }, Glyph.Subtitle,
+        enabled = content.ui.ready, quiet = true, maxLines = 1)
 }

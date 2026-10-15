@@ -92,10 +92,10 @@ internal fun EntryTextField(
             Modifier.fillMaxWidth()
                 .heightIn(min = 54.dp)
                 .clip(shape)
-                .background(androidx.compose.ui.graphics.Color(0xD9111619))
+                .background(Palette.Surface.copy(alpha = .95f))
                 .border(
                     if (focused) 2.dp else 1.dp,
-                    if (focused) EntryChampagne
+                    if (focused) Palette.Text
                     else if (error != null) Palette.Error.copy(alpha = .6f)
                     else Palette.Text.copy(alpha = .15f),
                     shape,
@@ -175,7 +175,7 @@ internal fun EntryTextField(
                     textStyle = style,
                     keyboardOptions = options,
                     onKeyboardAction = { onSubmit() },
-                    cursorBrush = SolidColor(EntryChampagne),
+                    cursorBrush = SolidColor(Palette.Text),
                     textObfuscationMode =
                         if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                     decorator = decorator,
@@ -192,7 +192,7 @@ internal fun EntryTextField(
                     textStyle = style,
                     keyboardOptions = options,
                     onKeyboardAction = { onSubmit() },
-                    cursorBrush = SolidColor(EntryChampagne),
+                    cursorBrush = SolidColor(Palette.Text),
                     lineLimits = TextFieldLineLimits.SingleLine,
                     decorator = decorator,
                 )
@@ -204,7 +204,7 @@ internal fun EntryTextField(
                         .onFocusChanged { eyeFocused = it.isFocused }
                         .border(
                             1.dp,
-                            if (eyeFocused) EntryChampagne
+                            if (eyeFocused) Palette.Text
                             else androidx.compose.ui.graphics.Color.Transparent,
                             shape,
                         )
@@ -226,13 +226,13 @@ internal fun EntryTextField(
                             }
                         drawPath(
                             path,
-                            if (eyeFocused) EntryChampagne else Palette.Muted,
+                            if (eyeFocused) Palette.Text else Palette.Muted,
                             style = Stroke(1.2.dp.toPx()),
                         )
                         drawCircle(Palette.Muted, 3 * u, style = Stroke(1.2.dp.toPx()))
                         if (revealed)
                             drawLine(
-                                EntryChampagne,
+                                Palette.Text,
                                 androidx.compose.ui.geometry.Offset(3 * u, 3 * u),
                                 androidx.compose.ui.geometry.Offset(21 * u, 21 * u),
                                 1.2.dp.toPx(),

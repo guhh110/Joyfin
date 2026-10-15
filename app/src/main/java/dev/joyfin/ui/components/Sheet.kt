@@ -23,6 +23,7 @@ fun Sheet(
     modifier: Modifier = Modifier,
     actions: (@Composable ColumnScope.() -> Unit)? = null,
     scrollContent: Boolean = true,
+    preferredWidth: androidx.compose.ui.unit.Dp? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -30,7 +31,7 @@ fun Sheet(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         if (LocalDeviceLayout.current.television)
-            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, content)
+            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, preferredWidth, content)
         else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, content)
     }
 }
@@ -58,7 +59,7 @@ fun ChoiceRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 androidx.tv.material3.Text(
                     title,
-                    color = if (selected) Palette.Gold else Palette.Text,
+                    color = Palette.Text,
                 )
                 if (subtitle.isNotBlank()) Caption(subtitle)
             }
@@ -70,11 +71,11 @@ fun ChoiceRow(
 @Composable
 fun ConfirmDialog(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     RememberScreenFocus("confirm:cancel") {
-        Sheet(title, onDismiss) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ActionButton("取消", onDismiss, Modifier.focusTarget("confirm:cancel"))
-                ActionButton("确认", onConfirm, primary = true)
+        Sheet(title, onDismiss, actions = {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ActionButton("取消", onDismiss, Modifier.weight(1f).focusTarget("confirm:cancel"))
+                ActionButton("确认", onConfirm, Modifier.weight(1f), primary = true)
             }
-        }
+        }) {}
     }
 }

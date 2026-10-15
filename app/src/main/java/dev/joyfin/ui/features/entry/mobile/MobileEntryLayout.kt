@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -29,8 +28,8 @@ internal fun MobileEntryLayout(
             1f,
             Alignment.TopCenter,
             Brush.verticalGradient(
-                0f to Color(0x200B0D10),
-                .15f to Color(0x440B0D10),
+                0f to Palette.Background.copy(alpha = .12f),
+                .15f to Palette.Background.copy(alpha = .27f),
                 .46f to Palette.Background,
                 1f to Palette.Background,
             ),

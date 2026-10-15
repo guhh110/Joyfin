@@ -35,12 +35,12 @@ internal fun EntryServerIcon() {
 
 @Composable
 internal fun EntryNetworkSymbol() {
-    Canvas(Modifier.size(44.dp).border(1.dp, EntryChampagne.copy(alpha = .3f), CircleShape)) {
+    Canvas(Modifier.size(44.dp).border(1.dp, Palette.Text.copy(alpha = .3f), CircleShape)) {
         val stroke = Stroke(1.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
         val u = size.width / 44f
         listOf(12f, 8f, 4f).forEach { radius ->
             drawArc(
-                EntryChampagne,
+                Palette.Text,
                 -135f,
                 90f,
                 false,
@@ -49,6 +49,6 @@ internal fun EntryNetworkSymbol() {
                 style = stroke,
             )
         }
-        drawCircle(EntryChampagne, u, Offset(22 * u, 29 * u))
+        drawCircle(Palette.Text, u, Offset(22 * u, 29 * u))
     }
 }

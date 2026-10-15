@@ -39,7 +39,7 @@ internal fun EntryButton(
     val actionEnabled = enabled && (!busy || enabledWhileBusy)
     val focusedScale = if (tv && !quiet) MotionTokens.ButtonFocusedScale else MotionTokens.FixedScale
     val borderCol =
-        if (focused) EntryChampagne
+        if (focused) Palette.Text
         else if (!quiet) Palette.BorderSubtle
         else androidx.compose.ui.graphics.Color.Transparent
     val bgCol =
@@ -77,7 +77,7 @@ internal fun EntryButton(
                     progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
                 }
             }
-            .stableAction(actionEnabled, onClick)
+            .stableAction(actionEnabled, interactionSource, onClick)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {

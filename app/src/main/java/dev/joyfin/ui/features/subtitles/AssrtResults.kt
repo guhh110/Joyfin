@@ -20,12 +20,12 @@ internal fun AssrtResults(controller: AssrtSearchController, download: dev.joyfi
         if (ui.selected != null) returning = true
         else if (returning) { withFrameNanos {}; focus?.restore(); returning = false }
     }
-    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
+    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
         item("attribution") { Caption("字幕服务由 assrt.net 提供") }
         if (!ui.loading && !ui.available) item("configure") { ActionButton("配置 ASSRT Token", settings) }
         if (ui.loading && ui.results.isEmpty()) item("skeleton") { repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(90.dp).padding(bottom = 8.dp)) } }
         items(ui.results, key = { it.id }) { item ->
-            SubtitleResultCard(item.nativeName.ifBlank { item.videoname },
+            SubtitleResultRow(item.nativeName.ifBlank { item.videoname },
                 listOf(item.lang.desc, item.subtype).filter { it.isNotBlank() }.joinToString(" · "), item.videoname,
                 error = ui.error.takeIf { ui.failedId == item.id }
                     ?: transfer.error.takeIf { transfer.source == "ASSRT" && ui.transferringId == item.id }) {

@@ -22,10 +22,12 @@ internal fun TvSheetLayout(
     modifier: Modifier,
     actions: (@Composable ColumnScope.() -> Unit)?,
     scrollContent: Boolean,
+    preferredWidth: androidx.compose.ui.unit.Dp?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
-    val width = if (side) (config.screenWidthDp.dp * .48f).coerceAtMost(380.dp) else 520.dp
+    val width = (preferredWidth ?: if (side) (config.screenWidthDp.dp * .48f).coerceAtMost(380.dp) else 512.dp)
+        .coerceAtMost(config.screenWidthDp.dp * .9f)
     val height =
         if (side) Modifier.fillMaxHeight()
         else Modifier.heightIn(max = config.screenHeightDp.dp * .85f)
@@ -54,10 +56,10 @@ internal fun TvSheetLayout(
                 width,
                 height,
                 RoundedCornerShape(
-                    topStart = 20.dp,
-                    topEnd = if (side) 0.dp else 20.dp,
-                    bottomStart = if (!side && !bottom) 20.dp else 0.dp,
-                    bottomEnd = if (!side && !bottom) 20.dp else 0.dp,
+                    topStart = 12.dp,
+                    topEnd = if (side) 0.dp else 12.dp,
+                    bottomStart = if (!side && !bottom) 12.dp else 0.dp,
+                    bottomEnd = if (!side && !bottom) 12.dp else 0.dp,
                 ),
                 actions,
                 scrollContent,

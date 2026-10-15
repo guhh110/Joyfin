@@ -1,7 +1,6 @@
 package dev.joyfin.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -29,26 +28,26 @@ fun MediaCard(
     focusKey: String = "media:${item.id}",
     cardWidth: Dp? = null,
     focusModifier: Modifier? = null,
+    showSubtitle: Boolean = true,
 ) {
     val tv = LocalDeviceLayout.current.television
     val imageUrl =
         remember(item, images, wide) { if (wide) images.backdrop(item) else images.poster(item) }
-    val imageRatio = if (wide) 16f / 9f else 2f / 3f
+    val imageRatio = MediaCardLayout.ratio(wide)
     FocusSurface(
         onClick,
         modifier
             .padding(vertical = dev.joyfin.ui.theme.MotionTokens.MediaCardVerticalReserve)
             .width(
-                cardWidth ?: if (wide) if (tv) 260.dp else 232.dp else if (tv) 156.dp else 132.dp
+                cardWidth ?: MediaCardLayout.width(tv, wide)
             )
             .then(focusModifier ?: Modifier.focusTarget(focusKey)),
         transparent = true,
         focusedScale = if (tv) dev.joyfin.ui.theme.MotionTokens.CardFocusedScale else dev.joyfin.ui.theme.MotionTokens.FixedScale,
     ) {
-        Column(Modifier.padding(3.dp)) {
+        Column(Modifier.padding(MediaCardLayout.ContentInset)) {
             Box(
-                Modifier.clip(RoundedCornerShape(10.dp))
-                    .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(10.dp))
+                Modifier.clip(RoundedCornerShape(MediaCardLayout.Corner))
             ) {
                 if (item.type == "Episode")
                     EpisodeArtwork(item, images, Modifier.fillMaxWidth(), imageRatio)
@@ -58,7 +57,7 @@ fun MediaCard(
                         images,
                         Modifier.fillMaxWidth()
                             .aspectRatio(imageRatio)
-                            .clip(RoundedCornerShape(10.dp)),
+                            .clip(RoundedCornerShape(MediaCardLayout.Corner)),
                         item.name,
                     )
                 if (item.resumeTicks > 0 && item.ticks > 0) {
@@ -77,7 +76,7 @@ fun MediaCard(
                         Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
                             .padding(horizontal = 8.dp, vertical = 6.dp)
                             .fillMaxWidth()
-                            .height(4.dp)
+                            .height(3.dp)
                             .clip(RoundedCornerShape(2.dp))
                             .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.25f))
                     ) {
@@ -85,15 +84,15 @@ fun MediaCard(
                             Modifier.fillMaxWidth(progress)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(2.dp))
-                                .background(Palette.Gold)
+                                .background(Palette.Text)
                         )
                     }
                 }
             }
             Text(
                 if (wide && item.seriesName.isNotBlank()) item.seriesName else item.name,
-                modifier = Modifier.padding(top = 10.dp),
-                fontSize = 14.5.sp,
+                modifier = Modifier.padding(top = MediaCardLayout.TextGap),
+                fontSize = 15.sp,
                 lineHeight = 20.sp,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 color = Palette.Text,
@@ -101,8 +100,8 @@ fun MediaCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                if (item.type == "Episode") "S${item.season} · E${item.episode} · ${item.name}"
+            if (showSubtitle && !item.libraryDirectory) Text(
+                if (item.type == "Episode") "第 ${item.season} 季 · 第 ${item.episode} 集"
                 else
                     listOf(item.year.takeIf { it > 0 }?.toString(), item.genres.firstOrNull())
                         .filterNotNull()

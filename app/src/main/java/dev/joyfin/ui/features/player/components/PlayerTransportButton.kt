@@ -1,5 +1,6 @@
 package dev.joyfin.ui.features.player.components
 
+import dev.joyfin.ui.theme.Palette
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
@@ -23,9 +24,6 @@ import dev.joyfin.ui.components.stableAction
 import dev.joyfin.ui.theme.MotionTokens
 import dev.joyfin.ui.theme.rememberMotionSpec
 
-internal val PlayerWarmWhite = Color(0xFFF1EFE9)
-internal val PlayerChampagne = Color(0xFFC9B98F)
-
 /** Fixed geometry: remote focus only changes color, never scale or measured size. */
 @Composable
 internal fun PlayerTransportButton(
@@ -47,27 +45,27 @@ internal fun PlayerTransportButton(
 
     val highlighted = focused && enabled
     val lightSurface = primary || highlighted
-    val baseTint = if (lightSurface) Color(0xFF17191D) else PlayerWarmWhite
+    val baseTint = if (lightSurface) Palette.Surface else Palette.Text
     val targetTint = if (pressed && enabled) baseTint.copy(alpha = 0.82f) else baseTint
 
     val baseSurface =
         when {
-            highlighted -> PlayerChampagne
-            primary -> PlayerWarmWhite.copy(alpha = if (enabled) .98f else .88f)
-            else -> Color(0xFF17191D).copy(alpha = .94f)
+            highlighted -> Palette.Text
+            primary -> Palette.Text.copy(alpha = if (enabled) .98f else .88f)
+            else -> Palette.Surface.copy(alpha = .94f)
         }
     val targetSurface =
         if (pressed && enabled) {
-            if (lightSurface) baseSurface.copy(alpha = 0.85f) else Color(0xFF2C3036)
+            if (lightSurface) baseSurface.copy(alpha = 0.85f) else Palette.Pressed
         } else {
             baseSurface
         }
 
     val targetOutline =
         when {
-            focused -> if (enabled) PlayerWarmWhite else PlayerChampagne
-            primary -> PlayerWarmWhite.copy(alpha = .85f)
-            else -> PlayerWarmWhite.copy(alpha = if (enabled) .65f else .4f)
+            focused -> Palette.BorderFocus
+            primary -> Palette.Text.copy(alpha = .85f)
+            else -> Palette.Text.copy(alpha = if (enabled) .65f else .4f)
         }
 
     val targetBorderWidth = if (focused) 2.dp else 1.dp
@@ -89,7 +87,7 @@ internal fun PlayerTransportButton(
             .background(animatedSurface)
             .border(animatedBorderWidth, animatedOutline, CircleShape)
             .semantics { contentDescription = label }
-            .stableAction(enabled, onClick),
+            .stableAction(enabled, interactionSource, onClick),
         contentAlignment = Alignment.Center,
     ) {
         CompositionLocalProvider(
@@ -100,4 +98,4 @@ internal fun PlayerTransportButton(
     }
 }
 
-internal val LocalTransportTint = staticCompositionLocalOf { PlayerWarmWhite }
+internal val LocalTransportTint = staticCompositionLocalOf { Palette.Text }

@@ -20,6 +20,8 @@ fun Artwork(
     images: ArtworkSource,
     modifier: Modifier = Modifier,
     fallback: String = "",
+    contentScale: ContentScale = ContentScale.Crop,
+    alignment: Alignment = Alignment.Center,
 ) {
     val context = LocalContext.current
     val request =
@@ -36,7 +38,8 @@ fun Artwork(
                 model = request,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+                contentScale = contentScale,
+                alignment = alignment,
             )
     }
 }

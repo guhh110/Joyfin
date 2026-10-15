@@ -48,7 +48,7 @@ fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: Artwork
     val peopleList = key(ui.visit) { rememberLazyListState() }
     val relatedList = key(ui.visit) { rememberLazyListState() }
     val keys = buildList {
-        addAll(listOf("header:back", "detail:play", "favorite", "series:season"))
+        addAll(listOf("header:back", "header:search", "header:account", "detail:play", "favorite", "detail:subtitles", "series:season"))
         addAll(entries.map { "series:preview:${it.id}" })
         addAll(ui.item?.people.orEmpty().map(::seriesPersonFocusKey))
         addAll(ui.related.map { "series:related:${it.id}" })

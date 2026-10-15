@@ -32,11 +32,12 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
     val recommendation = ui.series?.recommendation
     val layout = LocalDeviceLayout.current
     Column(
-        Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        Modifier.fillMaxWidth().padding(top = if (layout.television) 24.dp else 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        SeriesEpisodePreview(ui, images, actions, focus, previewList, onSeason, onPreview)
-        Row(
+        SeriesEpisodePreview(ui, images, actions, focus, previewList, onSeason, onPreview,
+            subtitleAction = { SeriesSubtitleAction(content) })
+        if (ui.error != null || ui.busy || recommendation?.error != null || recommendation?.loading == true) Row(
             Modifier.padding(horizontal = layout.gutter),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -63,7 +64,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (ui.related.isNotEmpty()) {
                 MediaRail(
-                    "相似的故事",
+                    "相似作品",
                     ui.related,
                     images,
                     actions.open,
@@ -73,7 +74,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
                     Modifier.seriesFocus("series:related:${item.id}", focus)
                 }
             } else {
-                SectionTitle("相似的故事", Modifier.padding(horizontal = layout.gutter))
+                SectionTitle("相似作品", Modifier.padding(horizontal = layout.gutter))
                 if (ui.relatedLoad.loading) RailSkeleton(false)
                 else if (ui.relatedLoad.loaded && ui.relatedLoad.error == null)
                     Caption("暂无内容", Modifier.padding(horizontal = layout.gutter))
@@ -84,6 +85,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
                 null,
                 ui.related.isNotEmpty(),
                 Modifier.padding(horizontal = layout.gutter),
+                reserveSpace = false,
             )
             RetryAction(
                 "重试相似作品",
@@ -106,6 +108,7 @@ private fun SeriesEpisodePreview(
     list: LazyListState,
     onSeason: () -> Unit,
     onPreview: (Media) -> Unit,
+    subtitleAction: @Composable () -> Unit,
 ) {
     val episodes = ui.series?.episodes
     val seasons = ui.series?.seasons
@@ -125,7 +128,7 @@ private fun SeriesEpisodePreview(
     Column(Modifier.testTag("series:preview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Header keeps the same composition and focus identity across cold loads and season
         // changes.
-        Box(Modifier.padding(horizontal = gutter)) { SeriesPreviewHeading(ui, focus, onSeason) }
+        Box(Modifier.padding(horizontal = gutter)) { SeriesPreviewHeading(ui, focus, onSeason, subtitleAction) }
         if (items.isNotEmpty()) {
             MediaRail(
                 "剧集预览",
@@ -144,11 +147,6 @@ private fun SeriesEpisodePreview(
             else if (episodes is SeriesResource.Ready)
                 Caption("本季暂无剧集", Modifier.padding(horizontal = gutter))
         }
-        if (items.isNotEmpty() || previewLoading)
-            Caption(
-                if (items.isEmpty()) " " else "第 ${items.first().season} 季 · 选择预览进入对应集",
-                Modifier.padding(horizontal = gutter),
-            )
         ui.series?.entryError?.let { Caption(it, Modifier.padding(horizontal = gutter)) }
         RegionLoadFeedback(
             previewLoading,
@@ -156,6 +154,7 @@ private fun SeriesEpisodePreview(
             null,
             items.isNotEmpty(),
             Modifier.padding(horizontal = gutter),
+            reserveSpace = false,
         )
         RetryAction(
             "重试季信息",
@@ -179,6 +178,7 @@ private fun SeriesPreviewHeading(
     ui: DetailUiState,
     focus: SeriesFocusCoordinator,
     onSeason: () -> Unit,
+    subtitleAction: @Composable () -> Unit,
 ) {
     val seasons = ui.series?.seasons
     val selected = seasons?.data?.find { it.id == ui.series.seasonId }
@@ -187,11 +187,14 @@ private fun SeriesPreviewHeading(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SectionTitle("剧集预览", Modifier.weight(1f))
+        SectionTitle("剧集", Modifier.weight(1f))
+        subtitleAction()
         ActionButton(
-            "${selected?.name ?: "选择季"} ▾",
+            selected?.name ?: "选择季",
             onSeason,
-            Modifier.widthIn(max = 200.dp).seriesFocus("series:season", focus),
+            Modifier.widthIn(max = if (LocalDeviceLayout.current.television) 200.dp else 140.dp)
+                .seriesFocus("series:season", focus),
+            icon = Glyph.Down,
             enabled = !seasons?.data.isNullOrEmpty(),
             quiet = true,
             maxLines = 1,

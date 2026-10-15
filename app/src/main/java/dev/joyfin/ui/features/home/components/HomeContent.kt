@@ -29,68 +29,51 @@ internal fun homeContent(ui: HomeUiState): Home {
     return home
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HomeHeroContent(
     home: Home,
-    images: ArtworkSource,
     actions: BrowseActions,
-    topPadding: Dp,
-    spacing: Dp,
     modifier: Modifier = Modifier,
-    showHeader: Boolean = true,
     compact: Boolean = false,
 ) {
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
-    Column(modifier) {
-        if (showHeader) AppHeader(actions)
-        Column(
-            Modifier.padding(horizontal = LocalDeviceLayout.current.gutter)
-                .padding(top = topPadding, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(spacing),
-        ) {
-            if (!compact)
-                Caption(
-                    if (featured?.resumeTicks?.let { it > 0 } == true) "继续你的故事"
-                    else "YOUR PERSONAL CINEMA"
-                )
+    val tv = LocalDeviceLayout.current.television
+    Column(
+        modifier.widthIn(max = if (tv) 640.dp else 520.dp)
+            .padding(horizontal = LocalDeviceLayout.current.gutter)
+            .padding(bottom = if (tv) 16.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 8.dp else 12.dp),
+    ) {
+        if (featured == null && (home.resumeLoad.loading || home.latestLoad.loading)) {
+            SkeletonText(Modifier.fillMaxWidth(), 3)
+        } else {
             FilmTitle(
-                featured?.seriesName?.ifBlank { featured.name } ?: featured?.name ?: "你的私人影院",
-                large = !compact,
-                maxLines = if (compact || !showHeader) 1 else 2,
+                featured?.seriesName?.ifBlank { featured.name } ?: featured?.name ?: "媒体库",
+                large = tv && !compact,
+                maxLines = if (tv) if (compact) 1 else 2 else 3,
             )
-            if (featured != null) {
-                MediaMetadata(featured)
-                if (!compact)
-                    androidx.tv.material3.Text(
-                        featured.overview,
-                        modifier = Modifier.widthIn(max = 540.dp),
-                        color = dev.joyfin.ui.theme.Palette.Muted,
-                        maxLines = 2,
-                    )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ActionButton(
-                        if (featured.resumeTicks > 0) "继续观看"
-                        else if (featured.isFolder) "探索剧集" else "播放",
-                        {
-                            if (featured.isFolder) actions.open(featured)
-                            else actions.play(featured, false, null)
-                        },
-                        Modifier.focusTarget("hero:play"),
-                        Glyph.Play,
-                        primary = true,
-                    )
-                    ActionButton(
-                        "详情",
-                        { actions.open(featured) },
-                        Modifier.focusTarget("hero:detail"),
-                        Glyph.Next,
-                        quiet = true,
-                    )
-                }
-            } else if (home.resumeLoad.loading || home.latestLoad.loading) {
-                SkeletonText(Modifier.widthIn(max = 360.dp), 3)
-            } else if (home.resumeLoad.error == null && home.latestLoad.error == null)
-                EmptyContent("媒体库还没有内容", "添加媒体后，你的故事会在这里出现。", "刷新", actions.retry)
+        }
+        if (featured != null) {
+            if (!compact && featured.type != "Episode" && featured.originalTitle.isNotBlank() &&
+                featured.originalTitle != featured.name) Caption(featured.originalTitle, maxLines = 1)
+            if (!compact) MediaMetadata(featured)
+            if (tv && !compact && featured.overview.isNotBlank())
+                Caption(featured.overview, maxLines = 2)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButton(
+                    if (featured.resumeTicks > 0) "继续观看" else if (featured.isFolder) "查看剧集" else "播放",
+                    { if (featured.isFolder) actions.open(featured) else actions.play(featured, false, null) },
+                    Modifier.focusTarget("hero:play"), Glyph.Play, primary = true, maxLines = 1,
+                )
+                ActionButton("查看详情", { actions.open(featured) },
+                    Modifier.focusTarget("hero:detail"), maxLines = 1)
+            }
+        } else if (!home.resumeLoad.loading && !home.latestLoad.loading &&
+            home.resumeLoad.error == null && home.latestLoad.error == null) {
+            Caption("媒体库还没有内容")
+            ActionButton("刷新", actions.retry, Modifier.focusTarget("hero:refresh"))
         }
     }
 }
@@ -140,7 +123,7 @@ internal fun LazyListScope.homeRails(
 }
 
 @Composable
-internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions) {
+internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions, cardWidth: Dp? = null) {
     LoadingMediaRail(
         "继续观看",
         home.resume,
@@ -148,6 +131,7 @@ internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseAc
         images,
         actions,
         wide = true,
+        cardWidth = cardWidth,
         retry = { actions.retryHome(HomeRegion.RESUME) },
     )
 }

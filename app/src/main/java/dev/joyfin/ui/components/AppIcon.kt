@@ -13,6 +13,9 @@ import androidx.compose.ui.unit.dp
 import dev.joyfin.ui.theme.Palette
 
 enum class Glyph {
+    Home,
+    Library,
+    Heart,
     Play,
     Back,
     Search,
@@ -40,6 +43,25 @@ fun AppIcon(glyph: Glyph, modifier: Modifier = Modifier, color: Color = Palette.
         ) {
             val p = Path()
             when (glyph) {
+                Glyph.Home -> {
+                    p.moveTo(3f, 10f); p.lineTo(12f, 3f); p.lineTo(21f, 10f)
+                    p.moveTo(5f, 9f); p.lineTo(5f, 21f); p.lineTo(10f, 21f)
+                    p.lineTo(10f, 14f); p.lineTo(14f, 14f); p.lineTo(14f, 21f)
+                    p.lineTo(19f, 21f); p.lineTo(19f, 9f)
+                }
+                Glyph.Library -> {
+                    p.moveTo(3f, 3f); p.lineTo(7f, 3f); p.lineTo(7f, 21f); p.lineTo(3f, 21f); p.close()
+                    p.moveTo(10f, 3f); p.lineTo(13f, 3f); p.lineTo(13f, 21f); p.lineTo(10f, 21f); p.close()
+                    p.moveTo(16f, 4f); p.lineTo(20f, 3f); p.lineTo(23f, 20f); p.lineTo(19f, 21f); p.close()
+                }
+                Glyph.Heart -> {
+                    p.moveTo(12f, 21f)
+                    p.cubicTo(10f, 18f, 2f, 13f, 2f, 7f)
+                    p.cubicTo(2f, 1f, 10f, 1f, 12f, 7f)
+                    p.cubicTo(14f, 1f, 22f, 1f, 22f, 7f)
+                    p.cubicTo(22f, 13f, 14f, 18f, 12f, 21f)
+                    p.close()
+                }
                 Glyph.Play -> {
                     p.moveTo(8f, 5f)
                     p.lineTo(20f, 12f)
@@ -106,12 +128,16 @@ fun AppIcon(glyph: Glyph, modifier: Modifier = Modifier, color: Color = Palette.
                     }
                 }
                 Glyph.Settings -> {
-                    drawCircle(
-                        color,
-                        8f,
-                        androidx.compose.ui.geometry.Offset(12f, 12f),
-                        style = Stroke(1.6f),
-                    )
+                    // Eight teeth make this distinguishable from account and radio controls.
+                    for (tooth in 0 until 8) {
+                        for ((offset, radius) in listOf(-.5f to 7.5f, -.24f to 10f, .24f to 10f, .5f to 7.5f)) {
+                            val angle = (tooth + offset) * kotlin.math.PI / 4.0
+                            val x = 12f + kotlin.math.cos(angle).toFloat() * radius
+                            val y = 12f + kotlin.math.sin(angle).toFloat() * radius
+                            if (tooth == 0 && offset == -.5f) p.moveTo(x, y) else p.lineTo(x, y)
+                        }
+                    }
+                    p.close()
                     drawCircle(
                         color,
                         3f,

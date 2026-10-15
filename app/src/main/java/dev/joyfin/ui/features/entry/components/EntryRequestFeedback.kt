@@ -1,9 +1,9 @@
 package dev.joyfin.ui.features.entry.components
 
+import dev.joyfin.ui.theme.Palette
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -13,7 +13,7 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 internal fun EntryError(message: String) {
     androidx.tv.material3.Text(
         message,
-        color = Color(0xFFDDB29F),
+        color = Palette.Error,
         fontSize = 12.sp,
         lineHeight = 20.sp,
         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
@@ -28,7 +28,7 @@ internal fun EntryRequestFeedback(busy: Boolean, error: String?, modifier: Modif
     Box(modifier.fillMaxWidth().height(if (tv) 22.dp else 21.dp)) {
         androidx.tv.material3.Text(
             message,
-            color = if (!busy && error != null) Color(0xFFDDB29F) else Color(0xFF778188),
+            color = if (!busy && error != null) Palette.Error else Palette.Muted,
             fontSize = if (tv) 13.sp else 12.sp,
             lineHeight = if (tv) 22.sp else 21.sp,
             maxLines = 1,

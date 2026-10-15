@@ -17,7 +17,7 @@ fun PersonRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
     val person = ui.person ?: return
     MediaCollection(ui, actions, images) {
         Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            AppHeader(actions, true)
+            AppHeader(actions, true, horizontalInset = 0.dp)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,

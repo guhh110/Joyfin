@@ -3,77 +3,68 @@ package dev.joyfin.ui.features.detail.tv
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Text
-import dev.joyfin.browse.*
 import dev.joyfin.browse.DetailUiState
 import dev.joyfin.ui.components.*
+import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.detail.components.*
-import dev.joyfin.ui.model.*
-import dev.joyfin.ui.theme.Palette
+import dev.joyfin.ui.model.FirstViewportScrollSpec
 
-/** TV alone owns the viewport-sized hero and its restricted bring-into-view policy. */
+/** TV owns the complete introductory viewport; only subsequent sections scroll into view. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modifier = Modifier) {
     val platformScroll = LocalBringIntoViewSpec.current
-    val visibilityScroll =
-        remember(platformScroll, content.scroll, content.focus) {
-            FirstViewportScrollSpec(platformScroll) {
-                content.scroll.value == 0 &&
-                    (content.focus.pending ?: content.focus.target) in
-                        setOf("header:back", "detail:play", "favorite")
-            }
+    val visibilityScroll = remember(platformScroll, content.scroll, content.focus) {
+        FirstViewportScrollSpec(platformScroll) {
+            content.scroll.value == 0 && (content.focus.pending ?: content.focus.target) in
+                setOf("header:back", "header:search", "header:account", "detail:play", "favorite")
         }
+    }
     CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
         BoxWithConstraints(modifier.fillMaxSize()) {
             val height = maxHeight
+            val gutter = LocalDeviceLayout.current.gutter
+            val posterWidth = (maxWidth * .20f).coerceIn(140.dp, 230.dp)
             Column(Modifier.fillMaxSize().verticalScroll(content.scroll).testTag("detail:scroll")) {
-                HeroBackdrop(
-                    content.ui.item,
-                    content.images,
-                    0.dp,
-                    Modifier.height(height).testTag("detail:hero"),
-                ) {
-                    Column(
-                        Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
+                HeroBackdrop(content.ui.item, content.images, 0.dp,
+                    Modifier.height(height).testTag("detail:hero")) {
+                    Column(Modifier.fillMaxSize().padding(horizontal = gutter, vertical = 16.dp)) {
                         SeriesOverviewHeader(content)
-                        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                            val available = maxHeight / LocalDensity.current.fontScale
-                            Column(
-                                Modifier.align(Alignment.BottomStart),
-                                verticalArrangement = Arrangement.spacedBy(10.dp),
-                            ) {
-                                TvSeriesOverviewHeading(content.ui, available)
+                        Row(Modifier.weight(1f).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(36.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            BoxWithConstraints(Modifier.width(posterWidth).fillMaxHeight(),
+                                contentAlignment = Alignment.Center) {
+                                val width = minOf(maxWidth, maxHeight / 1.5f)
+                                val media = content.ui.item
+                                if (media == null) SkeletonBlock(Modifier.width(width).aspectRatio(2f / 3f))
+                                else Artwork(content.images.poster(media), content.images,
+                                    Modifier.width(width).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)),
+                                    media.name, contentScale = ContentScale.Fit)
+                            }
+                            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                                val available = maxHeight / LocalDensity.current.fontScale
+                                Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    TvSeriesIntroduction(content.ui, available)
+                                    if (content.feedback.isNotBlank()) SeriesOverviewFeedback(content)
+                                    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        SeriesPlayAction(content, Modifier.widthIn(min = 180.dp).fillMaxHeight(), Glyph.Play)
+                                        SeriesFavoriteAction(content, Modifier.fillMaxHeight())
+                                    }
+                                }
                             }
                         }
-                        SeriesOverviewFeedback(content, Modifier.height(40.dp))
-                        Row(
-                            Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            SeriesPlayAction(
-                                content,
-                                Modifier.widthIn(min = 220.dp).fillMaxHeight(),
-                                Glyph.Play,
-                            )
-                            SeriesFavoriteAction(content, Modifier.fillMaxHeight())
-                        }
-                        Spacer(Modifier.height(12.dp))
                     }
                 }
                 CompositionLocalProvider(LocalBringIntoViewSpec provides platformScroll) {
@@ -85,55 +76,19 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
 }
 
 @Composable
-private fun TvSeriesOverviewHeading(ui: DetailUiState, available: Dp) {
+private fun TvSeriesIntroduction(ui: DetailUiState, available: Dp) {
     val media = ui.item
-    val compact = available < 240.dp
-    if (available > 120.dp)
-        Caption(
-            "剧集${ui.series?.seasons?.data?.size?.let { " · $it 季" }.orEmpty()}",
-            color = Palette.Gold,
-        )
+    val compact = available < 330.dp
     if (media?.name.isNullOrBlank())
-        SkeletonBlock(Modifier.fillMaxWidth(.65f).height(if (compact) 36.dp else 48.dp))
-    else
-        Text(
-            media.name,
-            color = Palette.Text,
-            fontFamily = FontFamily.Serif,
-            fontSize = if (compact) 36.sp else 54.sp,
-            lineHeight = if (compact) 46.sp else 65.sp,
-            maxLines = if (compact) 1 else 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        SkeletonBlock(Modifier.fillMaxWidth(.7f).height(if (compact) 40.dp else 56.dp))
+    else FilmTitle(media.name, large = !compact, maxLines = if (compact) 1 else 2)
     if (media != null) {
-        if (available > 100.dp)
-            Text(
-                listOfNotNull(
-                        media.year.takeIf { it > 0 }?.toString(),
-                        media.rating?.let {
-                            java.lang.String.format(java.util.Locale.ROOT, "★ %.1f", it)
-                        },
-                        media.genres.take(2).joinToString(" / ").takeIf { it.isNotBlank() },
-                        media.officialRating.takeIf { it.isNotBlank() },
-                    )
-                    .joinToString(" · "),
-                color = Palette.Muted,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        if (!compact && media.originalTitle.isNotBlank() && media.originalTitle != media.name)
+            Caption(media.originalTitle, maxLines = 1)
+        if (available > 220.dp) MediaMetadata(media)
     }
-    if (available > 180.dp)
-        if (ui.busy && media?.overview.isNullOrBlank())
-            SkeletonText(Modifier.widthIn(max = 680.dp), 3)
-        else
-            Text(
-                media?.overview.orEmpty().ifBlank { "暂无剧情简介" },
-                Modifier.widthIn(max = 680.dp),
-                color = Palette.Muted,
-                fontSize = 14.sp,
-                lineHeight = 23.sp,
-                maxLines = if (compact) 2 else 3,
-                overflow = TextOverflow.Ellipsis,
-            )
+    if (available > 260.dp) {
+        if (ui.busy && media?.overview.isNullOrBlank()) SkeletonText(lines = if (compact) 2 else 3)
+        else Caption(media?.overview.orEmpty().ifBlank { "暂无剧情简介" }, maxLines = if (compact) 2 else 3)
+    }
 }

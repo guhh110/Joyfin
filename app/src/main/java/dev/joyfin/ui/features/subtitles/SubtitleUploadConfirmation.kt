@@ -98,7 +98,7 @@ internal fun SubtitleUploadConfirmation(controller: SubtitlePageController, dism
                         Modifier.fillMaxWidth().focusTarget("subtitles:upload-delete:${track.receipt.itemId}:${track.receipt.path}"),
                         selected = track.selected, transparent = true) {
                         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AppIcon(if (track.selected) Glyph.Check else Glyph.Plus, color = if (track.selected) Palette.Gold else Palette.Muted)
+                            AppIcon(if (track.selected) Glyph.Check else Glyph.Plus, color = if (track.selected) Palette.Text else Palette.Muted)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Caption(mapping.itemName, color = Palette.Text)
                                 // This prefix is authored by SubtitleUploadController, not parsed server data.

@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
 import dev.joyfin.ui.device.LocalDeviceLayout
@@ -25,6 +26,7 @@ fun MediaRail(
     focusPrefix: String = title,
     state: LazyListState = rememberLazyListState(),
     showHeading: Boolean = true,
+    cardWidth: Dp? = null,
     itemFocus: @Composable (Media) -> Modifier = { Modifier.focusTarget("$focusPrefix:${it.id}") },
 ) {
     if (items.isEmpty()) return
@@ -42,7 +44,7 @@ fun MediaRail(
             state = state,
             modifier = Modifier.testTag("rail:$focusPrefix"),
             contentPadding = PaddingValues(horizontal = LocalDeviceLayout.current.gutter),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(MediaCardLayout.RailGap),
         ) {
             items(items, key = { it.id }, contentType = { "media-card" }) { item ->
                 MediaCard(
@@ -51,6 +53,7 @@ fun MediaRail(
                     { onOpen(item) },
                     focusModifier = itemFocus(item),
                     wide = wide,
+                    cardWidth = cardWidth,
                     focusKey = "$focusPrefix:${item.id}",
                 )
             }

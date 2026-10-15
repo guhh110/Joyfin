@@ -25,7 +25,7 @@ internal fun TvEntryLayout(step: String, content: @Composable ColumnScope.() -> 
             Alignment.Center,
             Brush.horizontalGradient(
                 0f to Color.Transparent,
-                .44f to Color(0x440B0D10),
+                .44f to Palette.Background.copy(alpha = .27f),
                 .64f to Palette.Background,
                 1f to Palette.Background,
             ),
@@ -47,7 +47,7 @@ internal fun TvEntryLayout(step: String, content: @Composable ColumnScope.() -> 
             Text(
                 "把喜欢的故事，\n留给自己。",
                 color = Palette.Text,
-                fontFamily = FontFamily.Serif,
+                fontFamily = FontFamily.SansSerif,
                 fontSize = 46.sp,
                 lineHeight = 68.sp,
             )

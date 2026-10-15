@@ -17,6 +17,7 @@ import dev.joyfin.ui.features.home.components.*
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.model.FirstViewportScrollSpec
+import dev.joyfin.ui.device.LocalDeviceLayout
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -33,6 +34,9 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
         }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
+        val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val resumeWidth = ((maxWidth - LocalDeviceLayout.current.gutter * 2 - MediaCardLayout.RailGap * 3) / 4 / scale)
+            .coerceIn(140.dp, 280.dp)
         CompositionLocalProvider(LocalBringIntoViewSpec provides viewportScroll) {
             LazyColumn(
                 Modifier.fillMaxSize().testTag("home:scroll"),
@@ -54,17 +58,13 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                     HomeHeroContent(
                                         home,
-                                        images,
                                         actions,
-                                        0.dp,
-                                        8.dp,
                                         modifier = Modifier.align(Alignment.BottomStart),
-                                        showHeader = false,
                                         compact =
-                                            maxHeight / LocalDensity.current.fontScale < 380.dp,
+                                            maxHeight / LocalDensity.current.fontScale < 240.dp,
                                     )
                                 }
-                                HomeResumeRail(home, images, actions)
+                                HomeResumeRail(home, images, actions, resumeWidth)
                             }
                         }
                     }
