@@ -43,7 +43,7 @@ fun AppContent(
     val immersiveBrowse = ui.page in setOf(Page.HOME, Page.DETAIL)
     val subtitleScreen = subtitles?.state?.collectAsState()?.value?.screen
     val showNavigation = !LocalDeviceLayout.current.television &&
-        ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES) &&
+        ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES, Page.PERSON) &&
         !(ui.page == Page.SUBTITLES && subtitleScreen == SubtitleScreen.ORGANIZE)
     val pageKey =
         if (ui.page == Page.DETAIL) "detail:${ui.detail.visit}"

@@ -71,6 +71,7 @@ class UiScenarioActivity : ComponentActivity() {
                             "library" -> vm.library()
                             "search" -> { vm.search(); vm.submitSearch("群山") }
                             "subtitles" -> vm.openSubtitleManager()
+                            "person" -> vm.openPerson(Media.from(ScenarioMedia.series).people.first())
                         }
                     }
                 }
@@ -87,6 +88,7 @@ class UiScenarioActivity : ComponentActivity() {
                                     Page.DETAIL -> { vm.retry(); vm.retrySeriesSeasons(); vm.retrySeriesRecommendation(); vm.retryRelated() }
                                     Page.LIBRARY -> vm.library()
                                     Page.SEARCH -> vm.submitSearch(state.collection.query.ifBlank { "群山" })
+                                    Page.PERSON -> state.collection.person?.let(vm::openPerson) ?: vm.retry()
                                     else -> vm.retry()
                                 }
                             }, selected = scenario == value, quiet = true, maxLines = 1)

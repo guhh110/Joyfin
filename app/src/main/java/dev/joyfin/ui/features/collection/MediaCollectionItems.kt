@@ -45,7 +45,11 @@ internal fun LazyGridScope.mediaCollectionItems(
     if (ui.media.isEmpty() && !ui.busy && ui.error != null)
         item(span = { GridItemSpan(maxLineSpan) }, key = "error") {
             ErrorContent(
-                title = if (ui.kind == CollectionKind.SEARCH) "暂时无法读取搜索结果" else "暂时无法加载媒体库",
+                title = when (ui.kind) {
+                    CollectionKind.SEARCH -> "暂时无法读取搜索结果"
+                    CollectionKind.PERSON -> "暂时无法加载人物作品"
+                    CollectionKind.LIBRARY -> "暂时无法加载媒体库"
+                },
                 error = ui.error,
                 action = if (ui.kind == CollectionKind.SEARCH) "重新搜索" else "重新加载",
                 onAction = actions.retry,
@@ -59,9 +63,12 @@ internal fun LazyGridScope.mediaCollectionItems(
             (ui.kind != CollectionKind.SEARCH || ui.query.isNotBlank())
     )
         item(span = { GridItemSpan(maxLineSpan) }, key = "empty") {
-            EmptyContent(if (ui.kind == CollectionKind.SEARCH) "没有找到相关作品" else "这里还没有内容",
-                if (ui.kind == CollectionKind.SEARCH) "换一个片名、剧名或更短的关键词试试。"
-                else "在服务器中添加媒体后，重新进入此页面查看。")
+            val (emptyTitle, emptyDesc) = when (ui.kind) {
+                CollectionKind.SEARCH -> "没有找到相关作品" to "换一个片名、剧名或更短的关键词试试。"
+                CollectionKind.PERSON -> "暂无参演作品" to "服务器中暂无此人物的相关收录作品。"
+                CollectionKind.LIBRARY -> "这里还没有内容" to "在服务器中添加媒体后，重新进入此页面查看。"
+            }
+            EmptyContent(emptyTitle, emptyDesc)
         }
     items(ui.media, key = { it.id }) { media ->
         MediaCard(
