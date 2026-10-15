@@ -34,7 +34,7 @@ internal fun TvPlayerLayout(
         40.dp,
         showTransport = ui.nextSeconds == 0 && panel == null,
     ) {
-        if (ui.error != null)
+        if (ui.error != null && panel == null)
             Column(
                 Modifier.align(Alignment.TopCenter).padding(top = 48.dp)
                     .background(Color(0xE6141418), RoundedCornerShape(12.dp))
@@ -64,6 +64,8 @@ internal fun TvPlayerLayout(
                         Modifier.focusTarget("player:compatible"),
                         quiet = false,
                     )
+                    ActionButton("播放诊断", { onPanel(PlayerPanel.Diagnostics) },
+                        Modifier.focusTarget("player:diagnostics"), icon = Glyph.Info)
                 }
             }
     }

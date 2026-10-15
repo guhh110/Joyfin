@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
@@ -16,6 +16,11 @@ import dev.joyfin.app.SettingsUiState
 import dev.joyfin.session.EntryState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.focusTarget
+import dev.joyfin.ui.interaction.LocalScreenFocus
+import androidx.compose.ui.platform.LocalWindowInfo
+import dev.joyfin.ui.device.LocalDeviceLayout
+import dev.joyfin.ui.features.player.PlaybackDiagnosticsSheet
+import kotlinx.coroutines.flow.first
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.Palette
 
@@ -26,6 +31,20 @@ internal fun ColumnScope.SettingsContent(
     autoNext: Boolean,
     request: SettingsUiState = SettingsUiState(),
 ) {
+    var diagnostics by remember { mutableStateOf(false) }
+    var returnFromDiagnostics by remember { mutableStateOf(false) }
+    val pageFocus = LocalScreenFocus.current
+    val window = LocalWindowInfo.current
+    val tv = LocalDeviceLayout.current.television
+    LaunchedEffect(diagnostics) {
+        if (!diagnostics && returnFromDiagnostics && tv) {
+            snapshotFlow { window.isWindowFocused }.first { it }
+            withFrameNanos {}
+            pageFocus?.rememberTarget?.invoke("settings:diagnostics")
+            pageFocus?.requesters?.get("settings:diagnostics")?.requestFocus()
+            returnFromDiagnostics = false
+        }
+    }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("settings:back"))
@@ -71,6 +90,11 @@ internal fun ColumnScope.SettingsContent(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ChoiceRow("最近一次播放诊断", Modifier.focusTarget("settings:diagnostics"),
+            subtitle = "查看格式、播放阶段与错误，复制脱敏报告") {
+            returnFromDiagnostics = true
+            diagnostics = true
+        }
         ActionButton("退出当前账号", actions.logout, loading = request.busy, icon = Glyph.Close)
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -79,4 +103,5 @@ internal fun ColumnScope.SettingsContent(
             MediaPill("Joyfin v${BuildConfig.VERSION_NAME}", outlined = true)
         }
     }
+    if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
 }

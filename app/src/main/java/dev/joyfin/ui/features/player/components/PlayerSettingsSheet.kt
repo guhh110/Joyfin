@@ -13,6 +13,7 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.RememberScreenFocus
 import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.device.LocalDeviceLayout
+import dev.joyfin.ui.features.player.PlaybackDiagnosticsSheet
 import dev.joyfin.ui.interaction.focusTarget
 import kotlinx.coroutines.flow.first
 
@@ -26,6 +27,7 @@ enum class PlayerPanel(val title: String) {
     Episodes("选集"),
     Seasons("选择季"),
     Versions("媒体版本"),
+    Diagnostics("播放诊断"),
 }
 
 @Composable
@@ -37,6 +39,10 @@ fun PlayerSettingsSheet(
     onDismiss: () -> Unit,
     initialFocus: String = panel.initialFocus(ui),
 ) {
+    if (panel == PlayerPanel.Diagnostics) {
+        PlaybackDiagnosticsSheet(onDismiss)
+        return
+    }
     key(panel) {
         RememberScreenFocus(initialFocus) {
             Sheet(panel.title, onDismiss, side = true) {
@@ -91,6 +97,8 @@ fun PlayerSettingsSheet(
                             onDismiss()
                             actions.selectCompatibility(!ui.compatible)
                         }
+                        ChoiceRow("播放诊断", Modifier.focusTarget("player:settings-diagnostics"),
+                            subtitle = "实际播放格式、转码原因与错误记录") { onPanel(PlayerPanel.Diagnostics) }
                     }
                     PlayerPanel.Quality -> {
                         Caption("选择码率上限，实际画质由媒体与服务器决定。")
@@ -227,6 +235,7 @@ fun PlayerSettingsSheet(
                             }
                         }
                     }
+                    PlayerPanel.Diagnostics -> Unit
                 }
             }
         }

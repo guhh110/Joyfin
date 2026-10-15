@@ -33,6 +33,8 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
     var interaction by remember { mutableIntStateOf(0) }
     var subtitleSearchReturn by remember { mutableStateOf(false) }
     var lastSubtitleApplication by remember { mutableIntStateOf(ui.subtitleSearchApplied) }
+    var diagnosticsParent by remember { mutableStateOf<PlayerPanel?>(null) }
+    var settingsDiagnosticsReturn by remember { mutableStateOf(false) }
     LaunchedEffect(ui.subtitleSearchOpen) {
         if (ui.subtitleSearchOpen) subtitleSearchReturn = true
     }
@@ -153,6 +155,7 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                 val onPanel: (PlayerPanel) -> Unit = {
                     touch()
                     actions.preview.cancel()
+                    if (it == PlayerPanel.Diagnostics) diagnosticsParent = panel
                     panel = it
                 }
                 if (tv) TvPlayerLayout(ui, actions, panel, onPanel, ::touch)
@@ -183,18 +186,29 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                     ui,
                     actions,
                     {
+                        if (it == PlayerPanel.Diagnostics) diagnosticsParent = current
+                        settingsDiagnosticsReturn = false
                         panel = it
                         subtitleSearchReturn = false
                         touch()
                     },
                     {
-                        panel = null
+                        if (current == PlayerPanel.Diagnostics && diagnosticsParent == PlayerPanel.Settings) {
+                            panel = PlayerPanel.Settings
+                            settingsDiagnosticsReturn = true
+                        } else {
+                            panel = null
+                            settingsDiagnosticsReturn = false
+                            focusReturn++
+                        }
                         subtitleSearchReturn = false
-                        focusReturn++
                         touch()
                     },
-                    initialFocus = if (current == PlayerPanel.Subtitle && subtitleSearchReturn)
-                        "player:subtitle-search" else current.initialFocus(ui),
+                    initialFocus = when {
+                        current == PlayerPanel.Subtitle && subtitleSearchReturn -> "player:subtitle-search"
+                        current == PlayerPanel.Settings && settingsDiagnosticsReturn -> "player:settings-diagnostics"
+                        else -> current.initialFocus(ui)
+                    },
                 )
             }
         }

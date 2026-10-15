@@ -29,7 +29,7 @@ internal fun MobilePlayerLayout(
         22.dp,
         showTransport = ui.error == null && ui.nextSeconds == 0 && panel == null,
     )
-    if (ui.error != null)
+    if (ui.error != null && panel == null)
         RememberScreenFocus("player:retry") {
             Sheet("播放失败", actions.close) {
                 Row(
@@ -47,6 +47,8 @@ internal fun MobilePlayerLayout(
                     primary = true,
                 )
                 ActionButton("兼容转码", actions.compatible)
+                ActionButton("播放诊断", { onPanel(PlayerPanel.Diagnostics) },
+                    Modifier.focusTarget("player:diagnostics"), icon = Glyph.Info)
                 ActionButton("返回", actions.close)
             }
         }

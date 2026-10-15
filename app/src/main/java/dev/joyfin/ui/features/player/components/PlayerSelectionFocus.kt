@@ -19,6 +19,7 @@ internal fun PlayerPanel.choiceKey(value: Any) = "player-choice:$name:$value"
 internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
     when (this) {
         PlayerPanel.Settings -> "sheet:close"
+        PlayerPanel.Diagnostics -> "diagnostics:copy"
         PlayerPanel.Quality ->
             choiceKey(
                 qualityChoices.firstOrNull { it.first == ui.bitrate }?.first

@@ -2,6 +2,9 @@ package dev.joyfin.browse
 
 import dev.joyfin.data.ApiException
 import dev.joyfin.data.Media
+import dev.joyfin.playback.DiagnosticStage
+import dev.joyfin.playback.DiagnosticOutcome
+import dev.joyfin.playback.PlaybackDiagnostics
 import kotlinx.coroutines.*
 
 data class EpisodePlaybackIntent(
@@ -38,6 +41,7 @@ class EpisodePlaybackController(
     private var job: Job? = null
     private var generation = 0L
     private var state: EpisodePlaybackState = EpisodePlaybackState.Idle
+    private var diagnosticToken = 0L
 
     private fun update(next: EpisodePlaybackState) {
         state = next
@@ -47,6 +51,7 @@ class EpisodePlaybackController(
     fun cancel() {
         generation++
         job?.cancel()
+        PlaybackDiagnostics.canceled(diagnosticToken)
         update(EpisodePlaybackState.Idle)
     }
 
@@ -61,12 +66,17 @@ class EpisodePlaybackController(
     }
 
     fun consumed(sequence: Long) {
-        if ((state as? EpisodePlaybackState.Ready)?.intent?.sequence == sequence)
+        if ((state as? EpisodePlaybackState.Ready)?.intent?.sequence == sequence) {
+            // PlaybackController owns this session after the launch is consumed.
+            diagnosticToken = 0L
             update(EpisodePlaybackState.Idle)
+        }
     }
 
     private fun begin(intent: EpisodePlaybackIntent) {
         job?.cancel()
+        diagnosticToken = PlaybackDiagnostics.begin(intent.episodeId, preflight = true)
+        val diagnostics = diagnosticToken
         update(EpisodePlaybackState.Preparing(intent))
         job =
             scope.launch {
@@ -81,12 +91,14 @@ class EpisodePlaybackController(
                     ) {
                         "所选版本已不可用，请重新选择"
                     }
+                    PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.READY)
                     update(EpisodePlaybackState.Ready(intent, media))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     ensureActive()
                     if (generation != intent.sequence) return@launch
+                    PlaybackDiagnostics.failure(diagnostics, DiagnosticStage.METADATA, e)
                     if (e is ApiException && e.status == 401) expired()
                     else update(EpisodePlaybackState.Failed(intent, e.message ?: "准备播放失败"))
                 }

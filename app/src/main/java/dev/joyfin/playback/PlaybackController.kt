@@ -41,6 +41,9 @@ class PlaybackController(
     private val mutable = MutableStateFlow(PlayerUiState())
     val state = mutable.asStateFlow()
     private var currentId = restored?.getString("itemId") ?: itemId
+    private var diagnosticMediaId = currentId
+    private var diagnosticToken = PlaybackDiagnostics.claim(currentId)
+    private var diagnosticFallback = restored?.getBoolean("diagnosticFallback") ?: false
     private var initialTicks = restored?.getLong("position") ?: startTicks
     private var sourceId = restored?.getString("source") ?: initialSourceId
     private var bitrate = restored?.getInt("bitrate", PlaybackQuality.DEFAULT) ?: PlaybackQuality.DEFAULT
@@ -90,6 +93,9 @@ class PlaybackController(
             .setSeekForwardIncrementMs(10_000)
             .build()
     private val mediaSession = MediaSession.Builder(context, player).build()
+    private val diagnosticObserver = PlaybackDiagnosticsObserver(player, { diagnosticToken }) {
+        !released && plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration
+    }
 
     val subtitleSearch = PlayerSubtitleSearchController(context, scope, api, localStore,
         ::applySearchedSubtitle, ::subtitleSearchClosed)
@@ -180,6 +186,7 @@ class PlaybackController(
                     } ?: false
                     fallbackUsed = compatible
                     audioTranscode = false
+                    diagnosticFallback = false
                     load(positionTicks())
                 }
             },
@@ -195,6 +202,7 @@ class PlaybackController(
         )
 
     init {
+        player.addAnalyticsListener(diagnosticObserver)
         subtitleRendering.bind(player)
         player.setAudioAttributes(
             AudioPlaybackCapabilities.attributes,
@@ -205,6 +213,9 @@ class PlaybackController(
         player.addListener(
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_BUFFERING && plan != null && !searchSubtitleApplying &&
+                        player.currentMediaItem?.localConfiguration?.tag == playbackGeneration)
+                        PlaybackDiagnostics.event(diagnosticToken, DiagnosticStage.STREAM, DiagnosticOutcome.RUNNING)
                     if (
                         playbackState == Player.STATE_BUFFERING && seekPreview.state?.active == true
                     )
@@ -219,6 +230,8 @@ class PlaybackController(
                         )
                     }
                     if (playbackState == Player.STATE_READY && plan != null && !searchSubtitleApplying) {
+                        if (player.currentMediaItem?.localConfiguration?.tag == playbackGeneration)
+                            PlaybackDiagnostics.event(diagnosticToken, DiagnosticStage.STREAM, DiagnosticOutcome.READY)
                         completion.ready(player.currentMediaItem?.localConfiguration?.tag as? Long)
                         if (player.currentMediaItem?.localConfiguration?.tag == playbackGeneration)
                             commitPreference()
@@ -257,10 +270,12 @@ class PlaybackController(
 
                 override fun onRenderedFirstFrame() {
                     mutable.update { it.copy(hasRenderedFrame = true) }
+                    diagnosticObserver.sample()
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     mutable.update { it.copy(playing = isPlaying) }
+                    if (plan != null) diagnosticObserver.sample()
                     if (started) report("Progress")
                 }
 
@@ -274,6 +289,7 @@ class PlaybackController(
 
                 override fun onTracksChanged(tracks: Tracks) {
                     selectTracks(tracks)
+                    if (plan != null) diagnosticObserver.sample()
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -305,6 +321,13 @@ class PlaybackController(
             subtitleSearchResume ?: pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
     ) {
         discardSubtitleSearch()
+        if (diagnosticMediaId != currentId) {
+            diagnosticMediaId = currentId
+            diagnosticToken = PlaybackDiagnostics.begin(currentId)
+            diagnosticFallback = false
+        }
+        val diagnostics = diagnosticToken
+        PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, audioTranscode, diagnosticFallback)
         val generation = completion.begin()
         playbackGeneration = generation
         subtitleJob?.cancel()
@@ -351,8 +374,13 @@ class PlaybackController(
         }
         loadJob = scope.launch {
             var unclaimed: PlaybackPlan? = null
+            var diagnosticStage = DiagnosticStage.METADATA
             try {
-                if (fetch || item == null) item = api.item(currentId)
+                if (fetch || item == null) {
+                    PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.RUNNING)
+                    item = api.item(currentId)
+                    PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.READY)
+                }
                 val media = requireNotNull(item)
                 val preferences = api.session?.let { preferenceStore.load(it, media) }
                 if (settingsItemId != media.id) {
@@ -360,6 +388,7 @@ class PlaybackController(
                     compatible = preferences?.compatible ?: false
                     fallbackUsed = compatible
                     audioTranscode = false
+                    diagnosticFallback = false
                     settingsItemId = media.id
                 }
                 mutable.update {
@@ -393,6 +422,8 @@ class PlaybackController(
                 if (fetch) loadEpisodeMetadata(media)
                 val source =
                     media.sources.firstOrNull { sourceId == null || it.id == sourceId }
+                PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, audioTranscode, diagnosticFallback)
+                source?.let { PlaybackDiagnostics.source(diagnostics, it, audioIndex ?: it.defaultAudioIndex) }
                 val localKey = api.session?.let { session -> source?.id?.let { version ->
                     dev.joyfin.data.subtitles.LocalSubtitleStore.key(session.server, session.userId, media.id, version)
                 } }
@@ -404,8 +435,13 @@ class PlaybackController(
                 val selectedLocal = try {
                     localKey?.let { localPlayback.selected(it) }
                 } catch (e: CancellationException) { throw e }
-                catch (_: Exception) { localError = "本地字幕无法读取，请在详情页重新选择"; null }
+                catch (e: Exception) {
+                    PlaybackDiagnostics.failure(diagnostics, DiagnosticStage.SUBTITLE, e, fatal = false)
+                    localError = "本地字幕无法读取，请在详情页重新选择"; null
+                }
                 var profile = DeviceProfile.build(context, source, bitrate, audioIndex)
+                diagnosticStage = DiagnosticStage.NEGOTIATION
+                PlaybackDiagnostics.event(diagnostics, diagnosticStage, DiagnosticOutcome.RUNNING)
                 val prepared =
                     api.playback(
                         media,
@@ -436,6 +472,9 @@ class PlaybackController(
                             } else media.sources + prepared.source,
                     )
                 plan = prepared
+                PlaybackDiagnostics.plan(diagnostics, prepared)
+                diagnosticStage = DiagnosticStage.STREAM
+                PlaybackDiagnostics.event(diagnostics, diagnosticStage, DiagnosticOutcome.RUNNING)
                 // Never log playback URLs: they may contain server addresses and credentials.
                 android.util.Log.i(
                     "JoyfinPlayback",
@@ -508,6 +547,7 @@ class PlaybackController(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                PlaybackDiagnostics.failure(diagnostics, diagnosticStage, e)
                 if (e is ApiException && e.status == 401) onClose(true)
                 else showError(e.message ?: "获取播放信息失败")
             } finally {
@@ -612,8 +652,12 @@ class PlaybackController(
 
     private fun selectCompatibility(value: Boolean) {
         if (mutable.value.loading || item == null) return
+        diagnosticFallback = false
         stagePreference { it.copy(compatible = value) }
-        if (compatible == value && !audioTranscode && started && mutable.value.error == null) commitPreference()
+        if (compatible == value && !audioTranscode && started && mutable.value.error == null) {
+            PlaybackDiagnostics.selection(diagnosticToken, compatible, audioTranscode, diagnosticFallback)
+            commitPreference()
+        }
         else {
             compatible = value
             fallbackUsed = value
@@ -847,6 +891,7 @@ class PlaybackController(
                 method = plan?.method ?: it.method,
                 subtitleIndex = plan?.subtitleIndex ?: it.subtitleIndex) }
             replacement?.let {
+                PlaybackDiagnostics.plan(diagnosticToken, it)
                 reporter.send(oldPlan, "Stopped", position * 10_000, true)
                 subtitleIndex = it.subtitleIndex
                 report("")
@@ -930,6 +975,7 @@ class PlaybackController(
             generateSequence<Throwable>(error) { it.cause }
                 .any { it is HttpDataSource.InvalidResponseCodeException && it.responseCode == 401 }
         ) {
+            PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error)
             onClose(true)
             return
         }
@@ -943,20 +989,27 @@ class PlaybackController(
                     PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
                 )
         if (decode && !fallbackUsed) {
+            PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error, fatal = false)
+            PlaybackDiagnostics.event(diagnosticToken, DiagnosticStage.STREAM, DiagnosticOutcome.FALLBACK)
+            diagnosticFallback = true
             fallbackUsed = true
             audioTranscode = error is ExoPlaybackException && error.rendererFormat?.sampleMimeType?.startsWith("audio/") == true
             compatible = !audioTranscode
             // An automatic failure fallback is temporary, not an explicit per-show preference.
             android.util.Log.i("JoyfinPlayback", "fallback=${error.errorCodeName}, audioOnly=$audioTranscode")
             load(positionTicks())
-        } else
+        } else {
+            PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error)
             showError(
                 if (decode) "当前格式无法播放，兼容转码也未成功。请检查服务端转码日志。"
                 else "播放中断：${error.errorCodeName}。请检查网络或服务器。",
             )
+        }
     }
 
     private fun stopCurrentStream() {
+        if (plan != null) diagnosticObserver.sample()
+        PlaybackDiagnostics.canceled(diagnosticToken)
         initialTicks = positionTicks()
         plan?.let { reporter.send(it, "Stopped", initialTicks, true) }
         plan = null
@@ -1005,6 +1058,7 @@ class PlaybackController(
         pollJob?.cancel()
         reportJob?.cancel()
         pollJob = scope.launch {
+            var diagnosticSecond = -1L
             while (isActive) {
                 mutable.update {
                     it.copy(
@@ -1019,6 +1073,11 @@ class PlaybackController(
                         bufferedMs = player.bufferedPosition.coerceAtLeast(0),
                         speed = player.playbackParameters.speed,
                     )
+                }
+                val second = android.os.SystemClock.elapsedRealtime() / 1000
+                if (plan != null && diagnosticSecond != second) {
+                    diagnosticSecond = second
+                    diagnosticObserver.sample()
                 }
                 delay(300)
             }
@@ -1072,6 +1131,7 @@ class PlaybackController(
         out.putBoolean("compatible", compatible)
         out.putBoolean("fallbackUsed", fallbackUsed)
         out.putBoolean("audioTranscode", audioTranscode)
+        out.putBoolean("diagnosticFallback", diagnosticFallback)
         out.putFloat("speed", player.playbackParameters.speed)
         out.putInt("audio", audioIndex ?: -1)
         subtitleIndex?.let { out.putInt("subtitle", it) }
@@ -1082,6 +1142,7 @@ class PlaybackController(
         seekPreview.cancel()
         if (released) return
         released = true
+        player.removeAnalyticsListener(diagnosticObserver)
         discardSubtitleSearch()
         loadJob?.cancel()
         subtitleJob?.cancel()

@@ -67,9 +67,15 @@ class AppViewModel @JvmOverloads constructor(
 
     fun cancelEntry() = session.cancelEntry()
 
-    fun changeServer() = session.changeServer()
+    fun changeServer() {
+        dev.joyfin.playback.PlaybackDiagnostics.clear()
+        session.changeServer()
+    }
 
-    fun logout() = session.logout()
+    fun logout() {
+        dev.joyfin.playback.PlaybackDiagnostics.clear()
+        session.logout()
+    }
 
     fun expireSession(): Unit = session.expireSession()
 
