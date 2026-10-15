@@ -89,6 +89,24 @@ fun MediaCard(
                         )
                     }
                 }
+                val unplayed = item.unplayedCount
+                if (unplayed != null && unplayed > 0 && item.type == "Series") {
+                    CardOverlayBadge(
+                        modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(6.dp),
+                        text = "$unplayed",
+                    )
+                } else if (item.played && item.resumeTicks <= 0) {
+                    CardOverlayBadge(
+                        modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(6.dp),
+                        icon = Glyph.Check,
+                    )
+                }
+                if (has4kQuality(item)) {
+                    CardOverlayBadge(
+                        modifier = Modifier.align(androidx.compose.ui.Alignment.TopStart).padding(6.dp),
+                        text = "4K",
+                    )
+                }
             }
             Text(
                 if (preferSeriesTitle && wide && item.seriesName.isNotBlank()) item.seriesName else item.name,

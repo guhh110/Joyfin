@@ -31,6 +31,11 @@ enum class Glyph {
     Subtitle,
     Info,
     Refresh,
+    Star,
+    Clock,
+    CheckCircle,
+    Film,
+    Tv,
 }
 
 @Composable
@@ -188,12 +193,58 @@ fun AppIcon(glyph: Glyph, modifier: Modifier = Modifier, color: Color = Palette.
                     p.cubicTo(13f, -1f, 0f, 8f, 6f, 17f)
                     p.cubicTo(9f, 22f, 17f, 21f, 20f, 17f)
                 }
+                Glyph.Star -> {
+                    for (i in 0 until 10) {
+                        val angle = -kotlin.math.PI / 2.0 + i * kotlin.math.PI / 5.0
+                        val r = if (i % 2 == 0) 8.5f else 3.8f
+                        val x = 12f + kotlin.math.cos(angle).toFloat() * r
+                        val y = 12f + kotlin.math.sin(angle).toFloat() * r
+                        if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+                    }
+                    p.close()
+                }
+                Glyph.Clock -> {
+                    drawCircle(
+                        color,
+                        9f,
+                        androidx.compose.ui.geometry.Offset(12f, 12f),
+                        style = Stroke(1.6f),
+                    )
+                    p.moveTo(12f, 7f)
+                    p.lineTo(12f, 12f)
+                    p.lineTo(15.5f, 12f)
+                }
+                Glyph.CheckCircle -> {
+                    drawCircle(
+                        color,
+                        9f,
+                        androidx.compose.ui.geometry.Offset(12f, 12f),
+                        style = Stroke(1.6f),
+                    )
+                    p.moveTo(7.5f, 12f)
+                    p.lineTo(10.5f, 15f)
+                    p.lineTo(16.5f, 8.5f)
+                }
+                Glyph.Film -> {
+                    p.moveTo(4f, 4f); p.lineTo(20f, 4f); p.lineTo(20f, 20f); p.lineTo(4f, 20f); p.close()
+                    p.moveTo(4f, 8f); p.lineTo(20f, 8f)
+                    p.moveTo(4f, 16f); p.lineTo(20f, 16f)
+                    p.moveTo(8f, 4f); p.lineTo(8f, 8f)
+                    p.moveTo(16f, 4f); p.lineTo(16f, 8f)
+                    p.moveTo(8f, 16f); p.lineTo(8f, 20f)
+                    p.moveTo(16f, 16f); p.lineTo(16f, 20f)
+                }
+                Glyph.Tv -> {
+                    p.moveTo(8f, 4f); p.lineTo(12f, 7f); p.lineTo(16f, 4f)
+                    p.moveTo(3f, 7f); p.lineTo(21f, 7f); p.lineTo(21f, 19f); p.lineTo(3f, 19f); p.close()
+                    p.moveTo(8f, 21f); p.lineTo(16f, 21f)
+                }
             }
             drawPath(
                 p,
                 color,
                 style =
-                    if (glyph == Glyph.Play) androidx.compose.ui.graphics.drawscope.Fill
+                    if (glyph in setOf(Glyph.Play, Glyph.Star)) androidx.compose.ui.graphics.drawscope.Fill
                     else Stroke(1.6f, cap = StrokeCap.Round),
             )
         }

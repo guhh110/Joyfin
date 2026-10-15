@@ -37,9 +37,9 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
             fontWeight = FontWeight.SemiBold, letterSpacing = (-.8).sp)
         if (device.television) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), quiet = true)
-                ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), quiet = true)
-                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), quiet = true)
+                ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true)
+                ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true)
+                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true)
             }
         } else Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

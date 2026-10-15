@@ -13,28 +13,56 @@ import java.util.Locale
 @Composable
 fun MediaMetadata(item: Media) {
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         item.rating?.let {
-            Caption("★ ${String.format(Locale.ROOT,"%.1f",it)}", color = Palette.Text)
+            RatingPill(it)
         }
-        if (item.year > 0) Caption(item.year.toString())
-        if (item.genres.isNotEmpty()) Caption(item.genres.take(2).joinToString(" / "))
-        if (item.officialRating.isNotBlank()) Caption(item.officialRating)
-        val video =
-            item.sources.firstOrNull()?.streams.orEmpty().firstOrNull {
-                it.type == "Video"
-            }
+        if (item.year > 0) {
+            MediaPill(item.year.toString())
+        }
+        if (item.genres.isNotEmpty()) {
+            MediaPill(item.genres.take(2).joinToString(" / "))
+        }
+        if (item.officialRating.isNotBlank()) {
+            MediaPill(item.officialRating, outlined = true)
+        }
+        val streams = item.sources.firstOrNull()?.streams.orEmpty()
+        val video = streams.firstOrNull { it.type == "Video" }
         if (video != null) {
-            if (video.width >= 3840) Caption("4K")
-            video
-                .videoRange
-                .takeIf { it.isNotBlank() && it != "SDR" }
-                ?.let { Caption(it) }
+            when {
+                video.width >= 3840 || video.height >= 2160 -> QualityBadge("4K UHD")
+                video.width >= 1920 || video.height >= 1080 -> QualityBadge("1080P")
+            }
+            when {
+                video.videoRangeType.contains("DOVI", ignoreCase = true) ||
+                    video.videoRangeType.contains("DV", ignoreCase = true) -> QualityBadge("Dolby Vision")
+                video.videoRange.contains("HDR", ignoreCase = true) ||
+                    video.videoRangeType.contains("HDR", ignoreCase = true) -> QualityBadge("HDR")
+                video.videoRange.isNotBlank() && video.videoRange != "SDR" -> QualityBadge(video.videoRange)
+            }
         }
-        if (item.ticks > 0) Caption("${item.ticks/600_000_000} 分钟")
+        val audio = streams.firstOrNull { it.type == "Audio" }
+        if (audio != null) {
+            if (audio.displayTitle.contains("atmos", ignoreCase = true) ||
+                audio.codec.contains("atmos", ignoreCase = true)) {
+                QualityBadge("Atmos")
+            } else when (audio.channels) {
+                8 -> QualityBadge("7.1")
+                6 -> QualityBadge("5.1")
+            }
+        }
+        if (item.ticks > 0) {
+            val minutes = item.ticks / 600_000_000
+            MediaPill("$minutes 分钟", icon = Glyph.Clock)
+        }
     }
+}
+
+fun has4kQuality(item: Media): Boolean {
+    val video = item.sources.firstOrNull()?.streams.orEmpty().firstOrNull { it.type == "Video" }
+    return video != null && (video.width >= 3840 || video.height >= 2160)
 }
 
 fun timeLabel(ms: Long): String {

@@ -48,6 +48,7 @@ fun MobileEpisodeDetails(
                             playLabel(episode, trigger),
                             { onPlay(episode, false, null) },
                             Modifier.weight(1f).focusTarget("episode:sheet-play"),
+                            icon = Glyph.Play,
                             primary = true,
                             maxLines = 2,
                             enabled = canPlay(episode, trigger),
@@ -63,6 +64,7 @@ fun MobileEpisodeDetails(
                             else "从头播放",
                             { onPlay(episode, true, null) },
                             Modifier.weight(1f).testTag("episode:sheet-start"),
+                            icon = Glyph.Refresh,
                             maxLines = 2,
                             enabled = canPlay(episode, startTrigger),
                             loading = isPreparing(episode, startTrigger),
@@ -73,6 +75,7 @@ fun MobileEpisodeDetails(
                             "媒体信息",
                             onMediaInfo,
                             Modifier.weight(1f).testTag("episode:sheet-media"),
+                            icon = Glyph.Info,
                             maxLines = 2,
                             enabled = canPlay(episode, "media:${episode.id}"),
                         )
@@ -87,16 +90,19 @@ fun MobileEpisodeDetails(
                 }
             },
         ) {
-            Caption("第 ${episode.season} 季 / 第 ${episode.episode} 集")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                MediaPill("第 ${episode.season} 季 · 第 ${episode.episode} 集")
+                when {
+                    episode.played -> MediaPill("已看完", icon = Glyph.Check, highlight = true)
+                    episode.resumeTicks > 0 -> MediaPill("看到 ${timeLabel(episode.resumeTicks / 10_000)}", highlight = true)
+                    else -> MediaPill("未观看")
+                }
+            }
             SectionTitle(episode.name)
             MediaMetadata(episode)
-            Caption(
-                when {
-                    episode.played -> "已看完"
-                    episode.resumeTicks > 0 -> "看到 ${timeLabel(episode.resumeTicks / 10_000)}"
-                    else -> "未观看"
-                }
-            )
             feedback?.let { Caption(browseErrorText(it)) }
             if (!mediaInfo) {
                 EpisodeArtwork(episode, images, Modifier.fillMaxWidth())

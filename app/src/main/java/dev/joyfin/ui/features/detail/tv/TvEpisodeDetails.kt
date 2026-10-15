@@ -127,30 +127,23 @@ fun TvEpisodeDetails(
                                         )
                                     val streams = source?.streams.orEmpty()
                                     val video = streams.firstOrNull { it.type == "Video" }
-                                    CardText(
-                                        listOfNotNull(
-                                                video?.codec?.uppercase(),
-                                                video
-                                                    ?.width
-                                                    ?.takeIf { it > 0 }
-                                                    ?.let { "${it}×${video.height}" },
-                                                source
-                                                    ?.bitrate
-                                                    ?.takeIf { it > 0 }
-                                                    ?.let { "${it / 1_000_000} Mbps" },
-                                                source
-                                                    ?.size
-                                                    ?.takeIf { it > 0 }
-                                                    ?.let {
-                                                        java.lang.String.format(
-                                                            java.util.Locale.ROOT,
-                                                            "%.1f GiB",
-                                                            it / 1_073_741_824.0,
-                                                        )
-                                                    },
-                                            )
-                                            .joinToString(" · ")
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        video?.codec?.uppercase()?.takeIf { it.isNotBlank() }?.let { QualityBadge(it) }
+                                        video?.width?.takeIf { it > 0 }?.let {
+                                            if (it >= 3840) QualityBadge("4K")
+                                            else if (it >= 1920) QualityBadge("1080P")
+                                            else QualityBadge("${it}×${video.height}")
+                                        }
+                                        source?.bitrate?.takeIf { it > 0 }?.let {
+                                            MediaPill("${it / 1_000_000} Mbps")
+                                        }
+                                        source?.size?.takeIf { it > 0 }?.let {
+                                            MediaPill(String.format(java.util.Locale.ROOT, "%.1f GiB", it / 1_073_741_824.0))
+                                        }
+                                    }
                                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                         val tracks =
                                             streams.filter {
@@ -168,21 +161,22 @@ fun TvEpisodeDetails(
                                         if (details.loading && tracks.isEmpty()) SkeletonText(lines = 3)
                                         else BoundedCardBody(text, maxHeight.value)
                                     }
-                                } else {
-                                    CardText(
-                                        listOfNotNull(
-                                                episode.ticks
-                                                    .takeIf { it > 0 }
-                                                    ?.let { "${it / 600_000_000} 分钟" },
-                                                when {
-                                                    episode.played -> "已看完"
-                                                    episode.resumeTicks > 0 ->
-                                                        "看到 ${timeLabel(episode.resumeTicks / 10_000)}"
-                                                    else -> "未观看"
-                                                },
-                                            )
-                                            .joinToString(" · ")
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        when {
+                                            episode.played -> MediaPill("已看完", icon = Glyph.Check, highlight = true)
+                                            episode.resumeTicks > 0 -> MediaPill("看到 ${timeLabel(episode.resumeTicks / 10_000)}", highlight = true)
+                                            else -> MediaPill("未观看")
+                                        }
+                                        if (episode.ticks > 0) {
+                                            MediaPill("${episode.ticks / 600_000_000} 分钟", icon = Glyph.Clock)
+                                        }
+                                        if (has4kQuality(episode)) {
+                                            QualityBadge("4K")
+                                        }
+                                    }
                                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                         if (details.loading && episode.overview.isBlank())
                                             SkeletonText(lines = 3)
@@ -215,6 +209,7 @@ fun TvEpisodeDetails(
                                     else label,
                                     { onPlay(episode, false, if (mediaInfo) sourceId else null) },
                                     Modifier.weight(1f).fillMaxHeight().focusTarget("episode:sheet-play"),
+                                    icon = Glyph.Play,
                                     primary = true,
                                     enabled = (!mediaInfo || sourceId != null) && canPlay(episode, trigger),
                                     loading = isPreparing(episode, trigger),
@@ -230,6 +225,7 @@ fun TvEpisodeDetails(
                                         Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:version-prev"),
+                                        icon = Glyph.Back,
                                         enabled = browse && index > 0,
                                         maxLines = 2,
                                     )
@@ -239,6 +235,7 @@ fun TvEpisodeDetails(
                                         Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:version-next"),
+                                        icon = Glyph.Next,
                                         enabled = browse && index + 1 < episode.sources.size,
                                         maxLines = 2,
                                     )
@@ -248,6 +245,7 @@ fun TvEpisodeDetails(
                                         Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-details"),
+                                        icon = Glyph.Back,
                                         maxLines = 2,
                                     )
                                 } else {
@@ -259,6 +257,7 @@ fun TvEpisodeDetails(
                                         Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-start"),
+                                        icon = Glyph.Refresh,
                                         enabled = canPlay(episode, "sheet:${episode.id}:start"),
                                         loading = isPreparing(episode, "sheet:${episode.id}:start"),
                                         enabledWhileLoading = true,
@@ -271,6 +270,7 @@ fun TvEpisodeDetails(
                                         Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-media"),
+                                        icon = Glyph.Info,
                                         enabled = canPlay(episode, "media:${episode.id}"),
                                         maxLines = 2,
                                     )

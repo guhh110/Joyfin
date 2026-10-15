@@ -58,7 +58,7 @@ internal fun MovieHero(
                 Modifier.padding(horizontal = gutter).padding(top = topPadding, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Caption("电影", color = Palette.Text)
+                MediaPill("电影", icon = Glyph.Film, outlined = true)
                 val knownName = media?.name?.takeIf { it.isNotBlank() }
                 Box(Modifier.fillMaxWidth()) {
                     // The same text metrics reserve the title slot, including larger system fonts.

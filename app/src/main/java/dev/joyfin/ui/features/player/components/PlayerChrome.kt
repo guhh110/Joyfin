@@ -29,14 +29,15 @@ fun PlayerHeader(
             SectionTitle(ui.title)
             Caption(ui.subtitle)
         }
-        Caption(
-            when (ui.method) {
-                "DirectPlay" -> "直接播放"
-                "DirectStream" -> "直接串流"
-                "Transcode" -> "转码播放"
-                else -> ""
-            }
-        )
+        val methodText = when (ui.method) {
+            "DirectPlay" -> "直接播放"
+            "DirectStream" -> "直接串流"
+            "Transcode" -> "转码播放"
+            else -> ""
+        }
+        if (methodText.isNotBlank()) {
+            QualityBadge(methodText)
+        }
         IconButton(
             "播放设置",
             Glyph.Settings,
@@ -77,6 +78,7 @@ fun PlayerBottomBar(
                         "${ui.speed}×",
                         { onPanel(PlayerPanel.Speed) },
                         modifier = Modifier.focusTarget("player:speed"),
+                        icon = Glyph.Clock,
                         quiet = true,
                     )
                 }

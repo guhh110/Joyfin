@@ -1,16 +1,23 @@
 package dev.joyfin.ui.features.settings.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
 import dev.joyfin.BuildConfig
 import dev.joyfin.app.SettingsUiState
 import dev.joyfin.session.EntryState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.ui.theme.Palette
 
 @Composable
 internal fun ColumnScope.SettingsContent(
@@ -24,10 +31,34 @@ internal fun ColumnScope.SettingsContent(
         IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("settings:back"))
         FilmTitle("设置", Modifier.weight(1f), maxLines = 1)
     }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Caption("当前账号")
-        SectionTitle(ui.userName)
-        Caption(ui.server)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Palette.Surface, RoundedCornerShape(10.dp))
+                .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(10.dp))
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                Modifier.size(40.dp)
+                    .background(Palette.Elevated, RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                AppIcon(Glyph.Account, Modifier.size(20.dp), color = Palette.Text)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    ui.userName.ifBlank { "已登录用户" },
+                    color = Palette.Text,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Caption(ui.server.ifBlank { "服务器已连接" }, color = Palette.Muted)
+            }
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("播放偏好")
@@ -40,7 +71,12 @@ internal fun ColumnScope.SettingsContent(
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ActionButton("退出当前账号", actions.logout, loading = request.busy)
-        Caption("Joyfin ${BuildConfig.VERSION_NAME}")
+        ActionButton("退出当前账号", actions.logout, loading = request.busy, icon = Glyph.Close)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            MediaPill("Joyfin v${BuildConfig.VERSION_NAME}", outlined = true)
+        }
     }
 }
