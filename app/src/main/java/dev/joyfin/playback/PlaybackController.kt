@@ -194,7 +194,7 @@ class PlaybackController(
             selectCompatibility = ::selectCompatibility,
             retry = { load(positionTicks()) },
             cancelNext = ::cancelCountdown,
-            nextNow = { next?.let(::playEpisode) },
+            nextNow = ::playNextEpisode,
             close = { onClose(false) },
             subtitleOffset = ::setSubtitleOffset,
             selectLocalFile = ::selectManagedSubtitle,
@@ -611,6 +611,13 @@ class PlaybackController(
                 else mutable.update { it.copy(episodeError = e.message ?: "读取剧集失败，请重试") }
             }
         }
+    }
+
+    private fun playNextEpisode() {
+        val ui = mutable.value
+        if (released || ui.loading || ui.error != null || ui.subtitleApplying || ui.subtitleSearchOpen) return
+        val upcoming = next?.takeIf { it.id != currentId } ?: return
+        playEpisode(upcoming)
     }
 
     private fun playEpisode(media: Media) {
