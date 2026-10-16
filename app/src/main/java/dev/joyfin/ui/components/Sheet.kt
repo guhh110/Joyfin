@@ -1,5 +1,7 @@
 package dev.joyfin.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,15 +46,25 @@ fun ChoiceRow(
     selected: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val rowShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
     FocusSurface(
         onClick,
-        modifier.fillMaxWidth().heightIn(min = 64.dp),
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .then(
+                if (selected) {
+                    Modifier
+                        .background(androidx.compose.ui.graphics.Color(0xFF161A26), rowShape)
+                        .border(0.5.dp, Palette.Line, rowShape)
+                } else Modifier
+            ),
         selected = selected,
         transparent = true,
         focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -60,10 +72,11 @@ fun ChoiceRow(
                 androidx.tv.material3.Text(
                     title,
                     color = Palette.Text,
+                    fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
                 )
                 if (subtitle.isNotBlank()) Caption(subtitle)
             }
-            if (selected) AppIcon(Glyph.Check, color = Palette.Text)
+            if (selected) AppIcon(Glyph.CheckCircle, Modifier.size(20.dp), color = Palette.Text)
         }
     }
 }

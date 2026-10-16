@@ -63,7 +63,8 @@ internal fun TvSheetLayout(
                 ),
                 actions,
                 scrollContent,
-                content,
+                isMobileBottom = false,
+                content = content,
             )
         }
     }

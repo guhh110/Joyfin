@@ -1,6 +1,9 @@
 package dev.joyfin.ui.layout.mobile
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -8,10 +11,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import dev.joyfin.ui.components.SheetPanel
 import dev.joyfin.ui.components.SheetPresentationHost
 import dev.joyfin.ui.theme.MotionTokens
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @Composable
 internal fun MobileSheetLayout(
@@ -28,6 +35,49 @@ internal fun MobileSheetLayout(
     val height =
         if (side) Modifier.fillMaxHeight()
         else Modifier.heightIn(max = config.screenHeightDp.dp * .85f)
+
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val dragOffsetY = remember { Animatable(0f) }
+    val dismissThresholdPx = with(density) { 72.dp.toPx() }
+
+    val dragHandleModifier = if (!side) {
+        Modifier.pointerInput(onDismiss) {
+            detectVerticalDragGestures(
+                onVerticalDrag = { change, dragAmount ->
+                    change.consume()
+                    val next = (dragOffsetY.value + dragAmount).coerceAtLeast(0f)
+                    scope.launch { dragOffsetY.snapTo(next) }
+                },
+                onDragEnd = {
+                    scope.launch {
+                        if (dragOffsetY.value > dismissThresholdPx) {
+                            dragOffsetY.animateTo(
+                                targetValue = dragOffsetY.value + with(density) { 320.dp.toPx() },
+                                animationSpec = tween(MotionTokens.SheetExitDurationMs, easing = MotionTokens.Easing),
+                            )
+                            onDismiss()
+                        } else {
+                            dragOffsetY.animateTo(
+                                targetValue = 0f,
+                                animationSpec = tween(MotionTokens.SheetExitDurationMs, easing = MotionTokens.Easing),
+                            )
+                        }
+                    }
+                },
+                onDragCancel = {
+                    scope.launch {
+                        dragOffsetY.animateTo(
+                            targetValue = 0f,
+                            animationSpec = tween(MotionTokens.SheetExitDurationMs, easing = MotionTokens.Easing),
+                        )
+                    }
+                },
+            )
+        }.pointerInput(onDismiss) {
+            detectTapGestures { onDismiss() }
+        }
+    } else Modifier
 
     SheetPresentationHost(
         visible = true,
@@ -47,7 +97,7 @@ internal fun MobileSheetLayout(
             SheetPanel(
                 title,
                 onDismiss,
-                modifier,
+                modifier.offset { IntOffset(0, dragOffsetY.value.roundToInt()) },
                 width,
                 height,
                 RoundedCornerShape(
@@ -58,7 +108,9 @@ internal fun MobileSheetLayout(
                 ),
                 actions,
                 scrollContent,
-                content,
+                isMobileBottom = !side,
+                dragHandleModifier = dragHandleModifier,
+                content = content,
             )
         }
     }

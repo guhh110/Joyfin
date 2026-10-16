@@ -3,6 +3,7 @@ package dev.joyfin.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,9 +38,26 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (device.television) 28.dp else 12.dp),
     ) {
-        if (back) IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
-        else Text("Joyfin", color = Palette.Text, fontSize = 25.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = (-.8).sp)
+        if (back) {
+            IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("header:back"))
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                dev.joyfin.ui.features.entry.components.JoyfinLogo(
+                    Modifier.size(if (device.television) 26.dp else 22.dp),
+                    glow = true,
+                )
+                Text(
+                    "JOYFIN",
+                    color = Palette.Text,
+                    fontSize = if (device.television) 22.sp else 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
+            }
+        }
         if (device.television) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true)
@@ -138,21 +156,57 @@ fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
     }
 }
 
-/** An underline carries the selected state; the independent white outline carries TV focus. */
+/** Modern segmented pill & filter chip; independent white outline carries TV focus without underline clash. */
 @Composable
-fun TextTab(text: String, onClick: () -> Unit, selected: Boolean, modifier: Modifier = Modifier,
-    enabled: Boolean = true, compact: Boolean = false) {
+fun TextTab(
+    text: String,
+    onClick: () -> Unit,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    compact: Boolean = false,
+) {
     val active = selected
-    FocusSurface(onClick, modifier.heightIn(min = 48.dp).semantics {
-        role = Role.Tab
-        this.selected = active
-    }, enabled = enabled, transparent = true, focusedScale = MotionTokens.FixedScale) {
-        Column(Modifier.width(IntrinsicSize.Max), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(text, Modifier.padding(horizontal = if (compact) 6.dp else 10.dp, vertical = 7.dp),
-                color = if (active) Palette.Text else Palette.Muted, fontSize = if (compact) 13.sp else 15.sp,
-                fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) Palette.Text else Color.Transparent))
+    val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(if (compact) 14.dp else 20.dp)
+    FocusSurface(
+        onClick,
+        modifier
+            .heightIn(min = if (compact) 34.dp else 42.dp)
+            .semantics {
+                role = Role.Tab
+                this.selected = active
+            },
+        enabled = enabled,
+        transparent = true,
+        focusedScale = MotionTokens.FixedScale,
+    ) {
+        Box(
+            modifier = Modifier
+                .then(
+                    if (active) {
+                        Modifier
+                            .background(Color(0xFF1B202D), pillShape)
+                            .border(0.5.dp, Palette.Line, pillShape)
+                    } else if (compact) {
+                        Modifier
+                            .background(Color(0xFF0F1118), pillShape)
+                            .border(0.5.dp, Color(0xFF1A1C24), pillShape)
+                    } else Modifier
+                )
+                .padding(
+                    horizontal = if (compact) 10.dp else 16.dp,
+                    vertical = if (compact) 6.dp else 8.dp,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text,
+                color = if (active) Palette.Text else Palette.Muted,
+                fontSize = if (compact) 12.sp else 14.sp,
+                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

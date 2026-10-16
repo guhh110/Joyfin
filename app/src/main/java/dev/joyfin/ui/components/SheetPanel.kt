@@ -22,6 +22,8 @@ internal fun SheetPanel(
     shape: androidx.compose.ui.graphics.Shape,
     actions: (@Composable ColumnScope.() -> Unit)?,
     scrollContent: Boolean,
+    isMobileBottom: Boolean = false,
+    dragHandleModifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -29,10 +31,28 @@ internal fun SheetPanel(
             .widthIn(max = sheetWidth)
             .fillMaxWidth()
             .then(heightModifier)
-            .border(1.dp, Palette.BorderSubtle, shape)
-            .background(Palette.Surface, shape)
+            .border(0.5.dp, Palette.Line, shape)
+            .background(androidx.compose.ui.graphics.Color(0xFF0E1017), shape)
             .padding(if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) 24.dp else 20.dp)
     ) {
+        if (isMobileBottom) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .then(dragHandleModifier)
+                    .padding(bottom = 14.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(width = 36.dp, height = 4.dp)
+                        .background(
+                            androidx.compose.ui.graphics.Color.White.copy(alpha = 0.28f),
+                            androidx.compose.foundation.shape.RoundedCornerShape(2.dp),
+                        )
+                )
+            }
+        }
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

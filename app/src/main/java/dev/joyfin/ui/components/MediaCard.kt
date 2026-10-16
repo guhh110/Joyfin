@@ -66,10 +66,13 @@ fun MediaCard(
                     Box(
                         Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(22.dp)
+                            .height(28.dp)
                             .background(
                                 androidx.compose.ui.graphics.Brush.verticalGradient(
-                                    listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f))
+                                    listOf(
+                                        androidx.compose.ui.graphics.Color.Transparent,
+                                        androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.75f),
+                                    )
                                 )
                             )
                     )
@@ -77,15 +80,22 @@ fun MediaCard(
                         Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
                             .padding(horizontal = 8.dp, vertical = 6.dp)
                             .fillMaxWidth()
-                            .height(3.dp)
+                            .height(3.5.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.25f))
+                            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f))
                     ) {
                         Box(
                             Modifier.fillMaxWidth(progress)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(2.dp))
-                                .background(Palette.Text)
+                                .background(
+                                    androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                        listOf(
+                                            androidx.compose.ui.graphics.Color(0xFFCBD5E1),
+                                            androidx.compose.ui.graphics.Color.White,
+                                        )
+                                    )
+                                )
                         )
                     }
                 }

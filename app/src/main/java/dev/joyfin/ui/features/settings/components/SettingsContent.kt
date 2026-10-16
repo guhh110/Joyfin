@@ -52,29 +52,39 @@ internal fun ColumnScope.SettingsContent(
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Caption("当前账号")
+        val accountShape = RoundedCornerShape(14.dp)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Palette.Surface, RoundedCornerShape(10.dp))
-                .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(10.dp))
+                .background(androidx.compose.ui.graphics.Color(0xFF0F121A), accountShape)
+                .border(0.5.dp, Palette.Line, accountShape)
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(
-                Modifier.size(40.dp)
-                    .background(Palette.Elevated, RoundedCornerShape(10.dp)),
+                Modifier.size(44.dp)
+                    .background(Palette.Elevated, RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center,
             ) {
-                AppIcon(Glyph.Account, Modifier.size(20.dp), color = Palette.Text)
+                AppIcon(Glyph.Account, Modifier.size(22.dp), color = Palette.Text)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    ui.userName.ifBlank { "已登录用户" },
-                    color = Palette.Text,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(
+                        Modifier.size(6.dp)
+                            .background(androidx.compose.ui.graphics.Color(0xFF22C55E), androidx.compose.foundation.shape.CircleShape)
+                    )
+                    Text(
+                        ui.userName.ifBlank { "已登录用户" },
+                        color = Palette.Text,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
                 Caption(ui.server.ifBlank { "服务器已连接" }, color = Palette.Muted)
             }
         }
@@ -96,11 +106,49 @@ internal fun ColumnScope.SettingsContent(
             diagnostics = true
         }
         ActionButton("退出当前账号", actions.logout, loading = request.busy, icon = Glyph.Close)
+
+        // 关于 Joyfin 旗舰独立微展台
+        val aboutShape = RoundedCornerShape(16.dp)
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(androidx.compose.ui.graphics.Color(0xFF0B0D13), aboutShape)
+                .border(0.5.dp, Palette.Line, aboutShape)
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            MediaPill("Joyfin v${BuildConfig.VERSION_NAME}", outlined = true)
+            dev.joyfin.ui.features.entry.components.JoyfinLogo(
+                Modifier.size(42.dp),
+                glow = true,
+            )
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        "Joyfin",
+                        color = Palette.Text,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp,
+                    )
+                    MediaPill("v${BuildConfig.VERSION_NAME}", outlined = true)
+                }
+                Text(
+                    "无界影院 · 私享视听客户端",
+                    color = Palette.Muted,
+                    fontSize = 12.sp,
+                )
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    QualityBadge("Android 9+ 通用")
+                    QualityBadge("全架构支持")
+                }
+            }
         }
     }
     if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
