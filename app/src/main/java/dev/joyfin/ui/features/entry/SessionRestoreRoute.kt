@@ -1,6 +1,5 @@
 package dev.joyfin.ui.features.entry
 
-import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import dev.joyfin.session.EntryState
@@ -10,11 +9,19 @@ import dev.joyfin.ui.interaction.focusTarget
 @Composable
 fun SessionRestoreRoute(ui: EntryState, actions: EntryActions) {
     EntryScaffold("JOYFIN") {
-        EntryStep("WELCOME BACK")
-        EntryTitle(if (ui.error != null) "暂时未能连接。" else "故事，继续。")
-        EntryText(if (ui.error != null) "这次连接没有完成。\n你的登录信息仍然保留。" else "欢迎回到你的影院，继续你的故事。")
+        EntryStep("00", "恢复会话")
+        EntryTitle(if (ui.error != null) "媒体服务器未连接" else "恢复影院会话")
+        EntryText(
+            if (ui.error != null) "未能访问已保存的媒体服务器，请检查网络或更换服务器。"
+            else "正在连接已保存的 Jellyfin 服务器并恢复影院会话。"
+        )
         ConnectedServerSummary(ui.serverName, ui.server, true, actions.changeServer)
         ui.error?.let { EntryError(it) }
-        EntryButton("重新连接", actions.retry, Modifier.focusTarget("auth:retry"), busy = ui.busy)
+        EntryButton(
+            if (ui.busy) "正在连接..." else "重新连接",
+            actions.retry,
+            Modifier.focusTarget("auth:retry"),
+            busy = ui.busy,
+        )
     }
 }

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -20,33 +19,41 @@ internal fun MobileEntryLayout(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Palette.Background).testTag("entry:screen")
+        Modifier
+            .fillMaxSize()
+            .background(Palette.Background)
+            .testTag("entry:screen")
     ) {
         val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-        val compactHeight = maxHeight < 600.dp || imeVisible
-        EntryArtwork(
-            1f,
-            Alignment.TopCenter,
-            Brush.verticalGradient(
-                0f to Palette.Background.copy(alpha = .12f),
-                .15f to Palette.Background.copy(alpha = .27f),
-                .46f to Palette.Background,
-                1f to Palette.Background,
-            ),
-        )
-        Row(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-            Column(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 30.dp)) {
-                Spacer(Modifier.height(if (compactHeight) 16.dp else 48.dp))
-                EntryBrand(20.sp)
-                EntryFormViewport(
-                    if (compactHeight) 24.dp else if (login) 52.dp else 92.dp,
-                    20.dp,
-                    460.dp,
-                    16.dp,
-                    Arrangement.Top,
-                    content,
-                )
-                if (!imeVisible) EntryFooter(step, 16.dp)
+        val compactHeight = maxHeight < 620.dp || imeVisible
+
+        // 纯 Compose 渲染手机端沉浸微光漫射场
+        EntryArtwork(isTelevision = false)
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .imePadding()
+                .padding(horizontal = 24.dp)
+        ) {
+            Spacer(Modifier.height(if (compactHeight) 12.dp else 36.dp))
+
+            // 顶部居中或左对齐品牌微组
+            EntryBrand(if (compactHeight) 18.sp else 22.sp)
+
+            // 表单视口：自适应滚动与键盘防遮挡
+            EntryFormViewport(
+                topPadding = if (compactHeight) 16.dp else if (login) 32.dp else 48.dp,
+                bottomPadding = if (compactHeight) 12.dp else 24.dp,
+                width = 460.dp,
+                spacing = 16.dp,
+                arrangement = Arrangement.Top,
+                content = content,
+            )
+
+            if (!imeVisible) {
+                EntryFooter(step, bottomPadding = 16.dp)
             }
         }
     }

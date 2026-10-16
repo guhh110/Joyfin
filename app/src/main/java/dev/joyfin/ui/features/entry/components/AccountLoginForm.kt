@@ -45,9 +45,9 @@ internal fun ColumnScope.AccountLoginForm(
     }
     LaunchedEffect(name.text.toString()) { if (name.text.isNotBlank()) nameError = null }
     val tv = LocalDeviceLayout.current.television
-    EntryStep("02 / SIGN IN")
-    EntryTitle("欢迎回来。")
-    EntryText("登录账号，继续未完的故事。")
+    EntryStep("02", "登录账号")
+    EntryTitle("账号登录")
+    EntryText("登录你的 Jellyfin 账号，同步媒体收藏与观影记录。")
     ConnectedServerSummary(
         serverName,
         server,
@@ -56,11 +56,11 @@ internal fun ColumnScope.AccountLoginForm(
         Modifier.focusRequester(serverFocus).focusProperties { if (tv) down = nameFocus },
     )
     if (expired)
-        EntryText("登录已过期，请重新登录。", Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+        EntryText("登录会话已过期，请重新登录。", Modifier.semantics { liveRegion = LiveRegionMode.Polite })
     EntryTextField(
         "用户名",
         name,
-        "你的 Jellyfin 用户名",
+        "输入 Jellyfin 用户名",
         Modifier.focusRequester(nameFocus)
             .focusProperties {
                 if (tv) {
@@ -83,7 +83,7 @@ internal fun ColumnScope.AccountLoginForm(
     EntryTextField(
         "密码",
         password,
-        "输入密码",
+        "输入登录密码",
         Modifier.focusRequester(passwordFocus)
             .focusProperties {
                 if (tv) {
@@ -122,5 +122,5 @@ internal fun ColumnScope.AccountLoginForm(
         busy = busy,
         enabledWhileBusy = true,
     )
-    EntryText("账号由你的 Jellyfin 服务器管理", subdued = true)
+    EntryText("账号与权限由你的 Jellyfin 服务器验证管理", subdued = true)
 }

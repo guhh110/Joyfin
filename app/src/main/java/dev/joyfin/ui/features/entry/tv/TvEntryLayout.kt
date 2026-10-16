@@ -1,15 +1,17 @@
 package dev.joyfin.ui.features.entry.tv
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
@@ -18,54 +20,108 @@ import dev.joyfin.ui.theme.Palette
 
 @Composable
 internal fun TvEntryLayout(step: String, content: @Composable ColumnScope.() -> Unit) {
-    Box(Modifier.fillMaxSize().background(Palette.Background).testTag("entry:screen")) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Palette.Background)
+            .testTag("entry:screen")
+    ) {
         val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-        EntryArtwork(
-            .67f,
-            Alignment.Center,
-            Brush.horizontalGradient(
-                0f to Color.Transparent,
-                .44f to Palette.Background.copy(alpha = .27f),
-                .64f to Palette.Background,
-                1f to Palette.Background,
-            ),
-        )
-        Column(
-            Modifier.fillMaxHeight()
-                .fillMaxWidth(.55f)
-                .padding(start = 60.dp, top = 44.dp, bottom = 42.dp)
+
+        // 纯 Compose 渲染无界影院微光漫反射背景
+        EntryArtwork(isTelevision = true)
+
+        Row(
+            Modifier
+                .fillMaxSize()
+                .safeDrawingPadding()
+                .imePadding()
+                .padding(horizontal = 56.dp, vertical = 40.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            EntryBrand(26.sp)
-            Spacer(Modifier.weight(1f))
-            Text(
-                "PRIVATE COLLECTION / PERSONAL CINEMA",
-                color = Palette.Text.copy(alpha = .6f),
-                fontSize = 10.sp,
-                letterSpacing = 2.sp,
-            )
-            Spacer(Modifier.height(22.dp))
-            Text(
-                "把喜欢的故事，\n留给自己。",
-                color = Palette.Text,
-                fontFamily = FontFamily.SansSerif,
-                fontSize = 46.sp,
-                lineHeight = 68.sp,
-            )
-            Spacer(Modifier.height(20.dp))
-            Text(
-                "YOUR STORIES. YOUR CINEMA.",
-                color = Palette.Text.copy(alpha = .5f),
-                fontSize = 10.sp,
-                letterSpacing = 2.sp,
-            )
-            Spacer(Modifier.height(64.dp))
-            EntryText("01 — ∞", subdued = true)
-        }
-        Row(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-            Spacer(Modifier.weight(1.75f))
-            Column(Modifier.weight(1f).fillMaxHeight().padding(end = 60.dp)) {
-                EntryFormViewport(32.dp, 24.dp, 420.dp, 14.dp, Arrangement.Center, content)
-                if (!imeVisible) EntryFooter(step, 30.dp)
+            // 左翼：品牌核心与影院纯粹视听定位 (不堆砌多余口号)
+            Column(
+                Modifier
+                    .weight(1.1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                // 顶部品牌微组
+                EntryBrand(22.sp)
+
+                // 中央品牌图腾与影院定位
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.Start,
+                ) {
+                    JoyfinLogo(Modifier.size(76.dp), glow = true)
+                    Text(
+                        "JOYFIN",
+                        color = Palette.Text,
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF12151F))
+                            .border(0.5.dp, Palette.Line, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    ) {
+                        Text(
+                            "BOUNDLESS CINEMA",
+                            color = Palette.Muted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.5.sp,
+                        )
+                        Box(Modifier.size(3.dp).background(Palette.Muted, RoundedCornerShape(1.dp)))
+                        Text(
+                            "PERSONAL MEDIA HUB",
+                            color = Palette.Muted.copy(alpha = 0.8f),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Normal,
+                            letterSpacing = 1.sp,
+                        )
+                    }
+                }
+
+                // 底部沉稳留白与设备说明
+                Text(
+                    "JELLYFIN MEDIA CLIENT",
+                    color = Palette.Muted.copy(alpha = 0.4f),
+                    fontSize = 9.sp,
+                    letterSpacing = 1.5.sp,
+                )
+            }
+
+            Spacer(Modifier.width(36.dp))
+
+            // 右翼：460dp 悬浮玻璃控制台
+            val consoleShape = RoundedCornerShape(24.dp)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(consoleShape)
+                    .background(Color(0xFF0C0E15).copy(alpha = 0.85f))
+                    .border(0.5.dp, Palette.Line, consoleShape)
+                    .padding(horizontal = 32.dp, vertical = 24.dp),
+            ) {
+                EntryFormViewport(
+                    topPadding = 8.dp,
+                    bottomPadding = 12.dp,
+                    width = 440.dp,
+                    spacing = 16.dp,
+                    arrangement = Arrangement.Center,
+                    content = content,
+                )
+                if (!imeVisible) {
+                    EntryFooter(step, bottomPadding = 4.dp)
+                }
             }
         }
     }

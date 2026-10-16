@@ -76,7 +76,7 @@ internal fun EntryTextField(
             keyboard?.hide()
         }
     }
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(12.dp)
     val style = TextStyle(color = Palette.Text, fontSize = if (tv) 15.sp else 14.sp)
     val options =
         KeyboardOptions(
@@ -91,14 +91,14 @@ internal fun EntryTextField(
         if (showLabel) EntryText(label)
         Row(
             Modifier.fillMaxWidth()
-                .heightIn(min = 54.dp)
+                .heightIn(min = 52.dp)
                 .clip(shape)
-                .background(Palette.Surface.copy(alpha = .95f))
+                .background(androidx.compose.ui.graphics.Color(0xFF12151F))
                 .border(
-                    if (focused) 2.dp else 1.dp,
-                    if (focused) Palette.Text
-                    else if (error != null) Palette.Error.copy(alpha = .6f)
-                    else Palette.Text.copy(alpha = .15f),
+                    if (focused) 1.5.dp else 0.5.dp,
+                    if (focused) androidx.compose.ui.graphics.Color.White
+                    else if (error != null) Palette.Error.copy(alpha = .8f)
+                    else Palette.Line,
                     shape,
                 ),
             verticalAlignment = Alignment.CenterVertically,

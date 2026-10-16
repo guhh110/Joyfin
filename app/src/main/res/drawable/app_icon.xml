@@ -1,4 +1,59 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#0B0D10" android:pathData="M0,0h48v48h-48z" />
-    <path android:fillColor="#CE9C6D" android:pathData="M16,10L38,24L16,38z" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <!-- Background Layer (Dark Cinema Canvas) -->
+    <path
+        android:pathData="M0,0h512v512h-512z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:centerX="256"
+                android:centerY="230"
+                android:gradientRadius="332"
+                android:type="radial">
+                <item android:color="#FF151926" android:offset="0.0" />
+                <item android:color="#FF0A0C12" android:offset="0.6" />
+                <item android:color="#FF030406" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Play Triangle ▶ (Golden Ratio Rounded Triangle, Center Aligned) -->
+    <path
+        android:pathData="M234,187 C234,174 249,166 260,173 L351,226 C362,233 362,249 351,256 L260,309 C249,316 234,308 234,295 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="234"
+                android:startY="170"
+                android:endX="362"
+                android:endY="310"
+                android:type="linear">
+                <item android:color="#FFFFFFFF" android:offset="0.0" />
+                <item android:color="#FFE2E8F0" android:offset="0.65" />
+                <item android:color="#FF94A3B8" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Joy Smile Arc (Bottom Support Smile Curve) -->
+    <path
+        android:pathData="M151,202 C151,302 206,372 291,372 C344,372 386,344 401,324"
+        android:strokeWidth="12"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="151"
+                android:startY="372"
+                android:endX="401"
+                android:endY="202"
+                android:type="linear">
+                <item android:color="#FFFFFFFF" android:offset="0.0" />
+                <item android:color="#FFE2E8F0" android:offset="0.5" />
+                <item android:color="#FF64748B" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>
