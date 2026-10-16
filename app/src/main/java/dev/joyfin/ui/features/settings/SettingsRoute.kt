@@ -16,7 +16,8 @@ fun SettingsRoute(
     actions: BrowseActions,
     autoNext: Boolean,
     request: SettingsUiState = SettingsUiState(),
+    audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
 ) {
-    if (LocalDeviceLayout.current.television) TvSettingsLayout(ui, actions, autoNext, request)
-    else MobileSettingsLayout(ui, actions, autoNext, request)
+    if (LocalDeviceLayout.current.television) TvSettingsLayout(ui, actions, autoNext, request, audioOutputMode)
+    else MobileSettingsLayout(ui, actions, autoNext, request, audioOutputMode)
 }

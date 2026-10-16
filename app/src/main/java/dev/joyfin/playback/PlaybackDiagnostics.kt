@@ -10,6 +10,8 @@ import dev.joyfin.data.ApiException
 import dev.joyfin.data.MediaSource
 import dev.joyfin.data.MediaStream
 import dev.joyfin.data.PlaybackPlan
+import dev.joyfin.data.audioStream
+import dev.joyfin.playback.quality.*
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -35,13 +37,14 @@ data class DiagnosticFormat(
     val channels: Int = 0,
     val sampleRate: Int = 0,
     val bitrate: Long = 0,
+    val range: String? = null,
 ) {
     val description: String get() = listOfNotNull(codec,
         if (width > 0 && height > 0) "${width}×${height}" else null,
         frameRate.takeIf { it.isFinite() && it > 0 }?.let { "${String.format(Locale.ROOT, "%.2f", it)} fps" },
         channels.takeIf { it > 0 }?.let { "$it 声道" },
         sampleRate.takeIf { it > 0 }?.let { "$it Hz" },
-        bitrate.takeIf { it > 0 }?.let(::diagnosticBitrate)).joinToString(" · ")
+        bitrate.takeIf { it > 0 }?.let(::diagnosticBitrate), range).joinToString(" · ")
 }
 data class DiagnosticFailure(val category: String, val httpStatus: Int? = null, val playerCode: String? = null) {
     val description: String get() = listOfNotNull(category, httpStatus?.let { "HTTP $it" }, playerCode).joinToString(" · ")
@@ -69,6 +72,10 @@ data class PlaybackDiagnosticSnapshot(
     val reasons: List<String> = emptyList(),
     val failure: DiagnosticFailure? = null,
     val events: List<DiagnosticEvent> = emptyList(),
+    val decision: PlaybackDecision? = null,
+    val displayCapabilities: String = "未知",
+    val actualOutput: PlaybackOutputSnapshot? = null,
+    val sourceSpatial: String = "未提供",
 )
 
 /** Process-local last playback only. Tokens isolate canceled requests and previous players. */
@@ -114,23 +121,24 @@ object PlaybackDiagnostics {
             selection = selectionLabel(compatible, audioOnly, automaticFallback),
             method = "尚未协商", container = "未知", sourceVideo = null, sourceAudio = null,
             sourceBitrate = 0, reasons = emptyList(),
-            outputVideo = null, outputAudio = null, bandwidth = 0,
+            outputVideo = null, outputAudio = null, bandwidth = 0, actualOutput = null, decision = null,
+            displayCapabilities = "未知", sourceSpatial = "未提供",
             videoDecoder = "尚未初始化", audioDecoder = "尚未初始化")
     }
     fun selection(id: Long, compatible: Boolean, audioOnly: Boolean, automaticFallback: Boolean) = update(id) {
         it.copy(selection = selectionLabel(compatible, audioOnly, automaticFallback))
     }
     fun source(id: Long, source: MediaSource, audioIndex: Int?) = update(id) {
+        val audio = source.audioStream(audioIndex)
         it.copy(container = safeContainer(source.container), sourceBitrate = source.bitrate.coerceAtLeast(0),
             sourceVideo = source.streams.firstOrNull { track -> track.type == "Video" }?.diagnosticFormat(),
-            sourceAudio = (source.streams.firstOrNull { track -> track.type == "Audio" && track.index == audioIndex }
-                ?: source.streams.firstOrNull { track -> track.type == "Audio" })?.diagnosticFormat())
+            sourceAudio = audio?.diagnosticFormat(), sourceSpatial = spatialLabel(audio))
     }
     fun plan(id: Long, plan: PlaybackPlan) {
         source(id, plan.source, plan.audioIndex)
         update(id) { it.copy(method = when (plan.method) {
             "DirectPlay" -> "直接播放"; "DirectStream" -> "直接串流"; "Transcode" -> "转码播放"; else -> "未知播放方式"
-        }, reasons = plan.transcodeReasons.map { reason -> reasonLabels[reason] ?: "服务端提供了其他转码原因" }.distinct()) }
+        }, reasons = (it.decision?.reasons.orEmpty() + serverPlaybackReasons(plan.transcodeReasons)).distinct()) }
         event(id, DiagnosticStage.NEGOTIATION, DiagnosticOutcome.READY)
     }
     fun failure(id: Long, stage: DiagnosticStage, error: Throwable, fatal: Boolean = true) {
@@ -157,6 +165,16 @@ object PlaybackDiagnostics {
         if (video) it.copy(videoDecoder = safe) else it.copy(audioDecoder = safe)
     }
     fun bandwidth(id: Long, bitrate: Long) = update(id) { it.copy(bandwidth = bitrate.coerceAtLeast(0)) }
+    fun negotiation(id: Long, value: PlaybackNegotiation) = update(id) {
+        it.copy(decision = value.decision, displayCapabilities = value.capabilities.display.description,
+            reasons = value.decision.reasons)
+    }
+    fun output(id: Long, value: PlaybackOutputSnapshot, reasons: List<String>) = update(id) {
+        it.copy(actualOutput = value, reasons = (it.reasons + reasons).distinct())
+    }
+    internal fun addReasons(id: Long, reasons: List<String>) = update(id) {
+        it.copy(reasons = (it.reasons + reasons).distinct())
+    }
 }
 
 private fun selectionLabel(compatible: Boolean, audioOnly: Boolean, automaticFallback: Boolean): String = when {
@@ -187,43 +205,52 @@ private fun diagnosticFailure(error: Throwable): DiagnosticFailure {
     return DiagnosticFailure(category, status, code)
 }
 
-private fun MediaStream.diagnosticFormat() = DiagnosticFormat(safeCodec(codec), width.coerceAtLeast(0), height.coerceAtLeast(0),
+private fun MediaStream.diagnosticFormat() = DiagnosticFormat(
+    safeCodec(if (type == "Audio") AudioPlaybackCapabilities.mimesFor(this).firstOrNull() ?: codec else codec),
+    width.coerceAtLeast(0), height.coerceAtLeast(0),
     averageFrameRate.takeIf { it > 0 } ?: realFrameRate, channels.coerceAtLeast(0),
-    sampleRate.takeIf { type == "Audio" }?.coerceAtLeast(0) ?: 0)
+    sampleRate.takeIf { type == "Audio" }?.coerceAtLeast(0) ?: 0,
+    range = if (type == "Video") VideoPlaybackCapabilities.rangeOf(this).label +
+        (dvProfile?.takeIf { it in 1..10 }?.let { " · P$it" }.orEmpty()) else null)
 private fun Format.diagnosticFormat() = DiagnosticFormat(safeCodec(sampleMimeType.orEmpty()),
     width.coerceAtLeast(0), height.coerceAtLeast(0), frameRate, channelCount.coerceAtLeast(0),
-    sampleRate.coerceAtLeast(0), bitrate.toLong().coerceAtLeast(0))
+    sampleRate.coerceAtLeast(0), bitrate.toLong().coerceAtLeast(0),
+    range = when {
+        sampleMimeType == "video/dolby-vision" -> "Dolby Vision 轨道"
+        colorInfo?.colorTransfer == androidx.media3.common.C.COLOR_TRANSFER_HLG -> "HLG"
+        colorInfo?.colorTransfer == androidx.media3.common.C.COLOR_TRANSFER_ST2084 -> "PQ / HDR（动态元数据未知）"
+        else -> null
+    })
+
+private fun spatialLabel(stream: MediaStream?): String = when {
+    stream?.audioSpatialFormat == "DolbyAtmos" || stream?.profile?.contains("Atmos", true) == true -> "Dolby Atmos 片源（接收端未验证）"
+    stream?.audioSpatialFormat == "DTSX" || stream?.profile?.contains("DTS:X", true) == true -> "DTS:X 片源（接收端未验证）"
+    else -> "未提供对象音效标识"
+}
 private fun safeCodec(value: String): String = when (value.lowercase(Locale.ROOT)) {
     "h264", "avc", "video/avc" -> "H.264"; "hevc", "h265", "video/hevc" -> "HEVC"
     "av1", "video/av01" -> "AV1"; "vp9", "video/x-vnd.on2.vp9" -> "VP9"
     "vp8", "video/x-vnd.on2.vp8" -> "VP8"; "mpeg2video", "video/mpeg2" -> "MPEG-2"
     "mpeg4", "video/mp4v-es" -> "MPEG-4"; "vc1", "video/wvc1" -> "VC-1"
     "aac", "audio/mp4a-latm" -> "AAC"; "ac3", "audio/ac3" -> "AC-3"
-    "eac3", "audio/eac3", "audio/eac3-joc" -> "E-AC-3"; "dts", "dca", "audio/vnd.dts", "audio/vnd.dts.hd" -> "DTS"
+    "eac3", "audio/eac3" -> "E-AC-3"; "audio/eac3-joc" -> "E-AC-3 JOC"
+    "dts", "dca", "audio/vnd.dts" -> "DTS"; "dtshd", "dts_hd", "audio/vnd.dts.hd" -> "DTS-HD"
     "truehd", "audio/true-hd" -> "TrueHD"; "flac", "audio/flac" -> "FLAC"
     "opus", "audio/opus" -> "Opus"; "vorbis", "audio/vorbis" -> "Vorbis"
     "mp3", "audio/mpeg" -> "MP3"; "pcm", "pcm_s16le", "pcm_s24le", "audio/raw" -> "PCM"
     else -> "其他或未知编码"
 }
 private fun safeContainer(value: String): String = value.lowercase(Locale.ROOT).takeIf {
-    it in setOf("mkv", "matroska", "mp4", "m4v", "mov", "ts", "mpegts", "m2ts", "avi", "webm", "flv", "wmv", "mp3", "flac", "wav", "ogg")
+    it in setOf("mkv", "matroska", "mp4", "m4v", "mov", "ts", "mpegts", "m2ts", "avi", "webm", "flv", "wmv", "mp3", "flac", "wav", "ogg",
+        "iso", "bdmv", "bluray", "dvd", "video_ts")
 }?.uppercase(Locale.ROOT) ?: "其他或未知容器"
-private val reasonLabels = mapOf(
-    "ContainerNotSupported" to "设备不支持源容器", "VideoCodecNotSupported" to "设备不支持视频编码",
-    "AudioCodecNotSupported" to "设备不支持音频编码", "SubtitleCodecNotSupported" to "字幕需要转换或烧录",
-    "VideoResolutionNotSupported" to "视频分辨率超出设备能力", "VideoBitDepthNotSupported" to "视频位深不受支持",
-    "VideoProfileNotSupported" to "视频编码规格不受支持", "VideoLevelNotSupported" to "视频编码级别不受支持",
-    "VideoFramerateNotSupported" to "视频帧率不受支持", "AudioChannelsNotSupported" to "声道数不受支持",
-    "AudioSampleRateNotSupported" to "音频采样率不受支持", "ContainerBitrateExceedsLimit" to "媒体码率超过设置上限",
-    "VideoBitrateNotSupported" to "视频码率不受支持", "AudioBitrateNotSupported" to "音频码率不受支持",
-    "DirectPlayError" to "直接播放失败后回退",
-)
+
 fun diagnosticBitrate(value: Long): String = if (value > 0) "${String.format(Locale.ROOT, "%.2f", value / 1_000_000.0)} Mbps" else "未提供"
 fun diagnosticTime(value: Long): String = String.format(Locale.ROOT, "%d:%02d", value.coerceAtLeast(0) / 60_000, value.coerceAtLeast(0) / 1000 % 60)
 fun diagnosticElapsed(value: Long): String = String.format(Locale.ROOT, "%.3f s", value.coerceAtLeast(0) / 1000.0)
 
 fun PlaybackDiagnosticSnapshot.report(): String = buildString {
-    appendLine("Joyfin 播放诊断 v1")
+    appendLine("Joyfin 播放诊断 v2")
     appendLine("应用版本：${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.SDK_INT}")
     appendLine("状态：${state.label}；阶段：${stage.label}")
     appendLine("播放方式：$method；策略：$selection")
@@ -231,8 +258,17 @@ fun PlaybackDiagnosticSnapshot.report(): String = buildString {
     appendLine("源容器：$container；源总码率：${diagnosticBitrate(sourceBitrate)}")
     appendLine("源视频：${sourceVideo?.description ?: "未提供"}")
     appendLine("源音频：${sourceAudio?.description ?: "未提供"}")
-    appendLine("实际视频：${outputVideo?.description ?: "尚未取得播放格式"}")
-    appendLine("实际音频：${outputAudio?.description ?: "尚未取得播放格式"}")
+    appendLine("渲染器输入视频：${outputVideo?.description ?: "尚未取得播放格式"}")
+    appendLine("渲染器输入音频：${outputAudio?.description ?: "尚未取得播放格式"}")
+    appendLine("片源对象音效：$sourceSpatial")
+    appendLine("显示能力：$displayCapabilities；电视实际 HDR/DV 模式：未知，需显示设备确认")
+    decision?.let {
+        appendLine("视频播放请求：${it.sourceRange.label} → ${it.targetRange.label} · ${it.videoPath.label}")
+        appendLine("音频播放请求：${it.outputMode.label} · ${it.audioPath.label}")
+        it.audioSupport?.let { support -> appendLine("音频能力探测：${support.sampleRate} Hz；编码输出 ${support.passthroughChannels} 声道；系统解码 ${support.platformChannels} 声道；FFmpeg ${support.softwareChannels} 声道") }
+    }
+    appendLine("AudioTrack 实际配置：${actualOutput?.description ?: "尚未取得"}")
+    appendLine("实际输出路由：${actualOutput?.route ?: "未知"}；接收端对象音效：未验证")
     appendLine("视频解码器：$videoDecoder；音频解码器：$audioDecoder")
     appendLine("网络带宽估算：${diagnosticBitrate(bandwidth)}")
     appendLine("播放位置：${diagnosticTime(positionMs)}；已缓冲：${bufferMs / 1000} 秒")

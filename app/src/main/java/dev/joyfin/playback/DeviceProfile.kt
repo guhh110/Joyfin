@@ -1,20 +1,35 @@
 package dev.joyfin.playback
 
-import android.content.Context
 import dev.joyfin.data.*
+import dev.joyfin.playback.quality.*
 
 object DeviceProfile {
-    fun build(
-        context: Context,
-        source: MediaSource? = null,
-        bitrate: Int = PlaybackQuality.DEFAULT,
-        audioIndex: Int? = null,
-    ): DeviceProfileDto =
-        create(
-            VideoPlaybackCapabilities.detect(context, source),
-            AudioPlaybackCapabilities.detect(context, source, audioIndex),
-            bitrate,
-        )
+    internal fun negotiate(capabilities: PlaybackCapabilitySnapshot, decision: PlaybackDecision,
+        source: MediaSource?, audioIndex: Int?, bitrate: Int): PlaybackNegotiation {
+        val audio = PlaybackDecisionPolicy.audioForProfile(capabilities.audio, decision, source, audioIndex)
+        val base = create(capabilities.video.codecs, audio, bitrate)
+        val video = source?.streams?.firstOrNull { it.type == "Video" }
+        val conditions = video?.let {
+            CodecProfile("Video", it.codec.lowercase(), listOf(ProfileCondition(
+                condition = "EqualsAny", property = "VideoRangeType",
+                value = (if (decision.videoTranscode) setOf("SDR") else capabilities.video.acceptedRanges)
+                    .ifEmpty { setOf("Unknown", "SDR") }.joinToString("|"),
+            )))
+        }
+        val pcmChannels = decision.pcmOutputChannels.coerceIn(2, 8)
+        val encodedChannels = if (decision.pcmOnly) 0 else
+            listOf("aac", "ac3", "eac3", "mp3").maxOf { capabilities.audio.pathsByCodec[it]?.passthroughChannels ?: 0 }
+        val maxChannels = maxOf(pcmChannels, encodedChannels).coerceIn(2, 8)
+        return PlaybackNegotiation(capabilities, decision, base.copy(
+            codecProfiles = base.codecProfiles + listOfNotNull(conditions),
+            transcodingProfiles = base.transcodingProfiles.map { transcode -> transcode.copy(
+                maxAudioChannels = maxChannels.toString(),
+                audioCodec = transcode.audioCodec.split(',').sortedByDescending {
+                    if (decision.pcmOnly) 0 else capabilities.audio.pathsByCodec[it]?.passthroughChannels ?: 0
+                }.joinToString(","),
+            ) },
+        ))
+    }
 
     internal fun create(
         video: Set<String>,

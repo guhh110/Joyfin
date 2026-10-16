@@ -21,6 +21,7 @@ enum class PlayerPanel(val title: String) {
     Settings("播放设置"),
     Quality("画质"),
     Audio("音轨"),
+    AudioOutput("音频输出"),
     Subtitle("字幕"),
     SubtitleOffset("字幕时间偏移"),
     Speed("播放速度"),
@@ -89,6 +90,7 @@ fun PlayerSettingsSheet(
                             onPanel(PlayerPanel.Audio)
                         }
                         ChoiceRow("播放速度", subtitle = "${ui.speed}×") { onPanel(PlayerPanel.Speed) }
+                        ChoiceRow("音频输出", subtitle = ui.audioOutputMode.label) { onPanel(PlayerPanel.AudioOutput) }
                         ChoiceRow("媒体版本") { onPanel(PlayerPanel.Versions) }
                         ChoiceRow(
                             "播放方式",
@@ -128,6 +130,16 @@ fun PlayerSettingsSheet(
                                 onDismiss()
                                 actions.selectAudio(track.index)
                             }
+                        }
+                    }
+                    PlayerPanel.AudioOutput -> dev.joyfin.data.AudioOutputMode.entries.forEach { mode ->
+                        ChoiceRow(mode.label, Modifier.focusTarget(panel.choiceKey(mode.name)),
+                            subtitle = if (mode == dev.joyfin.data.AudioOutputMode.AUTO)
+                                "优先编码输出，不可用时自动解码或转换"
+                                else "关闭编码直通，使用本机解码或服务器转换",
+                            selected = mode == ui.audioOutputMode) {
+                            onDismiss()
+                            actions.setAudioOutputMode(mode)
                         }
                     }
                     PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.subtitles.SubtitleOffsetContent(ui, actions)

@@ -30,6 +30,7 @@ fun PlayerHeader(
         Column(Modifier.weight(1f)) {
             SectionTitle(ui.title)
             Caption(ui.subtitle)
+            ui.playbackNotice?.let { Caption(it, maxLines = 1) }
         }
         val methodText = when (ui.method) {
             "DirectPlay" -> "直接播放"

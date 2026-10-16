@@ -86,6 +86,7 @@ internal fun BrowseHost(
     onPlayOverride: ((Media, Boolean, String?) -> Unit)? = null,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
+    val audioOutputMode by vm.audioOutputMode.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     var exit by remember { mutableStateOf(false) }
     var logout by remember { mutableStateOf(false) }
@@ -159,6 +160,7 @@ internal fun BrowseHost(
                     autoNext = it
                     vm.store.autoNext = it
                 },
+                setAudioOutputMode = vm::setAudioOutputMode,
             )
         }
     val images =
@@ -175,7 +177,7 @@ internal fun BrowseHost(
         remember(vm) {
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() })
     if (logout)

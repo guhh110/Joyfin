@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import dev.joyfin.BuildConfig
+import dev.joyfin.data.AudioOutputMode
 import dev.joyfin.app.SettingsUiState
 import dev.joyfin.session.EntryState
 import dev.joyfin.ui.components.*
@@ -30,6 +31,7 @@ internal fun ColumnScope.SettingsContent(
     actions: BrowseActions,
     autoNext: Boolean,
     request: SettingsUiState = SettingsUiState(),
+    audioOutputMode: AudioOutputMode = AudioOutputMode.AUTO,
 ) {
     var diagnostics by remember { mutableStateOf(false) }
     var returnFromDiagnostics by remember { mutableStateOf(false) }
@@ -91,6 +93,11 @@ internal fun ColumnScope.SettingsContent(
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle("播放偏好")
+        ChoiceRow("音频输出", Modifier.focusTarget("settings:audio-output"),
+            subtitle = if (audioOutputMode == AudioOutputMode.AUTO) "自动 · 优先编码输出，不可用时兼容播放"
+                else "PCM 兼容 · 本机解码，必要时由服务器转换") {
+            actions.setAudioOutputMode(if (audioOutputMode == AudioOutputMode.AUTO) AudioOutputMode.PCM else AudioOutputMode.AUTO)
+        }
         ChoiceRow(
             "自动连播下一集",
             subtitle = if (autoNext) "播放结束后倒计时，可随时取消" else "每集结束后停止",

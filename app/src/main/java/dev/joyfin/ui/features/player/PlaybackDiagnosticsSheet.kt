@@ -91,8 +91,17 @@ private fun DiagnosticOverview(ui: PlaybackDiagnosticSnapshot) {
         DiagnosticValue("播放策略", ui.selection)
         DiagnosticValue("画质设置", if (ui.quality == PlaybackQuality.ORIGINAL) "原画 · 不限码率"
             else diagnosticBitrate(ui.quality.toLong()))
-        DiagnosticValue("转码原因", ui.reasons.takeIf { it.isNotEmpty() }?.joinToString("、")
+        DiagnosticValue("兼容与协商说明", ui.reasons.takeIf { it.isNotEmpty() }?.joinToString("、")
             ?: if (ui.method == "直接播放") "无需转码" else "服务端未提供具体原因")
+        DiagnosticValue("显示设备能力", ui.displayCapabilities)
+        ui.decision?.let { decision ->
+            DiagnosticValue("视频播放请求", "${decision.sourceRange.label} → ${decision.targetRange.label} · ${decision.videoPath.label}")
+            DiagnosticValue("音频播放请求", "${decision.outputMode.label} · ${decision.audioPath.label}")
+            decision.audioSupport?.let { support ->
+                DiagnosticValue("音频能力探测 · ${support.sampleRate} Hz",
+                    "编码输出 ${support.passthroughChannels} 声道 / 系统解码 ${support.platformChannels} 声道 / FFmpeg ${support.softwareChannels} 声道")
+            }
+        }
         DiagnosticValue("播放位置 / 已缓冲", "${diagnosticTime(ui.positionMs)} / ${ui.bufferMs / 1000} 秒")
         DiagnosticValue("网络带宽估算", diagnosticBitrate(ui.bandwidth))
         ui.failure?.let { DiagnosticValue("当前错误", it.description, warning = true) }
@@ -107,18 +116,27 @@ private fun DiagnosticSource(ui: PlaybackDiagnosticSnapshot) {
         DiagnosticValue("源总码率", diagnosticBitrate(ui.sourceBitrate))
         DiagnosticValue("源视频", ui.sourceVideo?.description ?: "未提供")
         DiagnosticValue("源音频", ui.sourceAudio?.description ?: "未提供")
+        DiagnosticValue("片源对象音效", ui.sourceSpatial)
     }
 }
 
 @Composable
 private fun DiagnosticOutput(ui: PlaybackDiagnosticSnapshot) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle("实际播放格式")
+        SectionTitle("渲染器输入")
         DiagnosticValue("视频", ui.outputVideo?.description ?: "播放器尚未提供")
         DiagnosticValue("音频", ui.outputAudio?.description ?: "播放器尚未提供")
         DiagnosticValue("视频解码器", ui.videoDecoder)
         DiagnosticValue("音频解码器", ui.audioDecoder)
-        Caption("格式与码率来自播放器轨道信息；网络带宽为估算值。", maxLines = 3)
+        SectionTitle("AudioTrack 实际配置")
+        DiagnosticValue("输出音频", ui.actualOutput?.description ?: "尚未取得")
+        DiagnosticValue("输出路由", ui.actualOutput?.route ?: "未知")
+        DiagnosticValue("输出方式", when (ui.actualOutput?.pcm) {
+            true -> "PCM 输出"
+            false -> if (ui.actualOutput?.offload == true) "编码输出 · Offload" else "编码输出"
+            null -> "未知"
+        })
+        Caption("AudioTrack 配置不代表功放已启用对象音效；电视实际 HDR／DV 模式和接收端音效仍需设备确认。网络带宽为估算值。", maxLines = 6)
     }
 }
 

@@ -46,6 +46,8 @@ data class PlayerUiState(
     val localSubtitles: List<LocalSubtitleOption> = emptyList(),
     val subtitleSearchOpen: Boolean = false,
     val subtitleSearchApplied: Int = 0,
+    val audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
+    val playbackNotice: String? = null,
 )
 
 data class PlayerActions(
@@ -68,6 +70,7 @@ data class PlayerActions(
     val subtitleOffset: (Long) -> Unit = {},
     val selectLocalFile: (String) -> Unit = {},
     val searchSubtitles: () -> Unit = {},
+    val setAudioOutputMode: (dev.joyfin.data.AudioOutputMode) -> Unit = {},
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =

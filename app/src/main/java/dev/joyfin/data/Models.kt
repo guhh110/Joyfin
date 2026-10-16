@@ -144,6 +144,20 @@ data class Media(
 
 data class MediaPage(val items: List<Media>, val total: Int)
 
+/** One audio-selection rule for capability probes, negotiation and diagnostics. */
+fun MediaSource.audioStream(index: Int? = null): MediaStream? =
+    streams.firstOrNull { it.type == "Audio" && it.index == (index ?: defaultAudioIndex) }
+        ?: streams.firstOrNull { it.type == "Audio" }
+
+/** Transport policy supplied by playback business logic; the API never probes hardware. */
+data class PlaybackSourcePolicy(
+    val profile: DeviceProfileDto,
+    val videoTranscode: Boolean = false,
+    val audioTranscode: Boolean = false,
+    val discSource: Boolean = false,
+    val maxAudioChannels: Int? = null,
+)
+
 data class PlaybackPlan(
     val item: Media,
     val source: MediaSource,
@@ -157,6 +171,12 @@ data class PlaybackPlan(
     val subtitles: List<Subtitle>,
     val transcodeReasons: List<String> = emptyList(),
 ) {
+    val mimeType: String? get() = when {
+        url.substringBefore('?').endsWith(".m3u8", true) -> "application/x-mpegURL"
+        method == "Transcode" && source.transcodingSubProtocol.equals("hls", true) -> "application/x-mpegURL"
+        method == "Transcode" && source.transcodingContainer.equals("mp4", true) -> "video/mp4"
+        else -> null
+    }
     val sourceId
         get() = source.id
 

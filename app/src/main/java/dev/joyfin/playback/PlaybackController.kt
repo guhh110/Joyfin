@@ -10,13 +10,13 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.session.MediaSession
 import dev.joyfin.BuildConfig
 import dev.joyfin.data.*
 import dev.joyfin.data.subtitles.*
 import dev.joyfin.subtitles.PlayerSubtitleSearchController
 import dev.joyfin.subtitles.PlayerSubtitleTarget
+import dev.joyfin.playback.quality.PlaybackEnvironment
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,7 +43,6 @@ class PlaybackController(
     private var currentId = restored?.getString("itemId") ?: itemId
     private var diagnosticMediaId = currentId
     private var diagnosticToken = PlaybackDiagnostics.claim(currentId)
-    private var diagnosticFallback = restored?.getBoolean("diagnosticFallback") ?: false
     private var initialTicks = restored?.getLong("position") ?: startTicks
     private var sourceId = restored?.getString("source") ?: initialSourceId
     private var bitrate = restored?.getInt("bitrate", PlaybackQuality.DEFAULT) ?: PlaybackQuality.DEFAULT
@@ -51,8 +50,6 @@ class PlaybackController(
     private var subtitleIndex: Int? =
         restored?.takeIf { it.containsKey("subtitle") }?.getInt("subtitle")
     private var compatible = restored?.getBoolean("compatible") ?: false
-    private var fallbackUsed = restored?.getBoolean("fallbackUsed") ?: false
-    private var audioTranscode = restored?.getBoolean("audioTranscode") ?: false
     private var settingsItemId: String? = if (restored != null) currentId else null
     private var playbackGeneration = 0L
     private var item: Media? = null
@@ -79,6 +76,9 @@ class PlaybackController(
     private var searchSubtitleApplying = false
 
     private val completion = PlaybackCompletionGate()
+    private val environment = PlaybackEnvironment(context, scope, ::environmentChanged) { notice ->
+        mutable.update { it.copy(playbackNotice = notice) }
+    }
     private val subtitleRendering = SubtitleRendering()
     private val http =
         DefaultHttpDataSource.Factory()
@@ -88,14 +88,14 @@ class PlaybackController(
             .setReadTimeoutMs(30_000)
     val player: ExoPlayer =
         subtitleRendering
-            .configure(ExoPlayer.Builder(context), context, DefaultDataSource.Factory(context, http))
+            .configure(ExoPlayer.Builder(context), DefaultDataSource.Factory(context, http), environment.audioEngine.renderers(context))
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
     private val mediaSession = MediaSession.Builder(context, player).build()
-    private val diagnosticObserver = PlaybackDiagnosticsObserver(player, { diagnosticToken }) {
-        !released && plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration
-    }
+    private val diagnosticObserver = PlaybackDiagnosticsObserver(player, { diagnosticToken },
+        { !released && plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration },
+        environment::videoInput)
 
     val subtitleSearch = PlayerSubtitleSearchController(context, scope, api, localStore,
         ::applySearchedSubtitle, ::subtitleSearchClosed)
@@ -173,6 +173,7 @@ class PlaybackController(
             },
             speed = {
                 player.setPlaybackSpeed(it)
+                environment.setSpeed(it)
                 mutable.update { ui -> ui.copy(speed = it) }
             },
             selectVersion = {
@@ -184,9 +185,6 @@ class PlaybackController(
                     compatible = item?.let { media ->
                         api.session?.let { preferenceStore.load(it, media).compatible }
                     } ?: false
-                    fallbackUsed = compatible
-                    audioTranscode = false
-                    diagnosticFallback = false
                     load(positionTicks())
                 }
             },
@@ -199,6 +197,7 @@ class PlaybackController(
             subtitleOffset = ::setSubtitleOffset,
             selectLocalFile = ::selectManagedSubtitle,
             searchSubtitles = ::openSubtitleSearch,
+            setAudioOutputMode = environment::setAudioMode,
         )
 
     init {
@@ -210,6 +209,7 @@ class PlaybackController(
         )
         player.setHandleAudioBecomingNoisy(true)
         player.setPlaybackSpeed(restored?.getFloat("speed", 1f) ?: 1f)
+        environment.setSpeed(player.playbackParameters.speed)
         player.addListener(
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -293,7 +293,8 @@ class PlaybackController(
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    if (!searchSubtitleApplying) handleError(error)
+                    if (!searchSubtitleApplying && plan != null &&
+                        player.currentMediaItem?.localConfiguration?.tag == playbackGeneration) handleError(error)
                 }
             },
         )
@@ -324,12 +325,12 @@ class PlaybackController(
         if (diagnosticMediaId != currentId) {
             diagnosticMediaId = currentId
             diagnosticToken = PlaybackDiagnostics.begin(currentId)
-            diagnosticFallback = false
         }
         val diagnostics = diagnosticToken
-        PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, audioTranscode, diagnosticFallback)
+        PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, environment.forceAudioTranscode, environment.isFallback)
         val generation = completion.begin()
         playbackGeneration = generation
+        environment.begin(generation, diagnostics)
         subtitleJob?.cancel()
         localSubtitle = null
         localSubtitleKey = null
@@ -348,6 +349,7 @@ class PlaybackController(
                 localSubtitle = null,
                 localSubtitles = emptyList(),
                 localSubtitleError = null,
+                playbackNotice = null,
                 subtitleApplying = false,
                 loading = true,
                 hasRenderedFrame = false,
@@ -378,7 +380,10 @@ class PlaybackController(
             try {
                 if (fetch || item == null) {
                     PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.RUNNING)
-                    item = api.item(currentId)
+                    val fetched = api.item(currentId)
+                    currentCoroutineContext().ensureActive()
+                    if (generation != playbackGeneration || released) return@launch
+                    item = fetched
                     PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.READY)
                 }
                 val media = requireNotNull(item)
@@ -386,9 +391,6 @@ class PlaybackController(
                 if (settingsItemId != media.id) {
                     bitrate = preferences?.bitrate ?: PlaybackQuality.DEFAULT
                     compatible = preferences?.compatible ?: false
-                    fallbackUsed = compatible
-                    audioTranscode = false
-                    diagnosticFallback = false
                     settingsItemId = media.id
                 }
                 mutable.update {
@@ -422,7 +424,7 @@ class PlaybackController(
                 if (fetch) loadEpisodeMetadata(media)
                 val source =
                     media.sources.firstOrNull { sourceId == null || it.id == sourceId }
-                PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, audioTranscode, diagnosticFallback)
+                PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, environment.forceAudioTranscode, environment.isFallback)
                 source?.let { PlaybackDiagnostics.source(diagnostics, it, audioIndex ?: it.defaultAudioIndex) }
                 val localKey = api.session?.let { session -> source?.id?.let { version ->
                     dev.joyfin.data.subtitles.LocalSubtitleStore.key(session.server, session.userId, media.id, version)
@@ -439,7 +441,8 @@ class PlaybackController(
                     PlaybackDiagnostics.failure(diagnostics, DiagnosticStage.SUBTITLE, e, fatal = false)
                     localError = "本地字幕无法读取，请在详情页重新选择"; null
                 }
-                var profile = DeviceProfile.build(context, source, bitrate, audioIndex)
+                var negotiation = environment.negotiate(media.id, source, audioIndex, bitrate, compatible)
+                var profile = negotiation.profile
                 diagnosticStage = DiagnosticStage.NEGOTIATION
                 PlaybackDiagnostics.event(diagnostics, diagnosticStage, DiagnosticOutcome.RUNNING)
                 val prepared =
@@ -453,14 +456,20 @@ class PlaybackController(
                         sourceId,
                         compatible,
                         preferences,
-                        profileForSource = { discovered, selectedAudio ->
-                            DeviceProfile.build(context, discovered, bitrate, selectedAudio).also { profile = it }
+                        sourcePolicy = { discovered, selectedAudio ->
+                            negotiation = environment.negotiate(media.id, discovered, selectedAudio, bitrate, compatible)
+                            profile = negotiation.profile
+                            negotiation.requestPolicy
                         },
-                        audioTranscode = audioTranscode,
                     )
                 unclaimed = prepared
                 currentCoroutineContext().ensureActive()
-                check(!released) { "播放器已关闭" }
+                check(!released && generation == playbackGeneration) { "播放器已关闭或播放内容已变化" }
+                if (!environment.isCurrent(negotiation)) {
+                    load(ticks, autoPlay = autoPlay)
+                    return@launch
+                }
+                environment.activate(negotiation, prepared.transcodeReasons)
                 item =
                     media.copy(
                         sources =
@@ -478,7 +487,7 @@ class PlaybackController(
                 // Never log playback URLs: they may contain server addresses and credentials.
                 android.util.Log.i(
                     "JoyfinPlayback",
-                    "method=${prepared.method}, compatible=$compatible, audioFallback=$audioTranscode, " +
+                    "method=${prepared.method}, compatible=$compatible, audioFallback=${environment.forceAudioTranscode}, " +
                         "video=${prepared.source.streams.firstOrNull { it.type == "Video" }?.let { "${it.codec}/${it.profile}/${it.bitDepth}bit/${it.width}x${it.height}" }}, " +
                         "subtitle=${prepared.source.streams.firstOrNull { it.type == "Subtitle" && it.index == prepared.subtitleIndex }?.codec}, " +
                         "audioCodecs=${profile.directPlayProfiles.flatMap { it.audioCodec.split(',') }.distinct().joinToString(",")}, " +
@@ -496,8 +505,7 @@ class PlaybackController(
                         .setMediaId(media.id)
                         .setTag(generation)
                         .setMediaMetadata(MediaMetadata.Builder().setTitle(media.label).build())
-                if (prepared.method == "Transcode" || prepared.url.contains(".m3u8"))
-                    builder.setMimeType("application/x-mpegURL")
+                builder.setMimeType(prepared.mimeType)
                 builder.setSubtitleConfigurations(
                     prepared.subtitles.map { subtitle ->
                         MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
@@ -536,6 +544,8 @@ class PlaybackController(
                         localSubtitleError = localError,
                         bitrate = bitrate,
                         compatible = compatible,
+                        audioOutputMode = environment.audioMode,
+                        playbackNotice = environment.notice,
                         sourceId = sourceId,
                     )
                 }
@@ -547,6 +557,8 @@ class PlaybackController(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                currentCoroutineContext().ensureActive()
+                if (generation != playbackGeneration || released) return@launch
                 PlaybackDiagnostics.failure(diagnostics, diagnosticStage, e)
                 if (e is ApiException && e.status == 401) onClose(true)
                 else showError(e.message ?: "获取播放信息失败")
@@ -628,8 +640,6 @@ class PlaybackController(
         audioIndex = null
         subtitleIndex = null
         compatible = false
-        fallbackUsed = false
-        audioTranscode = false
         settingsItemId = null
         load(0, fetch = true, autoPlay = true)
     }
@@ -659,16 +669,14 @@ class PlaybackController(
 
     private fun selectCompatibility(value: Boolean) {
         if (mutable.value.loading || item == null) return
-        diagnosticFallback = false
         stagePreference { it.copy(compatible = value) }
-        if (compatible == value && !audioTranscode && started && mutable.value.error == null) {
-            PlaybackDiagnostics.selection(diagnosticToken, compatible, audioTranscode, diagnosticFallback)
+        if (compatible == value && !environment.isFallback && started && mutable.value.error == null) {
+            PlaybackDiagnostics.selection(diagnosticToken, compatible, environment.forceAudioTranscode, environment.isFallback)
             commitPreference()
         }
         else {
             compatible = value
-            fallbackUsed = value
-            audioTranscode = false
+            environment.resetAttempts()
             load(positionTicks())
         }
     }
@@ -841,6 +849,7 @@ class PlaybackController(
         check(matchesSubtitleTarget(target))
         val oldItem = player.currentMediaItem ?: error("播放已结束")
         val oldPlan = requireNotNull(plan)
+        val oldNegotiation = environment.currentNegotiation
         val oldLocal = localSubtitle
         val oldParameters = player.trackSelectionParameters
         val position = player.currentPosition.coerceAtLeast(0)
@@ -854,14 +863,18 @@ class PlaybackController(
             val burnedIn = oldLocal == null && oldPlan.method == "Transcode" &&
                 SubtitleDelivery.requiresBurnIn(oldPlan.subtitleIndex, oldPlan.streams, oldPlan.source.container)
             val playbackItem = if (burnedIn) {
-                val profile = DeviceProfile.build(context, target.source, bitrate, audioIndex)
-                val nextPlan = api.playback(target.media, profile, position * 10_000, bitrate,
-                    audioIndex, -1, target.source.id, compatible, audioTranscode = audioTranscode)
+                var negotiation = environment.negotiate(target.media.id, target.source, audioIndex, bitrate, compatible)
+                val nextPlan = api.playback(target.media, negotiation.profile, position * 10_000, bitrate,
+                    audioIndex, -1, target.source.id, compatible, sourcePolicy = { source, selectedAudio ->
+                        negotiation = environment.negotiate(target.media.id, source, selectedAudio, bitrate, compatible)
+                        negotiation.requestPolicy
+                    })
                 replacement = nextPlan
                 currentCoroutineContext().ensureActive()
-                check(matchesSubtitleTarget(target) && nextPlan.sourceId == target.source.id)
+                check(matchesSubtitleTarget(target) && nextPlan.sourceId == target.source.id && environment.isCurrent(negotiation))
+                environment.activate(negotiation, nextPlan.transcodeReasons)
                 val builder = oldItem.buildUpon().setUri(nextPlan.url)
-                    .setMimeType(if (nextPlan.method == "Transcode" || nextPlan.url.contains(".m3u8")) "application/x-mpegURL" else null)
+                    .setMimeType(nextPlan.mimeType)
                 builder.setSubtitleConfigurations(nextPlan.subtitles.map { subtitle ->
                     MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
                         .setMimeType(subtitle.mime).setLanguage(subtitle.language).setLabel(subtitle.label)
@@ -909,6 +922,8 @@ class PlaybackController(
                 replacement?.let { reporter.send(it, "Stopped", position * 10_000, true) }
                 if (matchesSubtitleTarget(target)) {
                     plan = oldPlan
+                    oldNegotiation?.let { environment.activate(it, oldPlan.transcodeReasons) }
+                    PlaybackDiagnostics.plan(diagnosticToken, oldPlan)
                     localSubtitle = oldLocal
                     if (replaced) {
                         val playing = player.playWhenReady
@@ -986,32 +1001,21 @@ class PlaybackController(
             onClose(true)
             return
         }
-        val decode =
-            error.errorCode in
-                setOf(
-                    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
-                    PlaybackException.ERROR_CODE_DECODING_FAILED,
-                    PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
-                    PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
-                    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
-                )
-        if (decode && !fallbackUsed) {
+        if (environment.fallback(error)) {
             PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error, fatal = false)
             PlaybackDiagnostics.event(diagnosticToken, DiagnosticStage.STREAM, DiagnosticOutcome.FALLBACK)
-            diagnosticFallback = true
-            fallbackUsed = true
-            audioTranscode = error is ExoPlaybackException && error.rendererFormat?.sampleMimeType?.startsWith("audio/") == true
-            compatible = !audioTranscode
-            // An automatic failure fallback is temporary, not an explicit per-show preference.
-            android.util.Log.i("JoyfinPlayback", "fallback=${error.errorCodeName}, audioOnly=$audioTranscode")
             load(positionTicks())
         } else {
             PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error)
-            showError(
-                if (decode) "当前格式无法播放，兼容转码也未成功。请检查服务端转码日志。"
-                else "播放中断：${error.errorCodeName}。请检查网络或服务器。",
-            )
+            showError(environment.failureMessage(error))
         }
+    }
+
+    private fun environmentChanged() {
+        mutable.update { it.copy(audioOutputMode = environment.audioMode) }
+        if (!released && !suspendedPlayback && item != null && mutable.value.error == null &&
+            plan != null && environment.needsReload)
+            load(positionTicks())
     }
 
     private fun stopCurrentStream() {
@@ -1058,6 +1062,8 @@ class PlaybackController(
 
     fun onStart() {
         if (released) return
+        environment.start()
+        mutable.update { it.copy(audioOutputMode = environment.audioMode) }
         if (suspendedPlayback) {
             suspendedPlayback = false
             if (mutable.value.error == null) load(initialTicks, fetch = true, autoPlay = wasPlaying)
@@ -1098,6 +1104,7 @@ class PlaybackController(
     }
 
     fun onStop() {
+        environment.stop()
         seekPreview.cancel()
         cancelCountdown()
         pollJob?.cancel()
@@ -1136,9 +1143,6 @@ class PlaybackController(
         out.putString("source", sourceId)
         out.putBoolean("playing", if (suspendedPlayback) wasPlaying else subtitleSearchResume ?: pendingPlay ?: player.playWhenReady)
         out.putBoolean("compatible", compatible)
-        out.putBoolean("fallbackUsed", fallbackUsed)
-        out.putBoolean("audioTranscode", audioTranscode)
-        out.putBoolean("diagnosticFallback", diagnosticFallback)
         out.putFloat("speed", player.playbackParameters.speed)
         out.putInt("audio", audioIndex ?: -1)
         subtitleIndex?.let { out.putInt("subtitle", it) }
@@ -1149,6 +1153,7 @@ class PlaybackController(
         seekPreview.cancel()
         if (released) return
         released = true
+        environment.stop()
         player.removeAnalyticsListener(diagnosticObserver)
         discardSubtitleSearch()
         loadJob?.cancel()

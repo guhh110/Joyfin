@@ -20,6 +20,7 @@ internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
     when (this) {
         PlayerPanel.Settings -> "sheet:close"
         PlayerPanel.Diagnostics -> "diagnostics:copy"
+        PlayerPanel.AudioOutput -> choiceKey(ui.audioOutputMode.name)
         PlayerPanel.Quality ->
             choiceKey(
                 qualityChoices.firstOrNull { it.first == ui.bitrate }?.first

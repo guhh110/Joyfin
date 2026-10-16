@@ -14,6 +14,7 @@ internal class PlaybackDiagnosticsObserver(
     private val player: ExoPlayer,
     private val token: () -> Long,
     private val acceptsEvents: () -> Boolean,
+    private val onVideoInput: (androidx.media3.common.Format) -> Unit,
 ) : AnalyticsListener {
     private fun accepts(eventTime: AnalyticsListener.EventTime): Boolean = acceptsEvents() &&
         (eventTime.timeline.isEmpty || eventTime.timeline == player.currentTimeline)
@@ -47,5 +48,6 @@ internal class PlaybackDiagnosticsObserver(
         }
         PlaybackDiagnostics.playback(token(), state, player.currentPosition,
             player.totalBufferedDuration, player.videoFormat, player.audioFormat)
+        player.videoFormat?.let(onVideoInput)
     }
 }

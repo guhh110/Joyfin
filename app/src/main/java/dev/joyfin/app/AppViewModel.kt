@@ -10,6 +10,8 @@ import dev.joyfin.session.EntryState
 import dev.joyfin.session.SessionController
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 class AppViewModel @JvmOverloads constructor(
     application: Application,
@@ -17,6 +19,8 @@ class AppViewModel @JvmOverloads constructor(
     val api: JellyfinApi = JellyfinApi(store.deviceId),
     storageContext: Context = application,
 ) : AndroidViewModel(application) {
+    private val outputPreferences = AudioOutputPreferences(storageContext)
+    val audioOutputMode = outputPreferences.changes.stateIn(viewModelScope, SharingStarted.Eagerly, outputPreferences.mode)
     private val mutable =
         MutableStateFlow(
             UiState(entry = EntryState(server = store.server, serverName = store.serverName))
@@ -66,6 +70,8 @@ class AppViewModel @JvmOverloads constructor(
     fun login(name: String, password: String) = session.login(name, password)
 
     fun cancelEntry() = session.cancelEntry()
+
+    fun setAudioOutputMode(mode: AudioOutputMode) { outputPreferences.mode = mode }
 
     fun changeServer() {
         dev.joyfin.playback.PlaybackDiagnostics.clear()

@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import dev.joyfin.data.MediaSource
 import dev.joyfin.data.MediaStream
 import java.util.Locale
+import dev.joyfin.playback.quality.*
 
 /** Use Media3 decoder selection and profile/level, resolution and frame-rate checks. */
 object VideoPlaybackCapabilities {
@@ -62,6 +63,31 @@ object VideoPlaybackCapabilities {
             .keys
     }
 
+    fun assess(context: Context, source: MediaSource?, display: DisplayPlaybackCapabilities): VideoPlaybackSupport {
+        val codecs = detect(context, source)
+        val stream = source?.streams?.firstOrNull { it.type == "Video" }
+        return VideoPlaybackPolicy.assess(stream, display, codecs,
+            nativeHdrSupported = { nativeHdrDecoder(context, it) },
+            baseLayerSupported = { base ->
+                val baseSource = source?.copy(streams = source.streams.map { if (it === stream) base else it })
+                base.codec.lowercase() in detect(context, baseSource)
+            },
+        )
+    }
+
+    fun rangeOf(stream: MediaStream): VideoRange = VideoPlaybackPolicy.rangeOf(stream)
+
+    private fun nativeHdrDecoder(context: Context, stream: MediaStream): Boolean = runCatching {
+        if (rangeOf(stream) == VideoRange.DOLBY_VISION && stream.dvProfile == null) return@runCatching false
+        val mime = if (stream.dvProfile != null) "video/dolby-vision" else mimeTypes[stream.codec.lowercase()] ?: return@runCatching false
+        val format = Format.Builder().setSampleMimeType(mime).setCodecs(codecString(stream))
+            .setWidth(stream.width.takeIf { it > 0 } ?: Format.NO_VALUE)
+            .setHeight(stream.height.takeIf { it > 0 } ?: Format.NO_VALUE)
+            .setFrameRate(stream.realFrameRate.takeIf { it > 0 } ?: stream.averageFrameRate.takeIf { it > 0 } ?: Format.NO_VALUE.toFloat())
+            .setColorInfo(colorInfo(stream)).build()
+        MediaCodecUtil.getDecoderInfos(mime, false, false).any { it.isFormatSupported(context, format) }
+    }.getOrDefault(false)
+
     /** Missing levels use the lowest level; actual resolution/rate is checked independently. */
     internal fun codecString(stream: MediaStream): String? {
         val profile = stream.profile.lowercase()
@@ -107,17 +133,17 @@ object VideoPlaybackCapabilities {
     }
 
     private fun colorInfo(stream: MediaStream): ColorInfo? {
-        val range = "${stream.videoRange} ${stream.videoRangeType}".uppercase()
         val transfer =
-            when {
-                range.contains("HLG") -> C.COLOR_TRANSFER_HLG
-                range.contains("HDR10") || range.contains("DOVI") -> C.COLOR_TRANSFER_ST2084
+            when (rangeOf(stream)) {
+                VideoRange.HLG -> C.COLOR_TRANSFER_HLG
+                VideoRange.HDR10, VideoRange.HDR10_PLUS -> C.COLOR_TRANSFER_ST2084
+                VideoRange.DOLBY_VISION -> if (stream.dvBlSignalCompatibilityId == 4) C.COLOR_TRANSFER_HLG else C.COLOR_TRANSFER_ST2084
                 else -> return null
             }
         return ColorInfo.Builder()
             .setColorSpace(C.COLOR_SPACE_BT2020)
             .setColorTransfer(transfer)
-            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setColorRange(if (stream.colorRange in setOf("pc", "full")) C.COLOR_RANGE_FULL else C.COLOR_RANGE_LIMITED)
             .build()
     }
 }

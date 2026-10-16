@@ -2,7 +2,6 @@
 
 package dev.joyfin.playback
 
-import android.content.Context
 import androidx.media3.datasource.DataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
@@ -24,8 +23,8 @@ class SubtitleRendering {
 
     fun configure(
         builder: ExoPlayer.Builder,
-        context: Context,
         dataSource: DataSource.Factory,
+        renderers: DefaultRenderersFactory,
     ): ExoPlayer.Builder {
         val parser = AssSubtitleParserFactory(handler)
         return builder
@@ -41,10 +40,7 @@ class SubtitleRendering {
                     .setSubtitleParserFactory(parser)
             )
             .setRenderersFactory(
-                DefaultRenderersFactory(context)
-                    .setEnableDecoderFallback(true)
-                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-                    .withAssSupport(handler)
+                renderers.withAssSupport(handler)
             )
     }
 

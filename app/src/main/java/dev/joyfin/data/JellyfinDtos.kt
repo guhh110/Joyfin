@@ -68,6 +68,16 @@ data class MediaStream(
     @SerialName("VideoRange") val videoRange: String = "",
     @SerialName("VideoRangeType") val videoRangeType: String = "",
     @SerialName("Path") val path: String = "",
+    @SerialName("ColorRange") val colorRange: String? = null,
+    @SerialName("ColorSpace") val colorSpace: String? = null,
+    @SerialName("ColorTransfer") val colorTransfer: String? = null,
+    @SerialName("ColorPrimaries") val colorPrimaries: String? = null,
+    @SerialName("DvBlSignalCompatibilityId") val dvBlSignalCompatibilityId: Int? = null,
+    @SerialName("RpuPresentFlag") val rpuPresentFlag: Int? = null,
+    @SerialName("ElPresentFlag") val elPresentFlag: Int? = null,
+    @SerialName("BlPresentFlag") val blPresentFlag: Int? = null,
+    @SerialName("Hdr10PlusPresentFlag") val hdr10PlusPresentFlag: Boolean? = null,
+    @SerialName("AudioSpatialFormat") val audioSpatialFormat: String? = null,
 )
 
 @Serializable
@@ -84,6 +94,10 @@ data class MediaSource(
     @SerialName("DefaultAudioStreamIndex") val defaultAudioIndex: Int = -1,
     @SerialName("MediaStreams") val streams: List<MediaStream> = emptyList(),
     @SerialName("Path") val path: String = "",
+    @SerialName("VideoType") val videoType: String? = null,
+    @SerialName("IsoType") val isoType: String? = null,
+    @SerialName("TranscodingContainer") val transcodingContainer: String? = null,
+    @SerialName("TranscodingSubProtocol") val transcodingSubProtocol: String? = null,
 )
 
 @Serializable

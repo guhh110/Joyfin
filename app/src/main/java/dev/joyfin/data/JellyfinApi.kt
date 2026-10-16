@@ -404,15 +404,26 @@ class JellyfinApi(
         preferences: PlaybackTrackPreferences? = null,
         profileForSource: ((MediaSource, Int?) -> DeviceProfileDto)? = null,
         audioTranscode: Boolean = false,
+        sourcePolicy: (suspend (MediaSource, Int?) -> PlaybackSourcePolicy)? = null,
     ): PlaybackPlan {
         val knownSource = item.sources.firstOrNull { sourceId == null || it.id == sourceId }
         val discovering =
-            (profileForSource != null || subtitle != -1 || preferences != null) &&
+            (sourcePolicy != null || profileForSource != null || subtitle != -1 || preferences != null) &&
                 knownSource == null
         val knownStreams = knownSource?.streams.orEmpty()
+        val selectedSourceId = sourceId ?: knownSource?.id
         val selectedAudio = audio ?: preferences?.audio?.match("Audio", knownStreams)
-        val effectiveProfile =
-            knownSource?.let { profileForSource?.invoke(it, selectedAudio) } ?: profile
+        val policy = knownSource?.let { sourcePolicy?.invoke(it, selectedAudio) }
+        val effectiveProfile = policy?.profile ?: knownSource?.let { profileForSource?.invoke(it, selectedAudio) } ?: profile
+        val convertVideo = compatible || policy?.videoTranscode == true
+        val convertAudio = audioTranscode || policy?.audioTranscode == true
+        fun unavailableSourceMessage(): String = if (policy?.discSource == true)
+            "服务器未提供可播放的原盘主影片流；当前不支持客户端 ISO／蓝光菜单导航，请使用主影片流或 MKV Remux"
+            else "此格式无法直接播放，服务器也未提供转码方案，请检查转码权限"
+        fun usableStreamUrl(url: String?): String? = url?.takeIf { value ->
+            value.isNotBlank() && value != "null" && (policy?.discSource != true ||
+                listOf(".iso", ".bdmv", ".mpls", ".ifo").none { value.substringBefore('?').endsWith(it, true) })
+        }
         val selectedSubtitle =
             SubtitleDelivery.select(
                 subtitle ?: preferences?.subtitleIndex(knownStreams),
@@ -431,26 +442,27 @@ class JellyfinApi(
                 startTimeTicks = startTicks,
                 maxStreamingBitrate = bitrate,
                 maxAudioChannels =
-                    dev.joyfin.playback.AudioPlaybackCapabilities.requestChannelLimit(
+                    policy?.maxAudioChannels ?: dev.joyfin.playback.AudioPlaybackCapabilities.requestChannelLimit(
                         effectiveProfile
                     ),
-                enableDirectPlay = !compatible && !burnIn && !audioTranscode,
-                enableDirectStream = !compatible && !burnIn && !audioTranscode,
-                allowVideoStreamCopy = !compatible && !burnIn,
-                allowAudioStreamCopy = !compatible && !audioTranscode,
+                enableDirectPlay = !convertVideo && !burnIn && !convertAudio && policy?.discSource != true,
+                enableDirectStream = !convertVideo && !burnIn && !convertAudio,
+                allowVideoStreamCopy = !convertVideo && !burnIn,
+                allowAudioStreamCopy = !compatible && !convertAudio,
                 subtitleStreamIndex = selectedSubtitle,
                 autoOpenLiveStream = !discovering,
                 audioStreamIndex = selectedAudio,
-                mediaSourceId = sourceId,
+                mediaSourceId = selectedSourceId,
             )
         val result =
             service()
                 .playback(authorization(), item.id, requireSession().userId, !discovering, body)
                 .value()
         if (!result.errorCode.isNullOrBlank() && result.errorCode != "null")
-            throw IOException("服务器无法提供可用播放方案：${result.errorCode}")
+            throw IOException(if (policy?.discSource == true) unavailableSourceMessage()
+                else "服务器无法提供可用播放方案：${result.errorCode}")
         val source =
-            result.sources.firstOrNull { sourceId == null || it.id == sourceId }
+            result.sources.firstOrNull { selectedSourceId == null || it.id == selectedSourceId }
                 ?: throw IOException("没有可播放的媒体源")
         if (discovering)
             return playback(
@@ -465,14 +477,15 @@ class JellyfinApi(
                 preferences,
                 profileForSource,
                 audioTranscode,
+                sourcePolicy,
             )
-        val directStreamUrl = source.directStreamUrl?.takeIf { it.isNotBlank() && it != "null" }
-        val transcodingUrl = source.transcodingUrl?.takeIf { it.isNotBlank() && it != "null" }
-        val direct = !compatible && !burnIn && !audioTranscode && source.supportsDirectPlay
+        val directStreamUrl = usableStreamUrl(source.directStreamUrl)
+        val transcodingUrl = usableStreamUrl(source.transcodingUrl)
+        val direct = !convertVideo && !burnIn && !convertAudio && policy?.discSource != true && source.supportsDirectPlay
         val stream =
-            !compatible &&
+            !convertVideo &&
                 !burnIn &&
-                !audioTranscode &&
+                !convertAudio &&
                 source.supportsDirectStream &&
                 directStreamUrl != null
         val path =
@@ -495,7 +508,7 @@ class JellyfinApi(
                         .setQueryParameter("StartTimeTicks", "0")
                         .build()
                         .toString()
-                else -> throw IOException("此格式无法直接播放，服务器也未提供转码方案，请检查转码权限")
+                else -> throw IOException(unavailableSourceMessage())
             }
         val subtitles =
             source.streams.mapNotNull { track ->

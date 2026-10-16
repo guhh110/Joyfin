@@ -5,18 +5,24 @@ package dev.joyfin.playback
 import android.content.Context
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.Format
-import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
-import androidx.media3.exoplayer.RendererCapabilities
-import androidx.media3.exoplayer.audio.AudioCapabilities
-import androidx.media3.exoplayer.audio.AudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import dev.joyfin.data.*
 
 /** Input channels can be decoded locally even when the final PCM output is stereo. */
-data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
+data class AudioCodecCapabilities(
+    val sampleRate: Int,
+    val passthroughChannels: Int,
+    val platformChannels: Int,
+    val softwareChannels: Int,
+) {
+    val decodedChannels: Int get() = maxOf(platformChannels, softwareChannels)
+    fun channels(pcmOnly: Boolean): Int = if (pcmOnly) decodedChannels else maxOf(passthroughChannels, decodedChannels)
+}
+
+data class AudioPlaybackCapabilities(
+    val channelsByCodec: Map<String, Int>,
+    val pathsByCodec: Map<String, AudioCodecCapabilities> = emptyMap(),
+    val pcmChannelsByRate: Map<Int, Int> = emptyMap(),
+) {
     val codecs: String
         get() = channelsByCodec.keys.joinToString(",")
 
@@ -25,7 +31,10 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
             CodecProfile(
                 "VideoAudio",
                 codec,
-                listOf(ProfileCondition(property = "AudioChannels", value = channels.toString())),
+                listOf(ProfileCondition(property = "AudioChannels", value = channels.toString())) +
+                    listOfNotNull(pathsByCodec[codec]?.sampleRate?.takeIf { it > 0 }?.let {
+                        ProfileCondition(condition = "Equals", property = "AudioSampleRate", value = it.toString())
+                    }),
             )
         }
 
@@ -35,7 +44,7 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
-        private val mimeTypes =
+        internal val mimeTypes =
             linkedMapOf(
                 "aac" to listOf("audio/mp4a-latm"),
                 "mp3" to listOf("audio/mpeg"),
@@ -65,74 +74,9 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
                 "pcm_mulaw" to listOf("audio/g711-mlaw"),
             )
 
-        fun detect(
-            context: Context,
-            source: MediaSource?,
-            audioIndex: Int? = null,
-        ): AudioPlaybackCapabilities {
-            val output = AudioCapabilities.getCapabilities(context, attributes, null, emptyList())
-            // Query the renderer, including its PCM sink constraints, rather than just the MIME
-            // list.
-            val sink = DefaultAudioSink.Builder(context).build()
-            sink.setAudioAttributes(attributes)
-            val software = FfmpegAudioRenderer(null, null, sink)
-            val selected =
-                source?.streams?.firstOrNull {
-                    it.type == "Audio" && it.index == (audioIndex ?: source.defaultAudioIndex)
-                }
-            return detectWithProbe(source, audioIndex) { mime, rate, channels ->
-                val input =
-                    selected?.takeIf { mime in mimeTypes[it.codec.lowercase()].orEmpty() }
-                        ?: source?.streams?.firstOrNull {
-                            it.type == "Audio" && mime in mimeTypes[it.codec.lowercase()].orEmpty()
-                        }
-                val format =
-                    Format.Builder()
-                        .setSampleMimeType(mime)
-                        .setSampleRate(rate)
-                        .setChannelCount(channels)
-                        .setCodecs(
-                            if (
-                                mime == "audio/mp4a-latm" &&
-                                    input?.profile?.contains("xhe", true) == true
-                            )
-                                "mp4a.40.42"
-                            else null
-                        )
-                        .setPcmEncoding(
-                            if (input?.codec == "pcm_f32le") C.ENCODING_PCM_FLOAT
-                            else if (input?.codec == "pcm_u8") C.ENCODING_PCM_8BIT
-                            else if (input?.bitDepth == 32) C.ENCODING_PCM_32BIT
-                            else if (input?.bitDepth == 24) C.ENCODING_PCM_24BIT
-                            else C.ENCODING_PCM_16BIT
-                        )
-                        .build()
-                if (mime == "audio/raw")
-                    runCatching {
-                            sink.getFormatSupport(format) != AudioSink.SINK_FORMAT_UNSUPPORTED
-                        }
-                        .getOrDefault(false)
-                else
-                    runCatching { output.isPassthroughPlaybackSupported(format, attributes) }
-                        .getOrDefault(false) ||
-                        runCatching {
-                                MediaCodecUtil.getDecoderInfosSoftMatch(
-                                        MediaCodecSelector.DEFAULT,
-                                        format,
-                                        false,
-                                        false,
-                                    )
-                                    .any { it.isFormatSupported(context, format) }
-                            }
-                            .getOrDefault(false) ||
-                        runCatching {
-                                RendererCapabilities.getFormatSupport(
-                                    software.supportsFormat(format)
-                                ) == C.FORMAT_HANDLED
-                            }
-                            .getOrDefault(false)
-            }
-        }
+        /** Shared probe entry point, also used by the existing device capability checks. */
+        fun detect(context: Context, source: MediaSource?, audioIndex: Int? = null): AudioPlaybackCapabilities =
+            AudioCapabilityProbe.detect(context, source, audioIndex)
 
         /** Keep negotiation testable without loading Android codecs or the native extension. */
         internal fun detectWithProbe(
@@ -163,7 +107,7 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
             return AudioPlaybackCapabilities(limits)
         }
 
-        private fun canonical(codec: String): String =
+        internal fun canonical(codec: String): String =
             when (val value = codec.lowercase()) {
                 "dca" -> "dts"
                 "dts_hd" -> "dtshd"
@@ -178,6 +122,9 @@ data class AudioPlaybackCapabilities(val channelsByCodec: Map<String, Int>) {
             )
             // MKV may label the same DTS-HD samples A_DTS or A_DTS/LOSSLESS.
             listOf("audio/vnd.dts.hd", "audio/vnd.dts")
+            else if (stream.codec.equals("eac3", true) &&
+                (stream.profile.contains("Atmos", true) || stream.audioSpatialFormat == "DolbyAtmos"))
+                listOf("audio/eac3-joc")
             else
                 mimeTypes[stream.codec.lowercase()].orEmpty().ifEmpty {
                     if (stream.codec.equals("pcm", true) || stream.codec.equals("lpcm", true))

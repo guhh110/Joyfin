@@ -18,6 +18,7 @@ internal fun MobileSettingsLayout(
     actions: BrowseActions,
     autoNext: Boolean,
     request: SettingsUiState = SettingsUiState(),
+    audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
 ) {
     Column(
         Modifier.fillMaxSize()
@@ -25,6 +26,6 @@ internal fun MobileSettingsLayout(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        SettingsContent(ui, actions, autoNext, request)
+        SettingsContent(ui, actions, autoNext, request, audioOutputMode)
     }
 }
