@@ -1,6 +1,8 @@
 package dev.joyfin.data
 
 import kotlinx.serialization.Serializable
+import java.time.Instant
+import java.time.format.DateTimeParseException
 
 @Serializable
 data class Session(val server: String, val token: String, val userId: String, val userName: String)
@@ -51,6 +53,8 @@ data class Media(
     val seriesImageTag: String = "",
     val episodeImageTag: String = "",
     val path: String = "",
+    /** Server viewing timestamp in epoch milliseconds; missing or invalid dates stay unknown. */
+    val lastPlayedAt: Long? = null,
 ) {
     val isFolder
         get() = type in setOf("Series", "Season", "CollectionFolder", "Folder", "BoxSet")
@@ -76,6 +80,11 @@ data class Media(
                 year = dto.year,
                 ticks = dto.ticks,
                 resumeTicks = dto.userData.positionTicks,
+                lastPlayedAt = dto.userData.lastPlayedDate?.let {
+                    try { Instant.parse(it).toEpochMilli() }
+                    catch (_: DateTimeParseException) { null }
+                    catch (_: ArithmeticException) { null }
+                },
                 imageTag =
                     ownPrimary.ifBlank {
                         dto.parentPrimaryImageTag.validText().ifBlank {

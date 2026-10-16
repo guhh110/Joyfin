@@ -99,8 +99,7 @@ class SeriesDetailController(
         recommendationJob =
             scope.launch {
                 try {
-                    // Existing API has no scoped next-up method. Keep the current semantics off the
-                    // critical path.
+                    // Use the whole series' viewing history, independently of the season being browsed.
                     val all = episodes(before.seriesId, null)
                     ensureActive()
                     val now = owned(owner, before.seriesId) ?: return@launch
@@ -123,6 +122,7 @@ class SeriesDetailController(
                                                 detail.copy(
                                                     resumeTicks = fresh.resumeTicks,
                                                     played = fresh.played,
+                                                    lastPlayedAt = fresh.lastPlayedAt,
                                                 )
                                     )
                                 } ?: now.episodeDetails,

@@ -27,6 +27,7 @@ data class UserDataDto(
     @SerialName("Played") val played: Boolean = false,
     @SerialName("IsFavorite") val favorite: Boolean = false,
     @SerialName("UnplayedItemCount") val unplayedCount: Int? = null,
+    @SerialName("LastPlayedDate") val lastPlayedDate: String? = null,
 )
 
 @Serializable
