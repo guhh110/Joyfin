@@ -32,6 +32,8 @@ import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.BoundlessTheme
 import kotlinx.coroutines.flow.first
 
+private const val PERMISSION_ACCESS_LOCAL_NETWORK = "android.permission.ACCESS_LOCAL_NETWORK"
+
 /** Platform lifecycle and dependency wiring only; no page layouts or business implementation. */
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
@@ -49,7 +51,7 @@ class MainActivity : ComponentActivity() {
         val allowed =
             mutableStateOf(
                 Build.VERSION.SDK_INT < 37 ||
-                    checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK) ==
+                    checkSelfPermission(PERMISSION_ACCESS_LOCAL_NETWORK) ==
                         PackageManager.PERMISSION_GRANTED
             )
         val permissionDenied = mutableStateOf(false)
@@ -65,7 +67,7 @@ class MainActivity : ComponentActivity() {
                     NetworkPermissionRoute(
                         onAllow = {
                             if (Build.VERSION.SDK_INT >= 37)
-                                permission.launch(Manifest.permission.ACCESS_LOCAL_NETWORK)
+                                permission.launch(PERMISSION_ACCESS_LOCAL_NETWORK)
                         },
                         denied = permissionDenied.value,
                     )

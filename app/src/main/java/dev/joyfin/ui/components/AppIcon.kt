@@ -36,6 +36,8 @@ enum class Glyph {
     CheckCircle,
     Film,
     Tv,
+    Lock,
+    Unlock,
 }
 
 @Composable
@@ -238,6 +240,18 @@ fun AppIcon(glyph: Glyph, modifier: Modifier = Modifier, color: Color = Palette.
                     p.moveTo(8f, 4f); p.lineTo(12f, 7f); p.lineTo(16f, 4f)
                     p.moveTo(3f, 7f); p.lineTo(21f, 7f); p.lineTo(21f, 19f); p.lineTo(3f, 19f); p.close()
                     p.moveTo(8f, 21f); p.lineTo(16f, 21f)
+                }
+                Glyph.Lock -> {
+                    p.moveTo(6f, 11f); p.lineTo(18f, 11f); p.lineTo(18f, 21f); p.lineTo(6f, 21f); p.close()
+                    p.moveTo(8.5f, 11f); p.lineTo(8.5f, 7.5f)
+                    p.cubicTo(8.5f, 4.5f, 15.5f, 4.5f, 15.5f, 7.5f); p.lineTo(15.5f, 11f)
+                    p.moveTo(12f, 14.5f); p.lineTo(12f, 17.5f)
+                }
+                Glyph.Unlock -> {
+                    p.moveTo(6f, 11f); p.lineTo(18f, 11f); p.lineTo(18f, 21f); p.lineTo(6f, 21f); p.close()
+                    p.moveTo(8.5f, 11f); p.lineTo(8.5f, 7.5f)
+                    p.cubicTo(8.5f, 4.5f, 15.5f, 4.5f, 15.5f, 7.5f); p.lineTo(15.5f, 6.5f)
+                    p.moveTo(12f, 14.5f); p.lineTo(12f, 17.5f)
                 }
             }
             drawPath(

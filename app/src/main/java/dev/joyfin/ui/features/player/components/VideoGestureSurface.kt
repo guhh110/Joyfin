@@ -24,6 +24,8 @@ fun BoxScope.VideoGestureSurface(
     onWake: () -> Unit,
     onTap: () -> Unit,
     onConfirm: () -> Unit,
+    locked: Boolean = false,
+    onLockedTap: () -> Unit = {},
 ) {
     val focus = remember { FocusRequester() }
     var width by remember { mutableIntStateOf(1) }
@@ -31,14 +33,16 @@ fun BoxScope.VideoGestureSurface(
     val wake by rememberUpdatedState(onWake)
     val tap by rememberUpdatedState(onTap)
     val confirm by rememberUpdatedState(onConfirm)
+    val lockedTap by rememberUpdatedState(onLockedTap)
     val tv = LocalDeviceLayout.current.television
-    LaunchedEffect(visible) { if (!visible && tv) focus.requestFocus() }
+    LaunchedEffect(visible, locked) { if (!visible && !locked && tv) focus.requestFocus() }
     Box(
         Modifier.matchParentSize()
             .testTag("player:surface")
             .onSizeChanged { width = it.width.coerceAtLeast(1) }
             .focusRequester(focus)
             .onPreviewKeyEvent {
+                if (locked) return@onPreviewKeyEvent false
                 if (
                     !visible &&
                         it.type == KeyEventType.KeyDown &&
@@ -63,9 +67,9 @@ fun BoxScope.VideoGestureSurface(
                     true
                 } else false
             }
-            .focusable(enabled = !visible)
-            .pointerInput(seekEnabled) {
-                if (seekEnabled) {
+            .focusable(enabled = !visible && !locked)
+            .pointerInput(seekEnabled, locked) {
+                if (seekEnabled && !locked) {
                     var distance = 0f
                     detectHorizontalDragGestures(
                         onDragStart = {
@@ -82,6 +86,10 @@ fun BoxScope.VideoGestureSurface(
                     )
                 }
             }
-            .pointerInput(Unit) { detectTapGestures { tap() } }
+            .pointerInput(locked) {
+                detectTapGestures {
+                    if (locked) lockedTap() else tap()
+                }
+            }
     )
 }
