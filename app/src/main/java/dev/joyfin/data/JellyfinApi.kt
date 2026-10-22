@@ -288,6 +288,25 @@ class JellyfinApi(
                 .items
         }
 
+    /** Whole-series viewing order needs user data, not every episode's playback sources or artwork. */
+    suspend fun episodeProgress(seriesId: String): List<Media> =
+        withContext(Dispatchers.Default) {
+            service()
+                .episodes(
+                    authorization(),
+                    seriesId,
+                    params(
+                        "UserId" to requireSession().userId,
+                        "Fields" to "ParentId",
+                        "EnableImages" to false,
+                        "EnableUserData" to true,
+                    ),
+                )
+                .value()
+                .toMediaPage()
+                .items
+        }
+
     suspend fun similar(id: String): List<Media> =
         withContext(Dispatchers.Default) {
             service()

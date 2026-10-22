@@ -26,6 +26,7 @@ internal class DetailController(
             { mutable.value = mutable.value.copy(detail = mutable.value.detail.copy(series = it)) },
             expired,
             api::seasons,
+            api::episodeProgress,
         )
 
     private val episodePlayback =
@@ -97,23 +98,30 @@ internal class DetailController(
             val seriesId = resolved.seriesId.ifBlank { entry.seriesId }
             if (entry.type in setOf("Episode", "Season"))
                 require(seriesId.isNotBlank()) { "服务器未提供所属剧集，请重试" }
-            val detail =
-                api.item(if (entry.type in setOf("Episode", "Season")) seriesId else entry.id)
+            currentCoroutineContext().ensureActive()
+            val detailId = if (entry.type in setOf("Episode", "Season")) seriesId else entry.id
+            val seriesEntry = entry.type in setOf("Series", "Season", "Episode")
+            // The known series identity is sufficient for progress and seasons. Do not wait for
+            // the full hero/people metadata before making the primary play action available.
+            if (seriesEntry) initializeSeries(entry, resolved, detailId)
+            val detail = api.item(detailId)
             if (entry.type in setOf("Episode", "Season"))
                 require(detail.type == "Series") { "所属剧集信息异常，请重试" }
             currentCoroutineContext().ensureActive()
             mutable.value =
                 mutable.value.copy(detail = mutable.value.detail.copy(item = detail, ready = true))
-            if (detail.type == "Series") {
-                seriesController.initialize(
-                    detail.id,
-                    if (entry.type == "Season") entry.id
-                    else resolved.seasonId.takeIf { entry.type == "Episode" && it.isNotBlank() },
-                    entry.id.takeIf { entry.type == "Episode" },
-                )
-            }
+            if (detail.type == "Series" && !seriesEntry) initializeSeries(entry, resolved, detail.id)
             loadRelated(detail.id)
         }
+
+    private fun initializeSeries(entry: Media, resolved: Media, seriesId: String) {
+        seriesController.initialize(
+            seriesId,
+            if (entry.type == "Season") entry.id
+            else resolved.seasonId.takeIf { entry.type == "Episode" && it.isNotBlank() },
+            entry.id.takeIf { entry.type == "Episode" },
+        )
+    }
 
     fun retryRelated() {
         mutable.value.detail.item?.let { loadRelated(it.id) }

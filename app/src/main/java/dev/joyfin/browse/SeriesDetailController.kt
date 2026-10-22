@@ -12,6 +12,7 @@ class SeriesDetailController(
     private val publish: (SeriesDetailState) -> Unit,
     private val expired: () -> Unit,
     private val seasons: suspend (String) -> List<Media> = { emptyList() },
+    private val progress: suspend (String) -> List<Media> = { episodes(it, null) },
 ) {
     private var visit = 0L
     private var seasonVersion = 0L
@@ -100,11 +101,16 @@ class SeriesDetailController(
             scope.launch {
                 try {
                     // Use the whole series' viewing history, independently of the season being browsed.
-                    val all = episodes(before.seriesId, null)
+                    val all = progress(before.seriesId)
                     ensureActive()
                     val now = owned(owner, before.seriesId) ?: return@launch
-                    val progress = all.associateBy { it.id }
-                    val updated = now.episodes.data?.map { progress[it.id] ?: it }
+                    val byId = all.associateBy { it.id }
+                    fun Media.refreshed(): Media = byId[id]?.let { fresh ->
+                        // Progress responses deliberately omit artwork, sources and descriptive metadata.
+                        copy(resumeTicks = fresh.resumeTicks, played = fresh.played,
+                            lastPlayedAt = fresh.lastPlayedAt, favorite = fresh.favorite)
+                    } ?: this
+                    val updated = now.episodes.data?.map { it.refreshed() }
                     publish(
                         now.copy(
                             recommendation = SeriesResource.Ready(preferredEpisode(all)),
@@ -114,21 +120,13 @@ class SeriesDetailController(
                                 } ?: now.episodes,
                             episodeDetails =
                                 now.episodeDetails.data?.let { detail ->
-                                    val fresh = progress[detail.id]
                                     (now.episodeDetails as SeriesResource.Ready).copy(
-                                        value =
-                                            if (fresh == null) detail
-                                            else
-                                                detail.copy(
-                                                    resumeTicks = fresh.resumeTicks,
-                                                    played = fresh.played,
-                                                    lastPlayedAt = fresh.lastPlayedAt,
-                                                )
+                                        value = detail.refreshed()
                                     )
                                 } ?: now.episodeDetails,
                             seasonCache =
                                 now.seasonCache.mapValues { (_, list) ->
-                                    list.map { progress[it.id] ?: it }
+                                    list.map { it.refreshed() }
                                 },
                         )
                     )

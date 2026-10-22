@@ -22,6 +22,48 @@ class SeriesDetailControllerTest {
     private val seasons = listOf(Media("s1", "第 1 季", "Season"), Media("s2", "第 2 季", "Season"))
 
     @Test
+    fun lightweightProgressPreservesPreviewDetailsAndCachedMetadata() = runTest {
+        val full = episode("e1").copy(overview = "Full overview", imageTag = "still",
+            sources = listOf(MediaSource(id = "version")), genres = listOf("Animation"))
+        var state: SeriesDetailState? = SeriesDetailState("show", seasonId = "s1",
+            episodes = SeriesResource.Ready(listOf(full), SeriesResource.Refresh.Running),
+            inspectedEpisodeId = full.id, episodeDetails = SeriesResource.Ready(full),
+            seasonCache = mapOf("s1" to listOf(full)))
+        val controller = SeriesDetailController(this,
+            { _, _ -> error("Recommendation must not fetch full episodes") },
+            { error("Recommendation must not fetch episode details") },
+            { state }, { state = it }, {},
+            progress = { id ->
+                assertEquals("show", id)
+                listOf(episode("e1").copy(resumeTicks = 100, lastPlayedAt = 200, favorite = true))
+            })
+        controller.recommend()
+        advanceUntilIdle()
+        val expected = full.copy(resumeTicks = 100, lastPlayedAt = 200, favorite = true)
+        assertEquals(expected, state!!.episodes.data!!.single())
+        assertEquals(expected, state!!.episodeDetails.data)
+        assertEquals(expected, state!!.seasonCache["s1"]!!.single())
+        assertEquals("e1", state!!.recommendation.data!!.id)
+        assertTrue(state!!.episodes.loading)
+    }
+
+    @Test
+    fun oldProgressCannotReplaceRecommendationForAnotherVisit() = runTest {
+        var state: SeriesDetailState? = null
+        val controller = SeriesDetailController(this, { _, _ -> emptyList() }, { episode(it) },
+            { state }, { state = it }, {}, progress = { id ->
+                if (id == "old") withContext(NonCancellable) { delay(1000) }
+                listOf(episode(id))
+            })
+        controller.initialize("old")
+        runCurrent()
+        controller.initialize("new")
+        advanceUntilIdle()
+        assertEquals("new", state!!.seriesId)
+        assertEquals("new", state!!.recommendation.data!!.id)
+    }
+
+    @Test
     fun slowRecommendationDoesNotBlockSeasonsOrPlaybackTargets() = runTest {
         var state: SeriesDetailState? = null
         val controller =
