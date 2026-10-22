@@ -8,11 +8,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import dev.joyfin.data.Media
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.theme.Palette
@@ -26,14 +24,7 @@ fun EpisodeArtwork(
     imageRatio: Float = 16f / 9f,
 ) {
     val url = remember(episode, images) { images.episode(episode) }
-    val context = LocalContext.current
-    val request =
-        remember(context, url, images.authorization) {
-            ImageRequest.Builder(context)
-                .data(url)
-                .addHeader("Authorization", images.authorization)
-                .build()
-        }
+    val request = rememberArtworkRequest(url, images)
     var loaded by remember(url) { mutableStateOf(false) }
     var failed by remember(url) { mutableStateOf(url == null) }
     Box(

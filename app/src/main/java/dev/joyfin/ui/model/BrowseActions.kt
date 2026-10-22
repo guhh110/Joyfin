@@ -34,4 +34,5 @@ data class BrowseActions(
     val subtitles: () -> Unit = {},
     val subtitleManager: () -> Unit = {},
     val setAudioOutputMode: (dev.joyfin.data.AudioOutputMode) -> Unit = {},
+    val setHomeLayout: (dev.joyfin.data.HomeLayoutPreferences) -> Unit = {},
 )

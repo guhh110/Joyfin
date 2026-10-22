@@ -48,7 +48,7 @@ internal fun MobileMovieDetailLayout(
                 ) {
                     MobileMovieHeader(actions, onInformation, hasMediaSources = media?.sources?.isNotEmpty() == true)
                     Spacer(Modifier.height(artworkHeight * .48f))
-                    MobileMovieIntroduction(ui)
+                    MobileMovieIntroduction(ui, images)
                     if (ui.error != null) {
                         RegionLoadFeedback(
                             loading = ui.busy,
@@ -145,7 +145,7 @@ private fun MobileMovieHeader(
 }
 
 @Composable
-private fun MobileMovieIntroduction(ui: DetailUiState) {
+private fun MobileMovieIntroduction(ui: DetailUiState, images: ArtworkSource) {
     val media = ui.item
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
@@ -157,7 +157,7 @@ private fun MobileMovieIntroduction(ui: DetailUiState) {
         if (media?.name.isNullOrBlank()) {
             SkeletonBlock(Modifier.fillMaxWidth(.7f).height(40.dp))
         } else {
-            FilmTitle(media.name, maxLines = Int.MAX_VALUE)
+            MediaTitle(media, images, maxLines = Int.MAX_VALUE)
         }
         if (media != null) {
             if (media.originalTitle.isNotBlank() && media.originalTitle != media.name) {

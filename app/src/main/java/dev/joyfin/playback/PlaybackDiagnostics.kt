@@ -76,6 +76,7 @@ data class PlaybackDiagnosticSnapshot(
     val displayCapabilities: String = "未知",
     val actualOutput: PlaybackOutputSnapshot? = null,
     val sourceSpatial: String = "未提供",
+    val timing: PlaybackTimingSnapshot = PlaybackTimingSnapshot(),
 )
 
 /** Process-local last playback only. Tokens isolate canceled requests and previous players. */
@@ -86,11 +87,14 @@ object PlaybackDiagnostics {
     private var target = ""
     private var pendingPlayer = false
     private var startedAt = 0L
+    private var timing = PlaybackTimingTracker(0)
+    private fun nowMs() = System.nanoTime() / 1_000_000
 
     @Synchronized fun begin(itemId: String, preflight: Boolean = false): Long {
         target = itemId
         pendingPlayer = preflight
         startedAt = System.nanoTime()
+        timing = PlaybackTimingTracker(nowMs())
         val id = ++sequence
         mutable.value = PlaybackDiagnosticSnapshot(id = id, state = DiagnosticPlayerState.PREPARING)
         event(id, DiagnosticStage.METADATA, DiagnosticOutcome.RUNNING)
@@ -104,6 +108,7 @@ object PlaybackDiagnostics {
         sequence++
         target = ""; pendingPlayer = false
         mutable.value = PlaybackDiagnosticSnapshot()
+        timing = PlaybackTimingTracker(nowMs())
     }
     @Synchronized private fun update(id: Long, transform: (PlaybackDiagnosticSnapshot) -> PlaybackDiagnosticSnapshot) {
         if (id != 0L && mutable.value.id == id) mutable.value = transform(mutable.value)
@@ -147,7 +152,11 @@ object PlaybackDiagnostics {
         if (fatal) update(id) { it.copy(state = DiagnosticPlayerState.FAILED, failure = fact) }
     }
     fun canceled(id: Long) {
-        update(id) { if (it.failure == null) it.copy(state = DiagnosticPlayerState.STOPPED) else it }
+        update(id) {
+            timing.stop(nowMs())
+            it.copy(state = if (it.failure == null) DiagnosticPlayerState.STOPPED else it.state,
+                timing = timing.snapshot(nowMs()))
+        }
         val current = mutable.value
         if (current.id == id && current.events.lastOrNull()?.outcome == DiagnosticOutcome.RUNNING)
             event(id, current.stage, DiagnosticOutcome.CANCELED)
@@ -157,7 +166,24 @@ object PlaybackDiagnostics {
         it.copy(state = if (it.failure != null) DiagnosticPlayerState.FAILED else value,
             positionMs = positionMs.coerceAtLeast(0) / 1000 * 1000, bufferMs = bufferMs.coerceAtLeast(0) / 1000 * 1000,
             outputVideo = video?.diagnosticFormat() ?: it.outputVideo,
-            outputAudio = audio?.diagnosticFormat() ?: it.outputAudio)
+            outputAudio = audio?.diagnosticFormat() ?: it.outputAudio, timing = timing.snapshot(nowMs()))
+    }
+    internal fun attempt(id: Long, generation: Long, reason: PlaybackLoadReason, positionMs: Long) = update(id) {
+        timing.attempt(generation, nowMs(), positionMs, reason)
+        it.copy(timing = timing.snapshot(nowMs()))
+    }
+    internal fun firstFrame(id: Long, generation: Long) = update(id) {
+        timing.firstFrame(generation, nowMs())
+        it.copy(timing = timing.snapshot(nowMs()))
+    }
+    internal fun bufferOperation(id: Long, generation: Long, kind: PlaybackBufferKind) = update(id) {
+        timing.operation(generation, kind)
+        it.copy(timing = timing.snapshot(nowMs()))
+    }
+    internal fun timingState(id: Long, generation: Long, state: TimingPlayerState, positionMs: Long,
+        playWhenReady: Boolean) = update(id) {
+        timing.state(generation, nowMs(), state, positionMs, playWhenReady)
+        it.copy(timing = timing.snapshot(nowMs()))
     }
     fun decoder(id: Long, video: Boolean, name: String) = update(id) {
         val safe = name.takeIf { Regex("(?:c2\\.|OMX\\.|ffmpeg)[A-Za-z0-9._-]{0,100}", RegexOption.IGNORE_CASE).matches(it) }
@@ -250,7 +276,7 @@ fun diagnosticTime(value: Long): String = String.format(Locale.ROOT, "%d:%02d", 
 fun diagnosticElapsed(value: Long): String = String.format(Locale.ROOT, "%.3f s", value.coerceAtLeast(0) / 1000.0)
 
 fun PlaybackDiagnosticSnapshot.report(): String = buildString {
-    appendLine("Joyfin 播放诊断 v2")
+    appendLine("Joyfin 播放诊断 v3")
     appendLine("应用版本：${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.SDK_INT}")
     appendLine("状态：${state.label}；阶段：${stage.label}")
     appendLine("播放方式：$method；策略：$selection")
@@ -272,6 +298,7 @@ fun PlaybackDiagnosticSnapshot.report(): String = buildString {
     appendLine("视频解码器：$videoDecoder；音频解码器：$audioDecoder")
     appendLine("网络带宽估算：${diagnosticBitrate(bandwidth)}")
     appendLine("播放位置：${diagnosticTime(positionMs)}；已缓冲：${bufferMs / 1000} 秒")
+    timing.reportLines().forEach { appendLine(it) }
     appendLine("转码原因：${reasons.takeIf { it.isNotEmpty() }?.joinToString("、") ?: "服务端未提供"}")
     failure?.let { appendLine("当前错误：${it.description}") }
     appendLine("最近阶段记录（最多 30 条）：")

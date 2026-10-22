@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -29,6 +30,8 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.player.components.*
 import dev.joyfin.ui.features.player.mobile.MobilePlayerLayout
 import dev.joyfin.ui.features.player.tv.TvPlayerLayout
+import dev.joyfin.ui.features.player.tv.TvSkipOffer
+import dev.joyfin.ui.features.player.mobile.MobileSkipOffer
 import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.RememberScreenFocus
 import dev.joyfin.ui.interaction.RememberSelectionFocus
@@ -60,6 +63,11 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
         }
     }
     val tv = LocalDeviceLayout.current.television
+    val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 2f)
+    DisposableEffect(panel, actions.setNavigationBlocked) {
+        actions.setNavigationBlocked(panel != null)
+        onDispose { actions.setNavigationBlocked(false) }
+    }
     fun touch() {
         interaction++
         visible = true
@@ -109,6 +117,15 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
     RememberScreenFocus("player:toggle") {
         val focusMemory = LocalScreenFocus.current
         val window = LocalWindowInfo.current
+        val skipVisible = ui.navigation.offer != null || ui.navigation.undoPositionMs != null
+        LaunchedEffect(skipVisible, ui.navigation.undoPositionMs != null) {
+            if (tv && (!skipVisible && focusMemory?.target?.invoke()?.startsWith("player:skip-") == true ||
+                    ui.navigation.undoPositionMs != null && focusMemory?.target?.invoke() == "player:skip-dismiss")) {
+                focusMemory?.rememberTarget?.invoke(if (skipVisible) "player:skip-action" else "player:toggle")
+                withFrameNanos {}
+                focusMemory?.restore()
+            }
+        }
         LaunchedEffect(visible) {
             if (tv && visible) {
                 focusMemory?.rememberTarget?.invoke("player:toggle")
@@ -185,6 +202,13 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                 }
                 if (tv) TvPlayerLayout(ui, actions, panel, onPanel, ::touch)
                 else MobilePlayerLayout(ui, actions, panel, onPanel, ::touch)
+                if (skipVisible && panel == null && ui.error == null && !ui.loading && !ui.subtitleApplying &&
+                    ui.canSeek && ui.nextSeconds == 0) {
+                    val skipModifier = Modifier.align(Alignment.BottomEnd).safeDrawingPadding()
+                        .padding(end = if (tv) 40.dp else 22.dp, bottom = (if (tv) 112.dp else 100.dp) * fontScale)
+                    if (tv) TvSkipOffer(ui.navigation, actions, skipModifier)
+                    else MobileSkipOffer(ui.navigation, actions, skipModifier)
+                }
             }
             val showLockButton = !tv && ((!locked && showControls && panel == null && ui.nextSeconds == 0) || (locked && lockControlsVisible))
             AnimatedVisibility(

@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 
 class AppViewModel @JvmOverloads constructor(
     application: Application,
@@ -26,6 +29,12 @@ class AppViewModel @JvmOverloads constructor(
             UiState(entry = EntryState(server = store.server, serverName = store.serverName))
         )
     val state = mutable.asStateFlow()
+    private val homeLayoutStore = HomeLayoutStore(storageContext)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val homeLayout = state.map { api.session }.distinctUntilChanged()
+        .flatMapLatest(homeLayoutStore::changes)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, HomeLayoutPreferences())
+    fun setHomeLayout(value: HomeLayoutPreferences) = homeLayoutStore.save(api.session, value)
     private val requests: PageRequests =
         PageRequests(viewModelScope, mutable, { api.session != null }, ::expireSession)
     private val homeController =

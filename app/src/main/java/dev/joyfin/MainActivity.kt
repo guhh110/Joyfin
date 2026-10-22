@@ -89,6 +89,7 @@ internal fun BrowseHost(
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     val audioOutputMode by vm.audioOutputMode.collectAsStateWithLifecycle()
+    val homeLayout by vm.homeLayout.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     var exit by remember { mutableStateOf(false) }
     var logout by remember { mutableStateOf(false) }
@@ -163,6 +164,7 @@ internal fun BrowseHost(
                     vm.store.autoNext = it
                 },
                 setAudioOutputMode = vm::setAudioOutputMode,
+                setHomeLayout = vm::setHomeLayout,
             )
         }
     val images =
@@ -173,13 +175,15 @@ internal fun BrowseHost(
                 episode = vm.api::episodeImage,
                 person = vm.api::personImage,
                 authorization = if (vm.api.session != null) vm.api.authorization() else "",
+                logo = vm.api::logo,
+                cacheNamespace = dev.joyfin.artwork.ArtworkCacheIdentity.namespace(vm.api.session),
             )
         }
     val entryActions =
         remember(vm) {
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
             confirmInitiallyFocused = true)

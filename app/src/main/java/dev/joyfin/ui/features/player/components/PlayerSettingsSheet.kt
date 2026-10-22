@@ -29,6 +29,8 @@ enum class PlayerPanel(val title: String) {
     Seasons("选择季"),
     Versions("媒体版本"),
     Diagnostics("播放诊断"),
+    Chapters("章节"),
+    Skip("片头与片尾"),
 }
 
 @Composable
@@ -92,6 +94,10 @@ fun PlayerSettingsSheet(
                         ChoiceRow("播放速度", subtitle = "${ui.speed}×") { onPanel(PlayerPanel.Speed) }
                         ChoiceRow("音频输出", subtitle = ui.audioOutputMode.label) { onPanel(PlayerPanel.AudioOutput) }
                         ChoiceRow("媒体版本") { onPanel(PlayerPanel.Versions) }
+                        ChoiceRow("章节", Modifier.focusTarget("player:settings-chapters"),
+                            subtitle = "${ui.navigation.chapters.size} 个章节") { onPanel(PlayerPanel.Chapters) }
+                        ChoiceRow("片头与片尾", Modifier.focusTarget("player:settings-skip"),
+                            subtitle = if (ui.navigation.preferences.automatic) "自动跳过已开启" else "提示跳过，可按剧设置时长") { onPanel(PlayerPanel.Skip) }
                         ChoiceRow(
                             "播放方式",
                             subtitle = if (ui.compatible) "兼容转码 · 点击恢复自动" else "自动 · 点击使用兼容转码",
@@ -248,6 +254,20 @@ fun PlayerSettingsSheet(
                         }
                     }
                     PlayerPanel.Diagnostics -> Unit
+                    PlayerPanel.Chapters -> {
+                        if (!ui.navigation.timelineAvailable) Caption("当前媒体版本没有独立的章节时间轴")
+                        else if (ui.navigation.chapters.isEmpty()) Caption("服务器没有提供此视频的章节")
+                        val current = ui.navigation.chapters.lastOrNull { it.positionMs <= ui.positionMs }
+                        ui.navigation.chapters.forEach { chapter ->
+                            ChoiceRow(chapter.title, Modifier.focusTarget(panel.choiceKey(chapter.positionMs)),
+                                subtitle = dev.joyfin.playback.diagnosticTime(chapter.positionMs), selected = current == chapter,
+                                enabled = ui.canSeek && !ui.loading && !ui.subtitleApplying) {
+                                onDismiss()
+                                actions.selectChapter(chapter.positionMs)
+                            }
+                        }
+                    }
+                    PlayerPanel.Skip -> SkipSettings(ui, actions)
                 }
             }
         }

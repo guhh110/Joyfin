@@ -130,12 +130,28 @@ internal fun LazyListScope.homeRails(
     actions: BrowseActions,
     includeResume: Boolean = true,
     resultOnly: Boolean = home.noContentResult,
+    layout: HomeLayoutPreferences = HomeLayoutPreferences(),
 ) {
     if (resultOnly) return
-    run {
-        if (includeResume)
-            item("resume", contentType = "rail") { HomeResumeRail(home, images, actions) }
-        item("latest", contentType = "rail") {
+    val keys = layout.visibleKeys(home.libraries.map { it.id })
+    var libraryStatusAdded = false
+    fun libraryStatus() {
+        if (libraryStatusAdded) return
+        libraryStatusAdded = true
+        if ((home.librariesLoad.loading && home.rails.isEmpty()) || home.librariesLoad.error != null) {
+            item("library-status") {
+                Column {
+                    RegionLoadFeedback(home.librariesLoad.loading, home.librariesLoad.error,
+                        { actions.retryHome(HomeRegion.LIBRARIES) }, home.libraries.isNotEmpty(),
+                        Modifier.padding(horizontal = LocalDeviceLayout.current.gutter))
+                    if (home.librariesLoad.loading && home.rails.isEmpty()) RailSkeleton()
+                }
+            }
+        }
+    }
+    keys.forEach { key -> when (key) {
+        "resume" -> if (includeResume) item("resume", contentType = "rail") { HomeResumeRail(home, images, actions) }
+        "latest" -> item("latest", contentType = "rail") {
             LoadingMediaRail(
                 "最近加入",
                 home.latest,
@@ -146,26 +162,19 @@ internal fun LazyListScope.homeRails(
                 onMore = { actions.library(null, "全部媒体") },
             )
         }
-        if (
-            (home.librariesLoad.loading && home.rails.isEmpty()) || home.librariesLoad.error != null
-        ) {
-            item("library-status") {
-                Column {
-                    RegionLoadFeedback(
-                        home.librariesLoad.loading,
-                        home.librariesLoad.error,
-                        { actions.retryHome(HomeRegion.LIBRARIES) },
-                        home.libraries.isNotEmpty(),
-                        Modifier.padding(horizontal = LocalDeviceLayout.current.gutter),
-                    )
-                    if (home.librariesLoad.loading && home.rails.isEmpty()) RailSkeleton()
-                }
+        else -> {
+            libraryStatus()
+            home.rails.firstOrNull { "library:${it.library.id}" == key }?.let { rail ->
+                item(key, contentType = "library-rail") { LibraryRail(rail, images, actions) }
             }
         }
-        home.rails.forEach { rail ->
-            item("library:${rail.library.id}", contentType = "library-rail") {
-                LibraryRail(rail, images, actions)
-            }
+    } }
+    if (home.libraries.isEmpty()) libraryStatus()
+    if (keys.isEmpty()) item("custom-empty") {
+        Column(Modifier.padding(horizontal = LocalDeviceLayout.current.gutter, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Caption("首页栏目已隐藏")
+            ActionButton("调整首页栏目", actions.settings)
         }
     }
 }

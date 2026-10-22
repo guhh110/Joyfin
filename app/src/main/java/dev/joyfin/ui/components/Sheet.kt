@@ -44,6 +44,7 @@ fun ChoiceRow(
     modifier: Modifier = Modifier,
     subtitle: String = "",
     selected: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val rowShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
@@ -60,6 +61,7 @@ fun ChoiceRow(
                 } else Modifier
             ),
         selected = selected,
+        enabled = enabled,
         transparent = true,
         focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
     ) {
@@ -71,7 +73,7 @@ fun ChoiceRow(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 androidx.tv.material3.Text(
                     title,
-                    color = Palette.Text,
+                    color = if (enabled) Palette.Text else Palette.Muted,
                     fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
                 )
                 if (subtitle.isNotBlank()) Caption(subtitle)

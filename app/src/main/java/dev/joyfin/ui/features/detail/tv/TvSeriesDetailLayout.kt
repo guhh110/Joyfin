@@ -19,6 +19,7 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.detail.components.*
 import dev.joyfin.ui.model.FirstViewportScrollSpec
+import dev.joyfin.ui.model.ArtworkSource
 
 /** TV owns the complete introductory viewport; only subsequent sections scroll into view. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -56,7 +57,7 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
                             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
                                 val available = maxHeight / LocalDensity.current.fontScale
                                 Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    TvSeriesIntroduction(content.ui, available)
+                                    TvSeriesIntroduction(content.ui, content.images, available)
                                     if (content.feedback.isNotBlank()) SeriesOverviewFeedback(content)
                                     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                         SeriesPlayAction(content, Modifier.widthIn(min = 180.dp).fillMaxHeight(), Glyph.Play)
@@ -76,12 +77,13 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
 }
 
 @Composable
-private fun TvSeriesIntroduction(ui: DetailUiState, available: Dp) {
+private fun TvSeriesIntroduction(ui: DetailUiState, images: ArtworkSource, available: Dp) {
     val media = ui.item
     val compact = available < 330.dp
     if (media?.name.isNullOrBlank())
         SkeletonBlock(Modifier.fillMaxWidth(.7f).height(if (compact) 40.dp else 56.dp))
-    else FilmTitle(media.name, large = !compact, maxLines = if (compact) 1 else 2)
+    else MediaTitle(media, images, large = !compact, maxLines = if (compact) 1 else 2,
+        logoWidth = 420.dp, logoHeight = if (compact) 40.dp else 88.dp)
     if (media != null) {
         if (!compact && media.originalTitle.isNotBlank() && media.originalTitle != media.name)
             Caption(media.originalTitle, maxLines = 1)

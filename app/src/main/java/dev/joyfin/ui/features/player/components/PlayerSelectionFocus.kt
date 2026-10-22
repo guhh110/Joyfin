@@ -20,6 +20,9 @@ internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
     when (this) {
         PlayerPanel.Settings -> "sheet:close"
         PlayerPanel.Diagnostics -> "diagnostics:copy"
+        PlayerPanel.Skip -> if (ui.navigation.canConfigure) "player:skip-auto" else "sheet:close"
+        PlayerPanel.Chapters -> (ui.navigation.chapters.lastOrNull { it.positionMs <= ui.positionMs }
+            ?: ui.navigation.chapters.firstOrNull())?.let { choiceKey(it.positionMs) } ?: "sheet:close"
         PlayerPanel.AudioOutput -> choiceKey(ui.audioOutputMode.name)
         PlayerPanel.Quality ->
             choiceKey(

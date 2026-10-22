@@ -258,6 +258,13 @@ class JellyfinApi(
             Media.from(service().item(authorization(), id, requireSession().userId).value())
         }
 
+    suspend fun mediaSegments(id: String): List<MediaSegment> {
+        val response = service().segments(authorization(), id)
+        // Older servers have no segment endpoint. This optional metadata never gates playback.
+        if (response.code() in setOf(404, 405)) { response.errorBody()?.close(); return emptyList() }
+        return response.value().items.filter { it.itemId.isBlank() || it.itemId == id }
+    }
+
     suspend fun seasons(seriesId: String): List<Media> =
         withContext(Dispatchers.Default) {
             service()

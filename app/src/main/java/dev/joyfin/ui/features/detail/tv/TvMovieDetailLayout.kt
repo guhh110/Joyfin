@@ -156,7 +156,7 @@ internal fun TvMovieDetailLayout(
                                     Modifier.widthIn(max = 640.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
-                                    TvMovieIntroduction(ui, available)
+                                    TvMovieIntroduction(ui, images, available)
                                     if (ui.error != null) {
                                         RegionLoadFeedback(
                                             loading = ui.busy,
@@ -281,7 +281,7 @@ private fun TvMovieHeader(
 }
 
 @Composable
-private fun TvMovieIntroduction(ui: DetailUiState, available: Dp) {
+private fun TvMovieIntroduction(ui: DetailUiState, images: ArtworkSource, available: Dp) {
     val media = ui.item
     val compact = available < 330.dp
     Row(
@@ -293,7 +293,8 @@ private fun TvMovieIntroduction(ui: DetailUiState, available: Dp) {
     if (media?.name.isNullOrBlank()) {
         SkeletonBlock(Modifier.fillMaxWidth(.7f).height(if (compact) 40.dp else 56.dp))
     } else {
-        FilmTitle(media.name, large = !compact, maxLines = if (compact) 1 else 2)
+        MediaTitle(media, images, large = !compact, maxLines = if (compact) 1 else 2,
+            logoWidth = 420.dp, logoHeight = if (compact) 40.dp else 88.dp)
     }
     if (media != null) {
         if (!compact && media.originalTitle.isNotBlank() && media.originalTitle != media.name) {

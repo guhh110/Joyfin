@@ -20,6 +20,21 @@ class PlaybackQualityDiagnosticsTest {
         DeviceProfile.negotiate(it.capabilities(), it.decision(), it.source(), null, Int.MAX_VALUE)
     }
 
+    @Test fun timingCallbacksFromAnotherSessionCannotChangeTheCurrentReport() {
+        val old = PlaybackDiagnostics.begin("old")
+        PlaybackDiagnostics.attempt(old, 1, PlaybackLoadReason.INITIAL, 0)
+        val current = PlaybackDiagnostics.begin("new")
+        PlaybackDiagnostics.attempt(current, 2, PlaybackLoadReason.INITIAL, 0)
+        PlaybackDiagnostics.firstFrame(old, 1)
+        PlaybackDiagnostics.timingState(old, 1, TimingPlayerState.BUFFERING, 0, true)
+        PlaybackDiagnostics.firstFrame(current, 1)
+        val snapshot = PlaybackDiagnostics.state.value
+        assertNull(snapshot.timing.firstFrameMs)
+        assertTrue(snapshot.timing.buffers.isEmpty())
+        assertEquals(1, snapshot.timing.attemptCount)
+        assertTrue(snapshot.report().contains("首次出画：尚未出画"))
+    }
+
     @Test fun newPlaybackOfSameItemRejectsAllOldDiagnosticCallbacks() {
         val old = PlaybackDiagnostics.begin("movie")
         val current = PlaybackDiagnostics.begin("movie")

@@ -10,4 +10,6 @@ data class ArtworkSource(
     val episode: (Media) -> String?,
     val person: (Person) -> String?,
     val authorization: String,
+    val logo: (Media) -> String? = { null },
+    val cacheNamespace: String = "",
 )

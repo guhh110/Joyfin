@@ -69,6 +69,7 @@ internal fun PlaybackDiagnosticsSheet(onDismiss: () -> Unit) {
                     Caption("尝试播放后，这里会保留最近一次播放的格式、协商结果与失败阶段。记录仅保存在当前应用进程内。", maxLines = 4)
                 } else {
                     DiagnosticOverview(ui)
+                    DiagnosticTiming(ui.timing)
                     if (tv) TvPlaybackDiagnosticsLayout({ DiagnosticSource(ui) }, { DiagnosticOutput(ui) })
                     else MobilePlaybackDiagnosticsLayout({ DiagnosticSource(ui) }, { DiagnosticOutput(ui) })
                     DiagnosticEvents(ui)
@@ -76,6 +77,14 @@ internal fun PlaybackDiagnosticsSheet(onDismiss: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DiagnosticTiming(timing: PlaybackTimingSnapshot) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle("启动与缓冲")
+        timing.reportLines().forEach { Caption(it, color = Palette.Text) }
     }
 }
 

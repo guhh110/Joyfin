@@ -109,6 +109,7 @@ data class ItemDto(
     @SerialName("Overview") val overview: String = "",
     @SerialName("ProductionYear") val year: Int = 0,
     @SerialName("RunTimeTicks") val ticks: Long = 0,
+    @SerialName("Chapters") val chapters: List<MediaChapter> = emptyList(),
     @SerialName("UserData") val userData: UserDataDto = UserDataDto(),
     @SerialName("ImageTags") val imageTags: Map<String, String?> = emptyMap(),
     @SerialName("ParentPrimaryImageItemId") val parentPrimaryImageId: String = "",

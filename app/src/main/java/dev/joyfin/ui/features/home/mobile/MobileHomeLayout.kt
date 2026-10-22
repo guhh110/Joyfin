@@ -12,9 +12,10 @@ import dev.joyfin.ui.components.HeroBackdrop
 import dev.joyfin.ui.features.home.components.*
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.data.HomeLayoutPreferences
 
 @Composable
-internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource) {
+internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
     val home = homeContent(ui)
     val result = rememberHomeResult(home)
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
@@ -28,7 +29,7 @@ internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: A
                     Box(Modifier.align(Alignment.TopCenter)) { AppHeader(actions, statusBarInset = true) }
                 }
             }
-            homeRails(home, images, actions, resultOnly = result.visible)
+            homeRails(home, images, actions, resultOnly = result.visible, layout = layout)
         }
     }
 }

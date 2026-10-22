@@ -5,6 +5,8 @@ import retrofit2.http.*
 
 /** Retrofit owns HTTP execution, coroutine cancellation and generated JSON conversion. */
 internal interface JellyfinService {
+    @GET("MediaSegments/{id}")
+    suspend fun segments(@Header("Authorization") auth: String, @Path("id") id: String): Response<MediaSegmentsResponse>
     @GET("Videos/{id}/{source}/Subtitles/{index}/Stream.{format}")
     suspend fun subtitleContent(
         @Header("Authorization") auth: String,

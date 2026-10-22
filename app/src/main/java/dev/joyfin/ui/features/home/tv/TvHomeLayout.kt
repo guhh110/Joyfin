@@ -18,13 +18,15 @@ import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.model.FirstViewportScrollSpec
 import dev.joyfin.ui.device.LocalDeviceLayout
+import dev.joyfin.data.HomeLayoutPreferences
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource) {
+internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
     val home = homeContent(ui)
     val result = rememberHomeResult(home)
     val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
+    val pinResume = layout.visibleKeys(home.libraries.map { it.id }).firstOrNull() == "resume"
     val scroll = rememberLazyListState()
     val platformScroll = LocalBringIntoViewSpec.current
     val viewportScroll =
@@ -66,12 +68,12 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                                             maxHeight / LocalDensity.current.fontScale < 240.dp,
                                     )
                                 }
-                                if (!result.visible) HomeResumeRail(home, images, actions, resumeWidth)
+                                if (!result.visible && pinResume) HomeResumeRail(home, images, actions, resumeWidth)
                             }
                         }
                     }
                 }
-                homeRails(home, images, actions, includeResume = false, resultOnly = result.visible)
+                homeRails(home, images, actions, includeResume = !pinResume, resultOnly = result.visible, layout = layout)
             }
         }
     }

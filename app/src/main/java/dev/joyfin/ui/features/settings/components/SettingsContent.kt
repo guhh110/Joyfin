@@ -32,9 +32,13 @@ internal fun ColumnScope.SettingsContent(
     autoNext: Boolean,
     request: SettingsUiState = SettingsUiState(),
     audioOutputMode: AudioOutputMode = AudioOutputMode.AUTO,
+    homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
+    homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
 ) {
     var diagnostics by remember { mutableStateOf(false) }
     var returnFromDiagnostics by remember { mutableStateOf(false) }
+    var editHome by remember { mutableStateOf(false) }
+    var returnFromHome by remember { mutableStateOf(false) }
     val pageFocus = LocalScreenFocus.current
     val window = LocalWindowInfo.current
     val tv = LocalDeviceLayout.current.television
@@ -45,6 +49,15 @@ internal fun ColumnScope.SettingsContent(
             pageFocus?.rememberTarget?.invoke("settings:diagnostics")
             pageFocus?.requesters?.get("settings:diagnostics")?.requestFocus()
             returnFromDiagnostics = false
+        }
+    }
+    LaunchedEffect(editHome) {
+        if (!editHome && returnFromHome && tv) {
+            snapshotFlow { window.isWindowFocused }.first { it }
+            withFrameNanos {}
+            pageFocus?.rememberTarget?.invoke("settings:home-layout")
+            pageFocus?.requesters?.get("settings:home-layout")?.requestFocus()
+            returnFromHome = false
         }
     }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -112,6 +125,11 @@ internal fun ColumnScope.SettingsContent(
             returnFromDiagnostics = true
             diagnostics = true
         }
+        ArtworkCacheSummary()
+        ChoiceRow("首页栏目", Modifier.focusTarget("settings:home-layout"), subtitle = "调整栏目顺序与显示，按账号保存在此设备") {
+            returnFromHome = true
+            editHome = true
+        }
         ActionButton("退出当前账号", actions.logout, loading = request.busy, icon = Glyph.Close)
 
         // 关于 Joyfin 旗舰独立微展台
@@ -159,4 +177,17 @@ internal fun ColumnScope.SettingsContent(
         }
     }
     if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
+    if (editHome) HomeLayoutSheet(homeLayout, homeLibraries, actions.setHomeLayout) { editHome = false }
+}
+
+@Composable
+private fun ArtworkCacheSummary() {
+    val stats by dev.joyfin.artwork.ArtworkCacheDiagnostics.state.collectAsState()
+    Column(Modifier.fillMaxWidth().background(Palette.Surface, RoundedCornerShape(10.dp)).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionTitle("图片缓存 · 本次运行")
+        Caption("内存命中 ${stats.memory} · 磁盘命中 ${stats.disk} · 网络加载 ${stats.network}")
+        Caption("本地资源 ${stats.local} · 加载失败 ${stats.failed}")
+        Caption("统计已完成的图片请求；磁盘缓存过期后的网络校验也计为网络加载。")
+    }
 }

@@ -31,7 +31,9 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
     private var revision = 0L
     private var mode = preferences.mode
     private var speed = 1f
-    private val monitor = PlaybackDeviceMonitor(context, ::changed)
+    private val monitor = PlaybackDeviceMonitor(context) { changed(PlaybackLoadReason.DEVICE) }
+    var reloadReason: PlaybackLoadReason = PlaybackLoadReason.DEVICE
+        private set
     val audioEngine = PlaybackAudioEngine(
         { eventOwner, output -> if (running && eventOwner == owner) {
             val reasons = actualOutputReasons(active?.decision, output)
@@ -86,7 +88,7 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
     fun setSpeed(value: Float) {
         val changedPath = (speed == 1f) != (value == 1f)
         speed = value
-        if (changedPath) changed()
+        if (changedPath) changed(PlaybackLoadReason.SPEED)
     }
 
     fun videoInput(format: Format) {
@@ -101,6 +103,7 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
         if (needsVideoConversion(current.decision, current.capabilities.display, range) && fallbackPolicy.requireVideoConversion()) {
             // New parser evidence can reveal HDR that was absent from the server metadata.
             revision++
+            reloadReason = PlaybackLoadReason.VIDEO_FORMAT
             scheduleChange()
         } else if (current.decision.videoTranscode && range !in setOf(VideoRange.UNKNOWN, VideoRange.SDR)) {
             val reason = "服务器转换后仍收到 HDR／DV 轨道，实际显示效果未验证"
@@ -112,8 +115,9 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
         }
     }
 
-    private fun changed() {
+    private fun changed(reason: PlaybackLoadReason) {
         if (!running) return
+        reloadReason = reason
         revision++
         fallbackPolicy.reset()
         scheduleChange()
@@ -128,11 +132,14 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
     fun start() {
         if (running) return
         running = true
-        if (mode != preferences.mode) { mode = preferences.mode; revision++; fallbackPolicy.reset() }
+        if (mode != preferences.mode) {
+            mode = preferences.mode; revision++; fallbackPolicy.reset()
+            reloadReason = PlaybackLoadReason.AUDIO_MODE
+        }
         monitor.start()
         preferenceJob = scope.launch {
             preferences.changes.collectLatest { value ->
-                if (mode != value) { mode = value; changed() }
+                if (mode != value) { mode = value; changed(PlaybackLoadReason.AUDIO_MODE) }
             }
         }
     }

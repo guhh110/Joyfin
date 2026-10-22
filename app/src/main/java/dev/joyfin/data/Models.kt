@@ -55,6 +55,7 @@ data class Media(
     val path: String = "",
     /** Server viewing timestamp in epoch milliseconds; missing or invalid dates stay unknown. */
     val lastPlayedAt: Long? = null,
+    val chapters: List<MediaChapter> = emptyList(),
 ) {
     val isFolder
         get() = type in setOf("Series", "Season", "CollectionFolder", "Folder", "BoxSet")
@@ -79,6 +80,7 @@ data class Media(
                 overview = dto.overview.validText(),
                 year = dto.year,
                 ticks = dto.ticks,
+                chapters = dto.chapters,
                 resumeTicks = dto.userData.positionTicks,
                 lastPlayedAt = dto.userData.lastPlayedDate?.let {
                     try { Instant.parse(it).toEpochMilli() }

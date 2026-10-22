@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.DetailUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.detail.components.*
+import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.theme.Palette
 
 /** Artwork keeps a fixed proportion; phone titles and synopsis determine their own height. */
@@ -26,7 +27,7 @@ internal fun MobileSeriesDetailLayout(content: SeriesOverviewContent, modifier: 
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SeriesOverviewHeader(content)
                     Spacer(Modifier.height(artworkHeight * .48f))
-                    MobileSeriesIntroduction(content.ui)
+                    MobileSeriesIntroduction(content.ui, content.images)
                     if (content.feedback.isNotBlank()) SeriesOverviewFeedback(content)
                     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -43,11 +44,11 @@ internal fun MobileSeriesDetailLayout(content: SeriesOverviewContent, modifier: 
 }
 
 @Composable
-private fun MobileSeriesIntroduction(ui: DetailUiState) {
+private fun MobileSeriesIntroduction(ui: DetailUiState, images: ArtworkSource) {
     val media = ui.item
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (media?.name.isNullOrBlank()) SkeletonBlock(Modifier.fillMaxWidth(.7f).height(40.dp))
-        else FilmTitle(media.name, maxLines = Int.MAX_VALUE)
+        else MediaTitle(media, images, maxLines = Int.MAX_VALUE)
         if (media != null) {
             if (media.originalTitle.isNotBlank() && media.originalTitle != media.name)
                 Caption(media.originalTitle)

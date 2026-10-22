@@ -48,6 +48,7 @@ data class PlayerUiState(
     val subtitleSearchApplied: Int = 0,
     val audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     val playbackNotice: String? = null,
+    val navigation: PlaybackNavigationState = PlaybackNavigationState(),
 )
 
 data class PlayerActions(
@@ -71,6 +72,13 @@ data class PlayerActions(
     val selectLocalFile: (String) -> Unit = {},
     val searchSubtitles: () -> Unit = {},
     val setAudioOutputMode: (dev.joyfin.data.AudioOutputMode) -> Unit = {},
+    val selectChapter: (Long) -> Unit = {},
+    val setSkipPreferences: (dev.joyfin.data.SkipPreferences) -> Unit = {},
+    val skipSegment: () -> Unit = {},
+    val dismissSkip: () -> Unit = {},
+    val undoSkip: () -> Unit = {},
+    val retrySegments: () -> Unit = {},
+    val setNavigationBlocked: (Boolean) -> Unit = {},
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =

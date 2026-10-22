@@ -74,12 +74,18 @@ class PlaybackController(
     private var subtitleJob: Job? = null
     private var subtitleSearchResume: Boolean? = null
     private var searchSubtitleApplying = false
+    private var navigationBlocked = false
 
     private val completion = PlaybackCompletionGate()
     private val environment = PlaybackEnvironment(context, scope, ::environmentChanged) { notice ->
         mutable.update { it.copy(playbackNotice = notice) }
     }
     private val subtitleRendering = SubtitleRendering()
+    private val skipPreferences = SkipPreferenceStore(context)
+    private val navigation = PlaybackNavigation(scope,
+        { media -> api.session?.let { skipPreferences.load(it, media) } ?: SkipPreferences() },
+        { media, value -> api.session?.let { skipPreferences.save(it, media, value) } }, api::mediaSegments,
+        { value -> mutable.update { it.copy(navigation = value) } }, { onClose(true) })
     private val http =
         DefaultHttpDataSource.Factory()
             .setUserAgent("Joyfin/${BuildConfig.VERSION_NAME}")
@@ -190,7 +196,7 @@ class PlaybackController(
             },
             compatible = { selectCompatibility(true) },
             selectCompatibility = ::selectCompatibility,
-            retry = { load(positionTicks()) },
+            retry = { load(positionTicks(), reason = PlaybackLoadReason.RETRY) },
             cancelNext = ::cancelCountdown,
             nextNow = ::playNextEpisode,
             close = { onClose(false) },
@@ -198,6 +204,21 @@ class PlaybackController(
             selectLocalFile = ::selectManagedSubtitle,
             searchSubtitles = ::openSubtitleSearch,
             setAudioOutputMode = environment::setAudioMode,
+            selectChapter = { position ->
+                if (mutable.value.navigation.chapters.any { it.positionMs == position }) seek(position)
+            },
+            setSkipPreferences = navigation::preferences,
+            skipSegment = {
+                if (mutable.value.canSeek && !mutable.value.loading && !mutable.value.subtitleApplying)
+                    navigation.skip(player.currentPosition, android.os.SystemClock.elapsedRealtime())?.let(::seek)
+            },
+            dismissSkip = navigation::dismiss,
+            undoSkip = {
+                if (mutable.value.canSeek && !mutable.value.loading && !mutable.value.subtitleApplying)
+                    navigation.undo(android.os.SystemClock.elapsedRealtime())?.let(::seek)
+            },
+            retrySegments = navigation::retry,
+            setNavigationBlocked = { navigationBlocked = it },
         )
 
     init {
@@ -304,6 +325,7 @@ class PlaybackController(
                 initialTicks,
                 fetch = true,
                 autoPlay = restored?.getBoolean("playing", true) ?: true,
+                reason = PlaybackLoadReason.INITIAL,
             )
     }
 
@@ -320,8 +342,10 @@ class PlaybackController(
         fetch: Boolean = false,
         autoPlay: Boolean =
             subtitleSearchResume ?: pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
+        reason: PlaybackLoadReason = PlaybackLoadReason.USER_CHANGE,
     ) {
         discardSubtitleSearch()
+        navigation.clear()
         if (diagnosticMediaId != currentId) {
             diagnosticMediaId = currentId
             diagnosticToken = PlaybackDiagnostics.begin(currentId)
@@ -330,6 +354,7 @@ class PlaybackController(
         PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, environment.forceAudioTranscode, environment.isFallback)
         val generation = completion.begin()
         playbackGeneration = generation
+        PlaybackDiagnostics.attempt(diagnostics, generation, reason, ticks / 10_000)
         environment.begin(generation, diagnostics)
         subtitleJob?.cancel()
         localSubtitle = null
@@ -466,7 +491,7 @@ class PlaybackController(
                 currentCoroutineContext().ensureActive()
                 check(!released && generation == playbackGeneration) { "播放器已关闭或播放内容已变化" }
                 if (!environment.isCurrent(negotiation)) {
-                    load(ticks, autoPlay = autoPlay)
+                    load(ticks, autoPlay = autoPlay, reason = environment.reloadReason)
                     return@launch
                 }
                 environment.activate(negotiation, prepared.transcodeReasons)
@@ -481,6 +506,7 @@ class PlaybackController(
                             } else media.sources + prepared.source,
                     )
                 plan = prepared
+                navigation.open(requireNotNull(item), prepared.sourceId)
                 PlaybackDiagnostics.plan(diagnostics, prepared)
                 diagnosticStage = DiagnosticStage.STREAM
                 PlaybackDiagnostics.event(diagnostics, diagnosticStage, DiagnosticOutcome.RUNNING)
@@ -641,7 +667,7 @@ class PlaybackController(
         subtitleIndex = null
         compatible = false
         settingsItemId = null
-        load(0, fetch = true, autoPlay = true)
+        load(0, fetch = true, autoPlay = true, reason = PlaybackLoadReason.INITIAL)
     }
 
     private fun canSelectTrack(type: String, index: Int): Boolean {
@@ -690,12 +716,13 @@ class PlaybackController(
     }
 
     private fun toggle() {
-        if (player.playbackState == Player.STATE_ENDED) load(0, autoPlay = true)
+        if (player.playbackState == Player.STATE_ENDED) load(0, autoPlay = true, reason = PlaybackLoadReason.REPLAY)
         else if (player.isPlaying) player.pause() else player.play()
     }
 
     private fun seek(target: Long) {
-        if (!mutable.value.canSeek || mutable.value.loading || mutable.value.error != null) return
+        if (!mutable.value.canSeek || mutable.value.loading || mutable.value.error != null ||
+            mutable.value.subtitleApplying || mutable.value.subtitleSearchOpen) return
         val safe = target.coerceIn(0, mutable.value.durationMs.coerceAtLeast(0))
         cancelCountdown()
         player.seekTo(safe)
@@ -889,6 +916,7 @@ class PlaybackController(
             player.trackSelectionParameters = oldParameters.buildUpon()
                 .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
             replaced = true
+            PlaybackDiagnostics.bufferOperation(diagnosticToken, playbackGeneration, PlaybackBufferKind.SUBTITLE)
             player.prepareLocalSubtitle(playbackItem, position, speed)
             currentCoroutineContext().ensureActive()
             check(matchesSubtitleTarget(target) && subtitleSearch.state.value.open && !subtitleSearch.state.value.closing)
@@ -928,6 +956,7 @@ class PlaybackController(
                     if (replaced) {
                         val playing = player.playWhenReady
                         player.trackSelectionParameters = oldParameters
+                        PlaybackDiagnostics.bufferOperation(diagnosticToken, playbackGeneration, PlaybackBufferKind.SUBTITLE)
                         player.setMediaItem(oldItem, position)
                         player.prepare()
                         player.setPlaybackSpeed(speed)
@@ -982,6 +1011,7 @@ class PlaybackController(
                 localSubtitle = shifted
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
+                PlaybackDiagnostics.bufferOperation(diagnosticToken, playbackGeneration, PlaybackBufferKind.SUBTITLE)
                 player.setMediaItem(mediaItem.buildUpon().setSubtitleConfigurations(configurations).build(), position)
                 player.prepare()
                 player.setPlaybackSpeed(speed)
@@ -1004,7 +1034,7 @@ class PlaybackController(
         if (environment.fallback(error)) {
             PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error, fatal = false)
             PlaybackDiagnostics.event(diagnosticToken, DiagnosticStage.STREAM, DiagnosticOutcome.FALLBACK)
-            load(positionTicks())
+            load(positionTicks(), reason = PlaybackLoadReason.FALLBACK)
         } else {
             PlaybackDiagnostics.failure(diagnosticToken, DiagnosticStage.STREAM, error)
             showError(environment.failureMessage(error))
@@ -1015,10 +1045,11 @@ class PlaybackController(
         mutable.update { it.copy(audioOutputMode = environment.audioMode) }
         if (!released && !suspendedPlayback && item != null && mutable.value.error == null &&
             plan != null && environment.needsReload)
-            load(positionTicks())
+            load(positionTicks(), reason = environment.reloadReason)
     }
 
     private fun stopCurrentStream() {
+        navigation.clear()
         if (plan != null) diagnosticObserver.sample()
         PlaybackDiagnostics.canceled(diagnosticToken)
         initialTicks = positionTicks()
@@ -1066,7 +1097,8 @@ class PlaybackController(
         mutable.update { it.copy(audioOutputMode = environment.audioMode) }
         if (suspendedPlayback) {
             suspendedPlayback = false
-            if (mutable.value.error == null) load(initialTicks, fetch = true, autoPlay = wasPlaying)
+            if (mutable.value.error == null) load(initialTicks, fetch = true, autoPlay = wasPlaying,
+                reason = PlaybackLoadReason.RESUME)
         } else if (wasPlaying && mutable.value.error == null) player.play()
         pollJob?.cancel()
         reportJob?.cancel()
@@ -1088,6 +1120,13 @@ class PlaybackController(
                     )
                 }
                 val second = android.os.SystemClock.elapsedRealtime() / 1000
+                val ui = mutable.value
+                if (plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration) {
+                    navigation.tick(ui.positionMs, ui.durationMs,
+                        !navigationBlocked && player.isPlaying && ui.canSeek && !ui.loading && ui.error == null && !ui.subtitleApplying &&
+                            !ui.subtitleSearchOpen && ui.seekPreview?.active != true,
+                        android.os.SystemClock.elapsedRealtime())?.let(::seek)
+                }
                 if (plan != null && diagnosticSecond != second) {
                     diagnosticSecond = second
                     diagnosticObserver.sample()
@@ -1127,7 +1166,7 @@ class PlaybackController(
         when (code) {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> toggle()
             KeyEvent.KEYCODE_MEDIA_PLAY ->
-                if (player.playbackState == Player.STATE_ENDED) load(0, autoPlay = true)
+                if (player.playbackState == Player.STATE_ENDED) load(0, autoPlay = true, reason = PlaybackLoadReason.REPLAY)
                 else player.play()
             KeyEvent.KEYCODE_MEDIA_PAUSE -> player.pause()
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seekPreview.adjust(10_000)
