@@ -479,23 +479,34 @@ class JellyfinApiTest {
             requests.map { it.requestUrl!!.encodedPath },
         )
         requests.forEach { assertEquals("user-id", it.requestUrl!!.queryParameter("UserId")) }
+        assertNull(requests[0].requestUrl!!.queryParameter("SortBy"))
+        assertEquals("true", requests[1].requestUrl!!.queryParameter("GroupItems"))
     }
 
     @Test
-    fun latestInLibraryUsesScopedGroupedVideoQuery() = runBlocking {
+    fun latestInLibraryRequestsNewestWorksWithoutEpisodeGrouping() = runBlocking {
         server.enqueue(
             MockResponse()
                 .setBody(
-                    """[{"Id":"e1","Name":"One","Type":"Episode","SeriesId":"series","SeriesName":"Show"},{"Id":"e2","Name":"Two","Type":"Episode","SeriesId":"series"},{"Id":"movie","Name":"Movie","Type":"Movie"}]"""
+                    """{"Items":[{"Id":"series","Name":"Z New Show","Type":"Series","DateCreated":"2026-10-22T10:00:00Z","Overview":"Full series metadata","ChildCount":24},{"Id":"movie","Name":"A Older Movie","Type":"Movie","DateCreated":"2026-10-20T10:00:00Z"}],"TotalRecordCount":0}"""
                 )
         )
         val items = api.latestInLibrary("children")
         val url = server.takeRequest().requestUrl!!
+        assertEquals("/jellyfin/Items", url.encodedPath)
+        assertEquals("user-id", url.queryParameter("UserId"))
         assertEquals("children", url.queryParameter("ParentId"))
-        assertEquals("true", url.queryParameter("GroupItems"))
-        assertEquals("Movie,Episode,Video,MusicVideo", url.queryParameter("IncludeItemTypes"))
+        assertEquals("true", url.queryParameter("Recursive"))
+        assertEquals("Movie,Series,Video,MusicVideo", url.queryParameter("IncludeItemTypes"))
+        assertEquals("DateCreated,SortName", url.queryParameter("SortBy"))
+        assertEquals("Descending", url.queryParameter("SortOrder"))
+        assertEquals("false", url.queryParameter("EnableTotalRecordCount"))
+        assertNull(url.queryParameter("GroupItems"))
         assertEquals("20", url.queryParameter("Limit"))
         assertEquals(listOf("series", "movie"), items.map { it.id })
+        assertEquals("Series", items.first().type)
+        assertEquals("Full series metadata", items.first().overview)
+        assertEquals(24, items.first().childCount)
     }
 
     @Test

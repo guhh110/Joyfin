@@ -208,9 +208,30 @@ class JellyfinApi(
 
     suspend fun recentVideo(): List<Media> = latestVideo()
 
-    suspend fun latestInLibrary(id: String): List<Media> = latestVideo(id)
+    /** Home library rails sort works by their own addition date, not new episodes in old series. */
+    suspend fun latestInLibrary(id: String): List<Media> =
+        withContext(Dispatchers.Default) {
+            service()
+                .items(
+                    authorization(),
+                    params(
+                        "UserId" to requireSession().userId,
+                        "ParentId" to id,
+                        "Recursive" to true,
+                        "IncludeItemTypes" to "Movie,Series,Video,MusicVideo",
+                        "SortBy" to "DateCreated,SortName",
+                        "SortOrder" to "Descending",
+                        "Limit" to 20,
+                        "EnableTotalRecordCount" to false,
+                        "Fields" to browseFields,
+                    ),
+                )
+                .value()
+                .toMediaPage()
+                .items
+        }
 
-    private suspend fun latestVideo(id: String? = null): List<Media> =
+    private suspend fun latestVideo(): List<Media> =
         withContext(Dispatchers.Default) {
             groupLatestVideo(
                 service()
@@ -218,7 +239,6 @@ class JellyfinApi(
                         authorization(),
                         params(
                             "UserId" to requireSession().userId,
-                            "ParentId" to id,
                             "Limit" to 20,
                             "GroupItems" to true,
                             "IncludeItemTypes" to "Movie,Episode,Video,MusicVideo",
