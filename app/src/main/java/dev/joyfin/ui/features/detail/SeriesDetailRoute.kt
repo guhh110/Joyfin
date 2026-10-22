@@ -1,15 +1,12 @@
 package dev.joyfin.ui.features.detail
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -35,7 +32,8 @@ import kotlinx.coroutines.flow.first
 @Composable
 fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: ArtworkSource) {
     val tv = LocalDeviceLayout.current.television
-    var focused by rememberSaveable(ui.visit) { mutableStateOf("") }
+    var focused by rememberSaveable(ui.visit) { mutableStateOf(if (tv) "detail:play" else "") }
+    val entryTarget = remember(ui.visit) { focused.ifBlank { "detail:play" } }
     val focus = remember(ui.visit) { SeriesFocusCoordinator({ focused }) { focused = it } }
     var modal by rememberSaveable(ui.visit) { mutableStateOf<String?>(null) }
     var modalReturn by rememberSaveable(ui.visit) { mutableStateOf("header:back") }
@@ -73,13 +71,12 @@ fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: Artwork
             focus.move("series:season")
         }
     }
-    val entryFocus = remember(ui.visit) { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val windowInfo = LocalWindowInfo.current
     LaunchedEffect(ui.visit) {
         withFrameNanos {}
-        if (tv && focused.isBlank()) entryFocus.requestFocus()
-        else if (!tv) focusManager.clearFocus(force = true)
+        if (tv) focus.move(entryTarget)
+        else focusManager.clearFocus(force = true)
     }
     LaunchedEffect(focus.pending, seasonId, ids, modal, keys, windowInfo.isWindowFocused) {
         // Dialog removal and main-window focus arrive separately. Keep the explicit return
@@ -225,10 +222,6 @@ fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: Artwork
             }
         }
     Box(root) {
-        // A non-action focus sink prevents automatic child focus and accidental activation on
-        // entry.
-        if (tv)
-            Box(Modifier.size(1.dp).focusRequester(entryFocus).focusable().testTag("series:entry"))
         val content =
             SeriesOverviewContent(
                 ui,

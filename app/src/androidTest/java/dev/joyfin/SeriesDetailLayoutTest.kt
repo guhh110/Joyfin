@@ -111,12 +111,9 @@ class SeriesDetailLayoutTest {
         val state = mutableStateOf(ready())
         val scenario = mount(state, true, emptyActions())
         try {
-            compose.onNodeWithTag("series:entry").assertIsFocused()
             compose.onNodeWithTag("header:back").assertIsNotFocused()
-            compose.onNodeWithTag("detail:play").assertIsNotFocused()
-            val hero = compose.onNodeWithTag("detail:hero").getUnclippedBoundsInRoot()
-            compose.onNodeWithTag("series:entry").performKeyInput { pressKey(Key.DirectionDown) }
             compose.onNodeWithTag("detail:play").assertIsFocused().assertIsDisplayed()
+            val hero = compose.onNodeWithTag("detail:hero").getUnclippedBoundsInRoot()
             compose.mainClock.advanceTimeBy(1_000)
             assertEquals(hero, compose.onNodeWithTag("detail:hero").getUnclippedBoundsInRoot())
             compose.onNodeWithTag("detail:play").performKeyInput { pressKey(Key.DirectionRight) }
@@ -130,7 +127,7 @@ class SeriesDetailLayoutTest {
     }
 
     @Test
-    fun allTvEntryTypesStartWithoutAnActionFocusOrEpisodeSelection() {
+    fun allTvEntryTypesFocusPlayWithoutOpeningEpisodeDetails() {
         val state = mutableStateOf(ready())
         var selections = 0
         val scenario = mount(state, true, emptyActions().copy(selectEpisode = { selections++ }))
@@ -139,10 +136,7 @@ class SeriesDetailLayoutTest {
                 compose.runOnIdle {
                     state.value = ready(true).copy(visit = index.toLong() + 10, entryType = type)
                 }
-                compose.onNodeWithTag("series:entry").assertIsFocused()
-                compose.onNodeWithTag("detail:play").assertIsDisplayed().assertIsNotFocused()
-                compose.onNodeWithText("本集详情").assertDoesNotExist()
-                compose.onNodeWithTag("series:entry").performKeyInput { pressKey(Key.Enter) }
+                compose.onNodeWithTag("detail:play").assertIsDisplayed().assertIsFocused()
                 compose.onNodeWithText("本集详情").assertDoesNotExist()
                 assertEquals(0, selections)
             }

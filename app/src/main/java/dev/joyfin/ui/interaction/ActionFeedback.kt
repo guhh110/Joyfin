@@ -11,8 +11,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -24,7 +29,7 @@ import dev.joyfin.ui.theme.rememberMotionSpec
 /**
  * 统一交互反馈修饰符：
  * 1. 80ms 按压明暗反馈（控件形状内高亮/加深，快速确认亦可见）
- * 2. 140ms 焦点颜色/边框平滑过渡（白色焦点边框 2dp，选中状态使用灰色底色与标记，两者可同时辨认）
+ * 2. 140ms 焦点颜色/边框平滑过渡（白色焦点边框 2dp，浅色主操作增加深色内圈分隔）
  * 3. 140ms 绘图层平滑缩放，获焦提升 zIndex，不改变测量尺寸和焦点槽位
  */
 @Composable
@@ -101,6 +106,12 @@ fun Modifier.actionVisualFeedback(
             label = "actionBackground",
         )
 
+    val primaryFocusSeparator by animateColorAsState(
+        targetValue = if (primary && focused) Palette.Background else Palette.Background.copy(alpha = 0f),
+        animationSpec = colorSpec,
+        label = "actionPrimaryFocusSeparator",
+    )
+
     return this
         .zIndex(if (focused) 1f else 0f)
         .graphicsLayer {
@@ -110,4 +121,18 @@ fun Modifier.actionVisualFeedback(
         .border(animatedBorderWidth, animatedBorderColor, shape)
         .clip(shape)
         .background(animatedBackground)
+        .drawWithCache {
+            // Draw inside the existing bounds: white outer frame, dark separator, light fill.
+            // This also stays visible on fixed-size player/footer actions without layout changes.
+            val inset = 3.dp.toPx()
+            val outline = if (size.width > inset * 2 && size.height > inset * 2)
+                shape.createOutline(Size(size.width - inset * 2, size.height - inset * 2), layoutDirection, this)
+            else null
+            val stroke = Stroke(2.dp.toPx())
+            onDrawWithContent {
+                drawContent()
+                if (outline != null && primaryFocusSeparator.alpha > 0f)
+                    translate(inset, inset) { drawOutline(outline, primaryFocusSeparator, style = stroke) }
+            }
+        }
 }

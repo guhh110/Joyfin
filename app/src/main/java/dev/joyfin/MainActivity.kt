@@ -181,7 +181,8 @@ internal fun BrowseHost(
         }
     AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode)
     if (exit)
-        ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() })
+        ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
+            confirmInitiallyFocused = true)
     if (logout)
         ConfirmDialog(
             "退出当前账号？",

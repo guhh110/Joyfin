@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.joyfin.ui.device.LocalDeviceLayout
-import dev.joyfin.ui.interaction.RememberScreenFocus
+import dev.joyfin.ui.interaction.RememberSelectionFocus
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.layout.mobile.MobileSheetLayout
 import dev.joyfin.ui.layout.tv.TvSheetLayout
@@ -82,12 +82,17 @@ fun ChoiceRow(
 }
 
 @Composable
-fun ConfirmDialog(title: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    RememberScreenFocus("confirm:cancel") {
+fun ConfirmDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    confirmInitiallyFocused: Boolean = false,
+) {
+    RememberSelectionFocus(if (confirmInitiallyFocused) "confirm:confirm" else "confirm:cancel") {
         Sheet(title, onDismiss, actions = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ActionButton("取消", onDismiss, Modifier.weight(1f).focusTarget("confirm:cancel"))
-                ActionButton("确认", onConfirm, Modifier.weight(1f), primary = true)
+                ActionButton("确认", onConfirm, Modifier.weight(1f).focusTarget("confirm:confirm"), primary = true)
             }
         }) {}
     }
