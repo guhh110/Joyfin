@@ -168,6 +168,9 @@ internal fun BrowseHost(
                 arrangeLibrary = vm::arrangeLibrary,
                 allMedia = vm::allMedia,
                 libraryWorks = vm::libraryWorks,
+                libraryAudit = vm::openLibraryAudit,
+                openAuditItem = vm::openAuditItem,
+                auditSubtitles = vm::auditSubtitles,
             )
         }
     val images =
@@ -186,7 +189,7 @@ internal fun BrowseHost(
         remember(vm) {
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
             confirmInitiallyFocused = true)

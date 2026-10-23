@@ -38,4 +38,7 @@ data class BrowseActions(
     val arrangeLibrary: (dev.joyfin.data.LibraryBrowseOptions) -> Unit = {},
     val allMedia: () -> Unit = {},
     val libraryWorks: (String, String) -> Unit = { id, title -> library(id, title) },
+    val libraryAudit: (String?, String) -> Unit = { _, _ -> },
+    val openAuditItem: (dev.joyfin.audit.AuditFinding) -> Unit = {},
+    val auditSubtitles: (dev.joyfin.audit.AuditFinding) -> Unit = {},
 )

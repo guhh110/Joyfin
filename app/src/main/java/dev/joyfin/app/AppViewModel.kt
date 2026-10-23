@@ -72,6 +72,7 @@ class AppViewModel @JvmOverloads constructor(
         )
 
     val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(storageContext, viewModelScope, api, ::expireSession)
+    val libraryAudit = dev.joyfin.audit.createLibraryAuditController(storageContext, viewModelScope, api, ::expireSession)
 
     init {
         session.start()
@@ -154,6 +155,7 @@ class AppViewModel @JvmOverloads constructor(
         homeController.cancel()
         details.cancel()
         subtitlePage.close()
+        libraryAudit.close()
     }
 
     fun home() = navigation.home()
@@ -173,6 +175,21 @@ class AppViewModel @JvmOverloads constructor(
     }
 
     fun settings() = navigation.settings()
+
+    fun openLibraryAudit(id: String?, title: String) {
+        push(Page.AUDIT)
+        libraryAudit.open(dev.joyfin.audit.AuditScope(id, title))
+    }
+
+    fun openAuditItem(finding: dev.joyfin.audit.AuditFinding) {
+        libraryAudit.media(finding)?.let(details::open)
+    }
+
+    fun auditSubtitles(finding: dev.joyfin.audit.AuditFinding) {
+        val media = libraryAudit.media(finding) ?: return
+        push(Page.SUBTITLES)
+        subtitlePage.openForAudit(media)
+    }
 
     fun back(): Boolean {
         if (mutable.value.page == Page.SUBTITLES && subtitlePage.back()) return true

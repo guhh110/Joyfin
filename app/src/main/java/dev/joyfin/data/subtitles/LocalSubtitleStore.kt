@@ -44,6 +44,13 @@ class LocalSubtitleStore private constructor(context: Context) {
         val index = read()
         return index.downloads[key].orEmpty().mapNotNull { index.files[it]?.takeIf(::valid) }
     }
+
+    /** Read and validate the index once for a library audit; callers compare opaque binding keys. */
+    @Synchronized fun availableBindingSnapshot(): Set<String> {
+        val index = read()
+        val validFiles = index.files.filterValues(::valid).keys
+        return index.downloads.filterValues { files -> files.any { it in validFiles } }.keys.toSet()
+    }
     @Synchronized fun packages(server: String, user: String): List<ManagedSubtitle> {
         val index = read()
         val owner = owner(server, user)

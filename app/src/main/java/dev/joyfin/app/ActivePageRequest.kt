@@ -14,7 +14,7 @@ internal val UiState.activeRequest: ActivePageRequest
             Page.PERSON -> ActivePageRequest(collection.busy, collection.error)
             Page.DETAIL -> ActivePageRequest(detail.busy, detail.error)
             Page.SETTINGS -> ActivePageRequest(settings.busy, settings.error)
-            Page.SUBTITLES -> ActivePageRequest(false, null)
+            Page.SUBTITLES, Page.AUDIT -> ActivePageRequest(false, null)
         }
 
 internal fun UiState.withActiveRequest(busy: Boolean, error: String?): UiState =
@@ -28,5 +28,5 @@ internal fun UiState.withActiveRequest(busy: Boolean, error: String?): UiState =
         Page.PERSON -> copy(collection = collection.copy(busy = busy, error = error))
         Page.DETAIL -> copy(detail = detail.copy(busy = busy, error = error))
         Page.SETTINGS -> copy(settings = settings.copy(busy = busy, error = error))
-        Page.SUBTITLES -> this
+        Page.SUBTITLES, Page.AUDIT -> this
     }

@@ -79,6 +79,29 @@ class SubtitlePageController(
             catch (e: Exception) { error(e) }
         }
     }
+
+    /** Resolve an audited episode to its actual series, independently of the last detail page. */
+    fun openForAudit(seed: Media) {
+        open()
+        val session = api.session ?: return
+        val owner = LocalSubtitleStore.owner(session.server, session.userId)
+        mutable.update { it.copy(loading = true) }
+        metadataJob = scope.launch {
+            try {
+                val current = api.item(seed.id)
+                val work = if (current.type == "Episode" && current.seriesId.isNotBlank()) api.item(current.seriesId) else current
+                val seasons = if (work.type == "Series") api.seasons(work.id) else emptyList()
+                ensureActive()
+                if (api.session != session || mutable.value.context?.owner != owner) return@launch
+                val season = seasons.firstOrNull { it.id == current.seasonId }
+                    ?: seasons.firstOrNull { it.episode == current.season }
+                mutable.update { it.copy(loading = false, seasons = seasons, filterWork = true,
+                    context = SubtitleSearchContext(owner, work, season), query = work.name) }
+                showSearch()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error(e) }
+        }
+    }
     fun reloadPackages() {
         val session = api.session ?: return
         val owner = mutable.value.context?.owner ?: return

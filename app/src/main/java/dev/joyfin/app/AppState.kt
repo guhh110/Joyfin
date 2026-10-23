@@ -16,6 +16,7 @@ enum class Page {
     PERSON,
     SETTINGS,
     SUBTITLES,
+    AUDIT,
 }
 
 /** Application routing and immutable per-feature snapshots for Back restoration. */

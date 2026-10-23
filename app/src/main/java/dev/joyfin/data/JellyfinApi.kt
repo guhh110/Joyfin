@@ -71,6 +71,7 @@ class JellyfinApi(
         values.mapNotNull { (key, value) -> value?.let { key to it.toString() } }.toMap()
 
     companion object {
+        private const val AUDIT_FIELDS = "Overview,ProviderIds,MediaSources,MediaStreams"
         fun normalizeServer(value: String): String {
             val raw = value.trim()
             require(raw.isNotBlank()) { "请填写服务器地址" }
@@ -120,6 +121,30 @@ class JellyfinApi(
     }
 
     private fun requireSession() = session ?: throw ApiException(401, "请先登录")
+
+    suspend fun auditWorks(owner: Session, parent: String?, start: Int): AuditPageDto {
+        check(session == owner) { "账号已切换" }
+        return service(owner.server).auditItems(authorization(owner.token), params(
+            "UserId" to owner.userId, "ParentId" to parent, "Recursive" to true,
+            "IncludeItemTypes" to "Movie,Series", "Fields" to AUDIT_FIELDS,
+            "SortBy" to "SortName", "SortOrder" to "Ascending", "StartIndex" to start, "Limit" to 100,
+            "EnableUserData" to false,
+        )).value().also { check(session == owner) { "账号已切换" } }
+    }
+
+    suspend fun auditItem(owner: Session, id: String): AuditItemDto {
+        check(session == owner) { "账号已切换" }
+        return service(owner.server).auditItem(authorization(owner.token), id, owner.userId, AUDIT_FIELDS)
+            .value().also { check(session == owner) { "账号已切换" } }
+    }
+
+    suspend fun auditEpisodes(owner: Session, id: String, missing: Boolean, start: Int): AuditPageDto {
+        check(session == owner) { "账号已切换" }
+        return service(owner.server).auditEpisodes(authorization(owner.token), id, params(
+            "UserId" to owner.userId, "IsMissing" to missing, "Fields" to AUDIT_FIELDS,
+            "StartIndex" to start, "Limit" to 100, "EnableUserData" to false,
+        )).value().also { check(session == owner) { "账号已切换" } }
+    }
 
     suspend fun subtitleWorks(search: String, start: Int = 0): MediaPage =
         service().items(authorization(), params(

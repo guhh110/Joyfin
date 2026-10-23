@@ -39,13 +39,14 @@ fun AppContent(
     subtitles: dev.joyfin.subtitles.SubtitlePageController? = null,
     audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
+    audit: dev.joyfin.audit.LibraryAuditController? = null,
 ) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
     val immersiveBrowse = ui.page in setOf(Page.HOME, Page.DETAIL)
     val subtitleScreen = subtitles?.state?.collectAsState()?.value?.screen
     val showNavigation = !LocalDeviceLayout.current.television &&
-        ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES, Page.PERSON) &&
+        ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES, Page.PERSON, Page.AUDIT) &&
         !(ui.page == Page.SUBTITLES && subtitleScreen == SubtitleScreen.ORGANIZE)
     val pageKey =
         if (ui.page == Page.DETAIL) "detail:${ui.detail.visit}"
@@ -62,6 +63,7 @@ fun AppContent(
             Page.SEARCH -> "search:input"
             Page.SETTINGS -> "settings:back"
             Page.SUBTITLES -> "subtitles:back"
+            Page.AUDIT -> "audit:back"
             else -> "header:back"
         }
     val visitedPages = remember { mutableSetOf<String>() }
@@ -126,6 +128,9 @@ fun AppContent(
                                         homeLayout, ui.home.content?.libraries.orEmpty())
                                     Page.SUBTITLES -> subtitles?.let {
                                         dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, images, actions.back)
+                                    }
+                                    Page.AUDIT -> audit?.let {
+                                        dev.joyfin.ui.features.audit.LibraryAuditRoute(it, actions, ui.home.content?.libraries.orEmpty())
                                     }
                                 }
                             }

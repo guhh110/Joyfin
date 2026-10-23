@@ -5,6 +5,14 @@ import retrofit2.http.*
 
 /** Retrofit owns HTTP execution, coroutine cancellation and generated JSON conversion. */
 internal interface JellyfinService {
+    @GET("Items")
+    suspend fun auditItems(@Header("Authorization") auth: String, @QueryMap query: Map<String, String>): Response<AuditPageDto>
+    @GET("Items/{id}")
+    suspend fun auditItem(@Header("Authorization") auth: String, @Path("id") id: String,
+        @Query("UserId") user: String, @Query("Fields") fields: String): Response<AuditItemDto>
+    @GET("Shows/{id}/Episodes")
+    suspend fun auditEpisodes(@Header("Authorization") auth: String, @Path("id") id: String,
+        @QueryMap query: Map<String, String>): Response<AuditPageDto>
     @GET("MediaSegments/{id}")
     suspend fun segments(@Header("Authorization") auth: String, @Path("id") id: String): Response<MediaSegmentsResponse>
     @GET("Videos/{id}/{source}/Subtitles/{index}/Stream.{format}")

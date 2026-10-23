@@ -13,6 +13,7 @@ import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.LocalScreenFocus
+import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.features.library.mobile.MobileLibraryControls
 import dev.joyfin.ui.features.library.tv.TvLibraryControls
 import kotlinx.coroutines.flow.first
@@ -38,6 +39,8 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AppHeader(actions, true, horizontalInset = 0.dp)
             FilmTitle(ui.title.ifBlank { "媒体库" })
+            ActionButton("片库体检", { actions.libraryAudit(ui.parent, if (ui.parent == null) "全部电影与剧集" else ui.title) },
+                androidx.compose.ui.Modifier.focusTarget("library:audit"), Glyph.CheckCircle)
             Caption(if ((ui.busy || ui.error != null) && ui.media.isEmpty()) " "
                 else if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品")
             if (ui.canArrangeLibrary) {

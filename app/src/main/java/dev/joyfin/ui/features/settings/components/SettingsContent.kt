@@ -126,6 +126,9 @@ internal fun ColumnScope.SettingsContent(
             diagnostics = true
         }
         ArtworkCacheSummary()
+        ChoiceRow("片库体检", Modifier.focusTarget("settings:audit"), subtitle = "检查缺集、版本、字幕与媒体信息，查看判断依据") {
+            actions.libraryAudit(null, "全部电影与剧集")
+        }
         ChoiceRow("首页栏目", Modifier.focusTarget("settings:home-layout"), subtitle = "调整栏目顺序与显示，按账号保存在此设备") {
             returnFromHome = true
             editHome = true
