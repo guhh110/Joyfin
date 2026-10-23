@@ -11,8 +11,10 @@ internal class CollectionController(
     private val mutable: MutableStateFlow<UiState>,
     private val requests: PageRequests,
     private val push: (Page) -> Unit,
+    private val loadLibraryOptions: (String?) -> LibraryBrowseOptions = { LibraryBrowseOptions() },
+    private val saveLibraryOptions: (String?, LibraryBrowseOptions) -> Unit = { _, _ -> },
 ) {
-    fun library(id: String? = null, title: String = "媒体库") {
+    fun library(id: String? = null, title: String = "媒体库", worksOnly: Boolean = false) {
         push(Page.LIBRARY)
         mutable.value =
             mutable.value.copy(
@@ -24,8 +26,20 @@ internal class CollectionController(
                         title = title,
                         parent = id,
                         query = "",
+                        worksOnly = worksOnly,
+                        libraryOptions = loadLibraryOptions(id),
                     )
             )
+        loadItems()
+    }
+
+    fun arrangeLibrary(value: LibraryBrowseOptions) {
+        val current = mutable.value.collection
+        if (mutable.value.page != Page.LIBRARY || !current.canArrangeLibrary || current.libraryOptions == value) return
+        saveLibraryOptions(current.parent, value)
+        // A different query must start from zero, including while an old page is still arriving.
+        mutable.value = mutable.value.copy(collection = current.copy(libraryOptions = value,
+            media = emptyList(), total = 0, nextOffset = 0, appending = false, error = null))
         loadItems()
     }
 
@@ -74,7 +88,8 @@ internal class CollectionController(
     }
 
     fun loadItems(more: Boolean = false) {
-        if (more && mutable.value.collection.busy) return
+        if (more && (mutable.value.collection.busy ||
+                mutable.value.collection.nextOffset >= mutable.value.collection.total)) return
         val snapshot = mutable.value.collection
         mutable.value =
             mutable.value.copy(collection = mutable.value.collection.copy(appending = more))
@@ -83,7 +98,8 @@ internal class CollectionController(
             val result =
                 if (snapshot.kind == CollectionKind.PERSON)
                     api.personItems(requireNotNull(snapshot.person).id, start)
-                else api.items(snapshot.parent, snapshot.query, start)
+                else api.items(snapshot.parent, snapshot.query, start,
+                    snapshot.libraryOptions.takeIf { snapshot.canArrangeLibrary }, snapshot.worksOnly)
             currentCoroutineContext().ensureActive()
             mutable.value =
                 mutable.value.copy(

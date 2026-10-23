@@ -54,7 +54,7 @@ class PlaybackController(
     private var playbackGeneration = 0L
     private var item: Media? = null
     private var plan: PlaybackPlan? = null
-    private var next: Media? = null
+    private var episodeVersionHint: EpisodeVersionHint? = null
     private var started = false
     private var released = false
     private var pendingPlay: Boolean? = null
@@ -66,6 +66,11 @@ class PlaybackController(
     private var countdown: Job? = null
     private var pollJob: Job? = null
     private var reportJob: Job? = null
+    private var metadataGeneration = 0L
+    private var seasonGeneration = 0L
+    private val nextEpisode = NextEpisodePreparation(scope, api::nextEpisode, api::item,
+        { value -> mutable.update { it.copy(nextItem = value.next, nextPreparing = value.loading,
+            nextPreparationError = value.error) } }, { onClose(true) }, android.os.SystemClock::elapsedRealtime)
 
     private val localStore = dev.joyfin.data.subtitles.LocalSubtitleStore.get(context)
     private val localPlayback = LocalSubtitlePlayback(localStore)
@@ -94,11 +99,29 @@ class PlaybackController(
             .setReadTimeoutMs(30_000)
     val player: ExoPlayer =
         subtitleRendering
-            .configure(ExoPlayer.Builder(context), DefaultDataSource.Factory(context, http), environment.audioEngine.renderers(context))
+            .configure(ExoPlayer.Builder(context), DefaultDataSource.Factory(context, http), environment.audioEngine.renderers(context)) { mediaItem ->
+                val generation = mediaItem.localConfiguration?.tag as? Long
+                val diagnostics = diagnosticToken
+                val mediaUri = mediaItem.localConfiguration?.uri
+                val subtitles = mediaItem.localConfiguration?.subtitleConfigurations.orEmpty().map { it.uri }.toSet()
+                val streaming = mediaItem.localConfiguration?.mimeType == MimeTypes.APPLICATION_M3U8
+                val factory = if (generation != null && generation == playbackGeneration) androidx.media3.datasource.DataSource.Factory {
+                    PlaybackHttpDataSource(http.createDataSource(),
+                        { position, length, purpose -> PlaybackDiagnostics.httpStarted(diagnostics, generation, position, length, purpose) },
+                        { PlaybackDiagnostics.httpChanged(diagnostics, generation) },
+                        { spec -> httpReadPurpose(spec.uri, mediaUri, subtitles, streaming) })
+                } else http
+                DefaultDataSource.Factory(context, factory)
+            }
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(10_000)
             .build()
     private val mediaSession = MediaSession.Builder(context, player).build()
+    private val speedController = PlaybackSpeedController(restored?.getFloat("speed", 1f) ?: 1f) { speed, boosting ->
+        player.setPlaybackSpeed(speed)
+        environment.setSpeed(speed)
+        mutable.update { it.copy(speed = speed, speedBoosting = boosting) }
+    }
     private val diagnosticObserver = PlaybackDiagnosticsObserver(player, { diagnosticToken },
         { !released && plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration },
         environment::videoInput)
@@ -177,11 +200,7 @@ class PlaybackController(
                     }
                 }
             },
-            speed = {
-                player.setPlaybackSpeed(it)
-                environment.setSpeed(it)
-                mutable.update { ui -> ui.copy(speed = it) }
-            },
+            speed = { if (!released) speedController.select(it) },
             selectVersion = {
                 if (sourceId != it) {
                     pendingPreference = null
@@ -219,6 +238,17 @@ class PlaybackController(
             },
             retrySegments = navigation::retry,
             setNavigationBlocked = { navigationBlocked = it },
+            retryNext = nextEpisode::retry,
+            speedBoost = SpeedBoostActions(
+                begin = {
+                    val ui = mutable.value
+                    if (!released && !suspendedPlayback && player.isPlaying && started && !ui.loading &&
+                        ui.error == null && !ui.subtitleApplying && !ui.subtitleSearchOpen && ui.nextSeconds == 0)
+                        speedController.begin()
+                    else null
+                },
+                end = speedController::end,
+            ),
         )
 
     init {
@@ -229,7 +259,7 @@ class PlaybackController(
             true,
         )
         player.setHandleAudioBecomingNoisy(true)
-        player.setPlaybackSpeed(restored?.getFloat("speed", 1f) ?: 1f)
+        player.setPlaybackSpeed(speedController.selectedSpeed)
         environment.setSpeed(player.playbackParameters.speed)
         player.addListener(
             object : Player.Listener {
@@ -251,6 +281,7 @@ class PlaybackController(
                         )
                     }
                     if (playbackState == Player.STATE_READY && plan != null && !searchSubtitleApplying) {
+                        nextEpisode.start()
                         if (player.currentMediaItem?.localConfiguration?.tag == playbackGeneration)
                             PlaybackDiagnostics.event(diagnosticToken, DiagnosticStage.STREAM, DiagnosticOutcome.READY)
                         completion.ready(player.currentMediaItem?.localConfiguration?.tag as? Long)
@@ -300,6 +331,10 @@ class PlaybackController(
                     if (started) report("Progress")
                 }
 
+                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                    if (!playWhenReady) speedController.cancel()
+                }
+
                 override fun onPositionDiscontinuity(
                     oldPosition: Player.PositionInfo,
                     newPosition: Player.PositionInfo,
@@ -343,9 +378,12 @@ class PlaybackController(
         autoPlay: Boolean =
             subtitleSearchResume ?: pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
         reason: PlaybackLoadReason = PlaybackLoadReason.USER_CHANGE,
+        prefetched: Media? = null,
     ) {
+        if (reason != PlaybackLoadReason.SPEED) speedController.cancel()
         discardSubtitleSearch()
         navigation.clear()
+        nextEpisode.retain(currentId, sourceId)
         if (diagnosticMediaId != currentId) {
             diagnosticMediaId = currentId
             diagnosticToken = PlaybackDiagnostics.begin(currentId)
@@ -387,9 +425,11 @@ class PlaybackController(
             )
         }
         if (fetch) {
+            metadataGeneration++
+            seasonGeneration++
             metadataJob?.cancel()
             seasonJob?.cancel()
-            next = null
+            nextEpisode.clear()
             mutable.update {
                 it.copy(
                     episodes = emptyList(),
@@ -405,13 +445,14 @@ class PlaybackController(
             try {
                 if (fetch || item == null) {
                     PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.RUNNING)
-                    val fetched = api.item(currentId)
+                    val fetched = prefetched?.takeIf { it.id == currentId } ?: api.item(currentId)
                     currentCoroutineContext().ensureActive()
                     if (generation != playbackGeneration || released) return@launch
                     item = fetched
                     PlaybackDiagnostics.event(diagnostics, DiagnosticStage.METADATA, DiagnosticOutcome.READY)
                 }
                 val media = requireNotNull(item)
+                if (sourceId == null) sourceId = episodeVersionHint?.match(media.sources)
                 val preferences = api.session?.let { preferenceStore.load(it, media) }
                 if (settingsItemId != media.id) {
                     bitrate = preferences?.bitrate ?: PlaybackQuality.DEFAULT
@@ -494,7 +535,7 @@ class PlaybackController(
                     load(ticks, autoPlay = autoPlay, reason = environment.reloadReason)
                     return@launch
                 }
-                environment.activate(negotiation, prepared.transcodeReasons)
+                environment.activate(negotiation, prepared.transcodeReasons, prepared.source, prepared.audioIndex, compatible)
                 item =
                     media.copy(
                         sources =
@@ -506,6 +547,7 @@ class PlaybackController(
                             } else media.sources + prepared.source,
                     )
                 plan = prepared
+                nextEpisode.open(requireNotNull(item), prepared.sourceId)
                 navigation.open(requireNotNull(item), prepared.sourceId)
                 PlaybackDiagnostics.plan(diagnostics, prepared)
                 diagnosticStage = DiagnosticStage.STREAM
@@ -597,35 +639,34 @@ class PlaybackController(
     /** Metadata browsing has its own job: changing an audio track cannot cancel season loading. */
     private fun loadEpisodeMetadata(media: Media) {
         if (media.type != "Episode" || media.seriesId.isBlank()) return
+        val token = metadataGeneration
+        val selection = seasonGeneration
         metadataJob = scope.launch {
             try {
-                val seasons = api.seasons(media.seriesId)
-                val episodes =
-                    api.episodes(media.seriesId, media.seasonId.takeIf { it.isNotBlank() })
-                val index = episodes.indexOfFirst { it.id == media.id }
-                next =
-                    episodes.getOrNull(index + 1).takeIf { index >= 0 }
-                        ?: try {
-                            api.nextEpisode(media)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            if (e is ApiException && e.status == 401) throw e else null
-                        }
+                val (seasons, episodes) = coroutineScope {
+                    val seasons = async { api.seasons(media.seriesId) }
+                    val episodes = async { api.episodes(media.seriesId, media.seasonId.takeIf { it.isNotBlank() }) }
+                    seasons.await() to episodes.await()
+                }
+                ensureActive()
+                if (released || token != metadataGeneration || media.id != currentId) return@launch
                 mutable.update {
                     it.copy(
-                        nextItem = next,
                         seasons = seasons,
-                        episodes = episodes,
-                        selectedSeasonId = media.seasonId.takeIf { id -> id.isNotBlank() },
-                        episodeError = null,
+                        episodes = if (selection == seasonGeneration) episodes else it.episodes,
+                        selectedSeasonId = if (selection == seasonGeneration)
+                            media.seasonId.takeIf { id -> id.isNotBlank() } else it.selectedSeasonId,
+                        episodeError = if (selection == seasonGeneration) null else it.episodeError,
                     )
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                ensureActive()
+                if (released || token != metadataGeneration || media.id != currentId) return@launch
                 if (e is ApiException && e.status == 401) onClose(true)
-                else mutable.update { it.copy(episodeError = "读取剧集信息失败，请重新选择季重试") }
+                else if (selection == seasonGeneration)
+                    mutable.update { it.copy(episodeError = "读取剧集信息失败，请重新选择季重试") }
             }
         }
     }
@@ -633,18 +674,23 @@ class PlaybackController(
     private fun selectSeason(id: String) {
         val media = item ?: return
         if (media.seriesId.isBlank()) return
-        metadataJob?.cancel()
         seasonJob?.cancel()
+        val token = ++seasonGeneration
+        val owner = metadataGeneration
         mutable.update {
             it.copy(selectedSeasonId = id, episodes = emptyList(), episodeError = null)
         }
         seasonJob = scope.launch {
             try {
                 val episodes = api.episodes(media.seriesId, id)
+                ensureActive()
+                if (released || token != seasonGeneration || owner != metadataGeneration || media.id != currentId) return@launch
                 mutable.update { it.copy(episodes = episodes) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                ensureActive()
+                if (released || token != seasonGeneration || owner != metadataGeneration || media.id != currentId) return@launch
                 if (e is ApiException && e.status == 401) onClose(true)
                 else mutable.update { it.copy(episodeError = e.message ?: "读取剧集失败，请重试") }
             }
@@ -654,11 +700,15 @@ class PlaybackController(
     private fun playNextEpisode() {
         val ui = mutable.value
         if (released || ui.loading || ui.error != null || ui.subtitleApplying || ui.subtitleSearchOpen) return
-        val upcoming = next?.takeIf { it.id != currentId } ?: return
+        val upcoming = nextEpisode.state.next?.takeIf { it.id != currentId } ?: return
         playEpisode(upcoming)
     }
 
     private fun playEpisode(media: Media) {
+        val ui = mutable.value
+        if (released || ui.loading || ui.subtitleApplying || ui.subtitleSearchOpen) return
+        val prefetched = nextEpisode.preparedFor(media)
+        episodeVersionHint = EpisodeVersionHint.from(plan?.source ?: item?.sources?.firstOrNull { it.id == sourceId })
         pendingPreference = null
         currentId = media.id
         item = media
@@ -667,7 +717,7 @@ class PlaybackController(
         subtitleIndex = null
         compatible = false
         settingsItemId = null
-        load(0, fetch = true, autoPlay = true, reason = PlaybackLoadReason.INITIAL)
+        load(0, fetch = true, autoPlay = true, reason = PlaybackLoadReason.INITIAL, prefetched = prefetched)
     }
 
     private fun canSelectTrack(type: String, index: Int): Boolean {
@@ -899,7 +949,7 @@ class PlaybackController(
                 replacement = nextPlan
                 currentCoroutineContext().ensureActive()
                 check(matchesSubtitleTarget(target) && nextPlan.sourceId == target.source.id && environment.isCurrent(negotiation))
-                environment.activate(negotiation, nextPlan.transcodeReasons)
+                environment.activate(negotiation, nextPlan.transcodeReasons, nextPlan.source, nextPlan.audioIndex, compatible)
                 val builder = oldItem.buildUpon().setUri(nextPlan.url)
                     .setMimeType(nextPlan.mimeType)
                 builder.setSubtitleConfigurations(nextPlan.subtitles.map { subtitle ->
@@ -907,9 +957,7 @@ class PlaybackController(
                         .setMimeType(subtitle.mime).setLanguage(subtitle.language).setLabel(subtitle.label)
                         .setId(SubtitleTrackId.external(subtitle.index)).build()
                 } + prepared.configuration).build()
-            } else oldItem.buildUpon().setSubtitleConfigurations(
-                oldItem.localConfiguration?.subtitleConfigurations.orEmpty()
-                    .filterNot { LocalSubtitlePlayback.matches(it.id) } + prepared.configuration).build()
+            } else oldItem.buildUpon().setSubtitleConfigurations(listOf(prepared.configuration)).build()
             searchSubtitleApplying = true
             localSubtitle = prepared
             replacement?.let { plan = it }
@@ -950,7 +998,7 @@ class PlaybackController(
                 replacement?.let { reporter.send(it, "Stopped", position * 10_000, true) }
                 if (matchesSubtitleTarget(target)) {
                     plan = oldPlan
-                    oldNegotiation?.let { environment.activate(it, oldPlan.transcodeReasons) }
+                    oldNegotiation?.let { environment.activate(it, oldPlan.transcodeReasons, oldPlan.source, oldPlan.audioIndex, compatible) }
                     PlaybackDiagnostics.plan(diagnosticToken, oldPlan)
                     localSubtitle = oldLocal
                     if (replaced) {
@@ -1006,8 +1054,7 @@ class PlaybackController(
                 val position = player.currentPosition.coerceAtLeast(0)
                 val playing = player.playWhenReady
                 val speed = player.playbackParameters.speed
-                val configurations = mediaItem.localConfiguration?.subtitleConfigurations.orEmpty()
-                    .filterNot { LocalSubtitlePlayback.matches(it.id) } + shifted.configuration
+                val configurations = listOf(shifted.configuration)
                 localSubtitle = shifted
                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
                     .clearOverridesOfType(C.TRACK_TYPE_TEXT).setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false).build()
@@ -1049,6 +1096,7 @@ class PlaybackController(
     }
 
     private fun stopCurrentStream() {
+        speedController.cancel()
         navigation.clear()
         if (plan != null) diagnosticObserver.sample()
         PlaybackDiagnostics.canceled(diagnosticToken)
@@ -1061,6 +1109,7 @@ class PlaybackController(
     }
 
     private fun showError(message: String) {
+        nextEpisode.clear()
         discardSubtitleSearch()
         seekPreview.cancel()
         stopCurrentStream()
@@ -1071,12 +1120,16 @@ class PlaybackController(
         seekPreview.cancel()
         stopCurrentStream()
         mutable.update { it.copy(playing = false, canSeek = false) }
-        val upcoming = next
-        if (upcoming == null || !store.autoNext) {
+        if (!store.autoNext) {
             onClose(false)
             return
         }
+        val generation = playbackGeneration
         countdown = scope.launch {
+            val upcoming = nextEpisode.state.next ?: withTimeoutOrNull(5_000) { nextEpisode.awaitNext() }
+            ensureActive()
+            if (released || generation != playbackGeneration) return@launch
+            if (upcoming == null) { onClose(false); return@launch }
             for (seconds in 8 downTo 1) {
                 mutable.update { it.copy(nextSeconds = seconds, nextItem = upcoming) }
                 delay(1000)
@@ -1122,6 +1175,7 @@ class PlaybackController(
                 val second = android.os.SystemClock.elapsedRealtime() / 1000
                 val ui = mutable.value
                 if (plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration) {
+                    nextEpisode.tick(ui.positionMs, ui.durationMs, player.isPlaying && !ui.loading && ui.error == null)
                     navigation.tick(ui.positionMs, ui.durationMs,
                         !navigationBlocked && player.isPlaying && ui.canSeek && !ui.loading && ui.error == null && !ui.subtitleApplying &&
                             !ui.subtitleSearchOpen && ui.seekPreview?.active != true,
@@ -1143,6 +1197,7 @@ class PlaybackController(
     }
 
     fun onStop() {
+        speedController.cancel()
         environment.stop()
         seekPreview.cancel()
         cancelCountdown()
@@ -1155,6 +1210,9 @@ class PlaybackController(
         subtitleJob?.cancel()
         metadataJob?.cancel()
         seasonJob?.cancel()
+        metadataGeneration++
+        seasonGeneration++
+        nextEpisode.clear()
         stopCurrentStream()
     }
 
@@ -1182,7 +1240,7 @@ class PlaybackController(
         out.putString("source", sourceId)
         out.putBoolean("playing", if (suspendedPlayback) wasPlaying else subtitleSearchResume ?: pendingPlay ?: player.playWhenReady)
         out.putBoolean("compatible", compatible)
-        out.putFloat("speed", player.playbackParameters.speed)
+        out.putFloat("speed", speedController.selectedSpeed)
         out.putInt("audio", audioIndex ?: -1)
         subtitleIndex?.let { out.putInt("subtitle", it) }
         out.putInt("bitrate", bitrate)
@@ -1191,7 +1249,9 @@ class PlaybackController(
     fun release() {
         seekPreview.cancel()
         if (released) return
+        speedController.cancel()
         released = true
+        nextEpisode.clear()
         environment.stop()
         player.removeAnalyticsListener(diagnosticObserver)
         discardSubtitleSearch()

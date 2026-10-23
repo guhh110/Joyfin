@@ -23,12 +23,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import dev.joyfin.playback.PlayerActions
+import dev.joyfin.playback.PlayerDeviceControls
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.playback.SeekInput
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.player.components.*
 import dev.joyfin.ui.features.player.mobile.MobilePlayerLayout
+import dev.joyfin.ui.features.player.mobile.PlayerDeviceGestureFeedback
+import dev.joyfin.ui.features.player.mobile.PlayerSpeedBoostFeedback
+import dev.joyfin.ui.features.player.mobile.rememberPlayerDeviceGestures
 import dev.joyfin.ui.features.player.tv.TvPlayerLayout
 import dev.joyfin.ui.features.player.tv.TvSkipOffer
 import dev.joyfin.ui.features.player.mobile.MobileSkipOffer
@@ -40,7 +44,7 @@ import kotlinx.coroutines.flow.first
 
 /** Presentation only: never creates a player, requests an API or submits playback reports. */
 @Composable
-fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
+fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions, deviceControls: PlayerDeviceControls? = null) {
     var visible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
     var lockControlsVisible by remember { mutableStateOf(false) }
@@ -63,6 +67,14 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
         }
     }
     val tv = LocalDeviceLayout.current.television
+    val deviceGesturesEnabled = !tv && deviceControls != null && !locked && panel == null &&
+        !ui.subtitleSearchOpen && ui.error == null && ui.nextSeconds == 0
+    val deviceGestures = rememberPlayerDeviceGestures(deviceControls, deviceGesturesEnabled)
+    val verticalActions = remember(deviceGestures) {
+        PlayerVerticalGestureActions(deviceGestures::begin, deviceGestures::dragBy, deviceGestures::end)
+    }
+    val speedBoostEnabled = !tv && !locked && panel == null && !ui.subtitleSearchOpen &&
+        !ui.subtitleApplying && ui.error == null && ui.nextSeconds == 0 && (ui.playing || ui.speedBoosting)
     val fontScale = LocalDensity.current.fontScale.coerceIn(1f, 2f)
     DisposableEffect(panel, actions.setNavigationBlocked) {
         actions.setNavigationBlocked(panel != null)
@@ -177,7 +189,8 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
         ) {
             VideoGestureSurface(
                 visible,
-                ui.canSeek && !ui.loading && ui.error == null && panel == null,
+                ui.canSeek && !ui.loading && ui.error == null && panel == null &&
+                    !ui.subtitleSearchOpen && ui.nextSeconds == 0,
                 actions.preview,
                 { touch() },
                 {
@@ -191,6 +204,9 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
                 onLockedTap = {
                     lockControlsVisible = true
                 },
+                verticalActions = verticalActions.takeIf { deviceGesturesEnabled },
+                speedBoost = actions.speedBoost.takeIf { speedBoostEnabled },
+                gestureKey = ui.itemId to ui.sourceId,
             )
             val showControls = !locked && (visible || panel != null || ui.error != null || ui.nextSeconds > 0)
             PlayerControlsExitHost(visible = showControls) {
@@ -236,6 +252,11 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions) {
             ui.seekPreview?.takeUnless { locked }?.let { preview ->
                 SeekTooltip(preview, Modifier.align(Alignment.Center).offset(y = (-100).dp))
             }
+            deviceGestures.level?.takeIf { deviceGesturesEnabled }?.let { level ->
+                PlayerDeviceGestureFeedback(level, Modifier.align(Alignment.Center).safeDrawingPadding())
+            }
+            if (ui.speedBoosting && speedBoostEnabled)
+                PlayerSpeedBoostFeedback(ui.speed, Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 72.dp))
             if (ui.nextSeconds > 0 && ui.nextItem != null && !locked)
                 Popup(
                     alignment = Alignment.BottomEnd,

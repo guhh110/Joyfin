@@ -250,7 +250,8 @@ class JellyfinApi(
             )
         }
 
-    suspend fun items(parent: String? = null, search: String? = null, start: Int = 0): MediaPage =
+    suspend fun items(parent: String? = null, search: String? = null, start: Int = 0,
+        libraryOptions: LibraryBrowseOptions? = null, worksOnly: Boolean = false): MediaPage =
         withContext(Dispatchers.Default) {
             val searching = !search.isNullOrBlank()
             service()
@@ -261,12 +262,17 @@ class JellyfinApi(
                         "StartIndex" to start,
                         "Limit" to 40,
                         "Fields" to browseFields,
-                        "SortBy" to "SortName",
-                        "SortOrder" to "Ascending",
+                        "SortBy" to (libraryOptions?.sortBy ?: "SortName"),
+                        "SortOrder" to (libraryOptions?.sortOrder ?: "Ascending"),
+                        "IsPlayed" to libraryOptions?.watched?.played,
                         "ParentId" to parent,
                         "SearchTerm" to search?.takeIf { searching },
-                        "Recursive" to true.takeIf { searching },
-                        "IncludeItemTypes" to "Movie,Series,Episode".takeIf { searching },
+                        "Recursive" to true.takeIf { searching || worksOnly },
+                        "IncludeItemTypes" to when {
+                            searching -> "Movie,Series,Episode"
+                            worksOnly -> "Movie,Series,Video,MusicVideo"
+                            else -> null
+                        },
                     ),
                 )
                 .value()
@@ -385,9 +391,23 @@ class JellyfinApi(
 
     suspend fun nextEpisode(current: Media): Media? {
         if (current.type != "Episode" || current.seriesId.isBlank()) return null
-        val all = episodes(current.seriesId)
-        val index = all.indexOfFirst { it.id == current.id }
-        return if (index >= 0) all.getOrNull(index + 1) else null
+        return withContext(Dispatchers.Default) {
+            // Keep the server's series viewing order (including cross-season transitions),
+            // but only transfer the current and following episode, without playback sources.
+            val rows = service().episodes(authorization(), current.seriesId, params(
+                "UserId" to requireSession().userId,
+                "StartItemId" to current.id,
+                "Limit" to 2,
+                "IsMissing" to false,
+                "Fields" to "ParentId",
+                "EnableImages" to false,
+                "EnableUserData" to false,
+            )).value().toMediaPage().items
+            if (rows.firstOrNull()?.id != current.id) null else rows.getOrNull(1)?.takeIf {
+                it.id != current.id && it.type == "Episode" &&
+                    (it.seriesId.isBlank() || it.seriesId == current.seriesId)
+            }
+        }
     }
 
     fun image(media: Media): String =
@@ -558,11 +578,7 @@ class JellyfinApi(
             }
         val subtitles =
             source.streams.mapNotNull { track ->
-                if (
-                    track.type != "Subtitle" ||
-                        track.index < 0 ||
-                        track.deliveryMethod.equals("Encode", true)
-                )
+                if (!SubtitleDelivery.needsExternalSource(track, selectedSubtitle, direct, source.container))
                     return@mapNotNull null
                 val format = SubtitleDelivery.externalFormat(track) ?: return@mapNotNull null
                 Subtitle(

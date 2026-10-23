@@ -77,6 +77,7 @@ data class PlaybackDiagnosticSnapshot(
     val actualOutput: PlaybackOutputSnapshot? = null,
     val sourceSpatial: String = "未提供",
     val timing: PlaybackTimingSnapshot = PlaybackTimingSnapshot(),
+    val network: PlaybackNetworkSnapshot = PlaybackNetworkSnapshot(),
 )
 
 /** Process-local last playback only. Tokens isolate canceled requests and previous players. */
@@ -88,6 +89,8 @@ object PlaybackDiagnostics {
     private var pendingPlayer = false
     private var startedAt = 0L
     private var timing = PlaybackTimingTracker(0)
+    private var network = PlaybackNetworkTracker(0)
+    private var generation = -1L
     private fun nowMs() = System.nanoTime() / 1_000_000
 
     @Synchronized fun begin(itemId: String, preflight: Boolean = false): Long {
@@ -95,6 +98,9 @@ object PlaybackDiagnostics {
         pendingPlayer = preflight
         startedAt = System.nanoTime()
         timing = PlaybackTimingTracker(nowMs())
+        network.stop(nowMs())
+        network = PlaybackNetworkTracker(nowMs())
+        generation = -1
         val id = ++sequence
         mutable.value = PlaybackDiagnosticSnapshot(id = id, state = DiagnosticPlayerState.PREPARING)
         event(id, DiagnosticStage.METADATA, DiagnosticOutcome.RUNNING)
@@ -109,6 +115,9 @@ object PlaybackDiagnostics {
         target = ""; pendingPlayer = false
         mutable.value = PlaybackDiagnosticSnapshot()
         timing = PlaybackTimingTracker(nowMs())
+        network.stop(nowMs())
+        network = PlaybackNetworkTracker(nowMs())
+        generation = -1
     }
     @Synchronized private fun update(id: Long, transform: (PlaybackDiagnosticSnapshot) -> PlaybackDiagnosticSnapshot) {
         if (id != 0L && mutable.value.id == id) mutable.value = transform(mutable.value)
@@ -154,8 +163,10 @@ object PlaybackDiagnostics {
     fun canceled(id: Long) {
         update(id) {
             timing.stop(nowMs())
+            network.stop(nowMs())
+            generation = -1
             it.copy(state = if (it.failure == null) DiagnosticPlayerState.STOPPED else it.state,
-                timing = timing.snapshot(nowMs()))
+                timing = timing.snapshot(nowMs()), network = network.snapshot(nowMs()))
         }
         val current = mutable.value
         if (current.id == id && current.events.lastOrNull()?.outcome == DiagnosticOutcome.RUNNING)
@@ -166,11 +177,14 @@ object PlaybackDiagnostics {
         it.copy(state = if (it.failure != null) DiagnosticPlayerState.FAILED else value,
             positionMs = positionMs.coerceAtLeast(0) / 1000 * 1000, bufferMs = bufferMs.coerceAtLeast(0) / 1000 * 1000,
             outputVideo = video?.diagnosticFormat() ?: it.outputVideo,
-            outputAudio = audio?.diagnosticFormat() ?: it.outputAudio, timing = timing.snapshot(nowMs()))
+            outputAudio = audio?.diagnosticFormat() ?: it.outputAudio, timing = timing.snapshot(nowMs()),
+            network = network.snapshot(nowMs()))
     }
     internal fun attempt(id: Long, generation: Long, reason: PlaybackLoadReason, positionMs: Long) = update(id) {
         timing.attempt(generation, nowMs(), positionMs, reason)
-        it.copy(timing = timing.snapshot(nowMs()))
+        this.generation = generation
+        network.begin(generation, nowMs())
+        it.copy(timing = timing.snapshot(nowMs()), network = network.snapshot(nowMs()))
     }
     internal fun firstFrame(id: Long, generation: Long) = update(id) {
         timing.firstFrame(generation, nowMs())
@@ -190,7 +204,22 @@ object PlaybackDiagnostics {
             ?: "播放器解码器"
         if (video) it.copy(videoDecoder = safe) else it.copy(audioDecoder = safe)
     }
-    fun bandwidth(id: Long, bitrate: Long) = update(id) { it.copy(bandwidth = bitrate.coerceAtLeast(0)) }
+    fun bandwidth(id: Long, generation: Long, bitrate: Long, loadMs: Int, bytes: Long) = update(id) {
+        if (this.generation != generation) it else {
+            network.bandwidth(nowMs(), loadMs, bytes, bitrate)
+            it.copy(bandwidth = bitrate.coerceAtLeast(0), network = network.snapshot(nowMs()))
+        }
+    }
+    @Synchronized internal fun httpStarted(id: Long, generation: Long, position: Long, length: Long,
+        purpose: HttpReadPurpose = HttpReadPurpose.OTHER): HttpReadMeter? {
+        if (id == 0L || id != mutable.value.id || this.generation != generation) return null
+        val meter = network.open(generation, nowMs(), position, length, purpose)
+        mutable.value = mutable.value.copy(network = network.snapshot(nowMs()))
+        return meter
+    }
+    internal fun httpChanged(id: Long, generation: Long) = update(id) {
+        if (this.generation != generation) it else it.copy(network = network.snapshot(nowMs()))
+    }
     fun negotiation(id: Long, value: PlaybackNegotiation) = update(id) {
         it.copy(decision = value.decision, displayCapabilities = value.capabilities.display.description,
             reasons = value.decision.reasons)
@@ -210,7 +239,7 @@ private fun selectionLabel(compatible: Boolean, audioOnly: Boolean, automaticFal
     else -> "自动"
 }
 
-private fun diagnosticFailure(error: Throwable): DiagnosticFailure {
+internal fun diagnosticFailure(error: Throwable): DiagnosticFailure {
     val causes = generateSequence(error) { it.cause }.take(8).toList()
     val status = causes.firstNotNullOfOrNull {
         when (it) { is ApiException -> it.status; is HttpDataSource.InvalidResponseCodeException -> it.responseCode; else -> null }
@@ -276,7 +305,7 @@ fun diagnosticTime(value: Long): String = String.format(Locale.ROOT, "%d:%02d", 
 fun diagnosticElapsed(value: Long): String = String.format(Locale.ROOT, "%.3f s", value.coerceAtLeast(0) / 1000.0)
 
 fun PlaybackDiagnosticSnapshot.report(): String = buildString {
-    appendLine("Joyfin 播放诊断 v3")
+    appendLine("Joyfin 播放诊断 v5")
     appendLine("应用版本：${BuildConfig.VERSION_NAME} · Android ${Build.VERSION.SDK_INT}")
     appendLine("状态：${state.label}；阶段：${stage.label}")
     appendLine("播放方式：$method；策略：$selection")
@@ -299,7 +328,8 @@ fun PlaybackDiagnosticSnapshot.report(): String = buildString {
     appendLine("网络带宽估算：${diagnosticBitrate(bandwidth)}")
     appendLine("播放位置：${diagnosticTime(positionMs)}；已缓冲：${bufferMs / 1000} 秒")
     timing.reportLines().forEach { appendLine(it) }
-    appendLine("转码原因：${reasons.takeIf { it.isNotEmpty() }?.joinToString("、") ?: "服务端未提供"}")
+    network.reportLines().forEach { appendLine(it) }
+    appendLine("兼容与协商说明：${reasons.takeIf { it.isNotEmpty() }?.joinToString("、") ?: "未记录兼容处理"}")
     failure?.let { appendLine("当前错误：${it.description}") }
     appendLine("最近阶段记录（最多 30 条）：")
     events.forEach { appendLine("+${diagnosticElapsed(it.elapsedMs)} ${it.stage.label} · ${it.outcome.label}${it.failure?.let { error -> " · ${error.description}" }.orEmpty()}") }

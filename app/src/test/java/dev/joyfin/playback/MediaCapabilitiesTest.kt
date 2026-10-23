@@ -5,6 +5,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MediaCapabilitiesTest {
+    @Test fun nativeAssSelectionUsesUniqueLanguageAndTitleBeforeTheWithinFormatOrdinal() {
+        val streams = listOf(MediaStream(type = "Subtitle", index = 7, codec = "ass", language = "zho", title = "简体"),
+            MediaStream(type = "Subtitle", index = 12, codec = "ass", language = "zho", title = "繁体"),
+            MediaStream(type = "Subtitle", index = 15, codec = "subrip", external = true))
+        val tracks = listOf(EmbeddedSubtitleMatcher.Track("text/x-ssa", "zho", "繁体"),
+            EmbeddedSubtitleMatcher.Track("text/x-ssa", "zho", "简体"))
+        assertEquals(1, EmbeddedSubtitleMatcher.find(7, streams, tracks))
+        assertEquals(0, EmbeddedSubtitleMatcher.find(12, streams, tracks))
+        assertNull(EmbeddedSubtitleMatcher.find(15, streams, tracks))
+    }
+
     @Test
     fun audioRendererOrderDoesNotSelectAacWhenServerSelectedDtsHd() {
         val streams =

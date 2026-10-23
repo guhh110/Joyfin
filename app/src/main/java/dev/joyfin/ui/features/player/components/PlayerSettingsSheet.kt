@@ -206,6 +206,12 @@ fun PlayerSettingsSheet(
                             modifier = Modifier.focusTarget("player:episode-season"),
                             icon = Glyph.Down,
                         )
+                        Caption(ui.nextPreparationError ?: ui.nextItem?.let { "下一集：${it.label}" }
+                            ?: if (ui.nextPreparing) " " else "暂无下一集")
+                        ActionButton("准备下一集", actions.retryNext,
+                            Modifier.focusTarget("player:next-preparation"),
+                            enabled = ui.nextPreparationError != null && !ui.nextPreparing,
+                            loading = ui.nextPreparing, maxLines = 1)
                         if (ui.episodeError != null) {
                             Caption(ui.episodeError)
                             ActionButton(

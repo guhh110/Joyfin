@@ -4,6 +4,7 @@ package dev.joyfin
 
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.WindowManager
@@ -22,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.ui.PlayerView
 import dev.joyfin.playback.PlaybackController
+import dev.joyfin.playback.AndroidPlayerDeviceControls
 import dev.joyfin.ui.features.player.PlayerRoute
 import dev.joyfin.ui.features.player.PlayerSubtitleSearchRoute
 import dev.joyfin.ui.theme.BoundlessTheme
@@ -39,6 +41,12 @@ class PlayerActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         controller =
             PlaybackController(
@@ -63,24 +71,26 @@ class PlayerActivity : ComponentActivity() {
                 setShutterBackgroundColor(Color.BLACK)
             }
         frame.addView(video, FrameLayout.LayoutParams(-1, -1))
+        val deviceControls = AndroidPlayerDeviceControls(this)
         frame.addView(
             ComposeView(this).apply {
                 setContent {
                     val ui by controller.state.collectAsStateWithLifecycle()
                     BoundlessTheme {
-                        PlayerRoute(ui, controller.actions)
+                        PlayerRoute(ui, controller.actions, deviceControls)
                         PlayerSubtitleSearchRoute(controller.subtitleSearch)
                     }
                 }
             },
             FrameLayout.LayoutParams(-1, -1),
         )
-        ViewCompat.setOnApplyWindowInsetsListener(frame) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(frame) { _, insets ->
             val safe =
                 insets.getInsets(
                     WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.systemBars()
                 )
-            view.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            // Keep the video edge-to-edge; only subtitle content needs a safe viewport.
+            video.subtitleView?.setPadding(safe.left, safe.top, safe.right, safe.bottom)
             insets
         }
         setContentView(frame)

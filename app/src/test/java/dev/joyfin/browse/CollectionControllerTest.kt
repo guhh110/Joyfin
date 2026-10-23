@@ -12,6 +12,7 @@ import org.junit.Test
 
 class CollectionControllerTest {
     private class Fixture(scope: CoroutineScope, server: MockWebServer) {
+        val saved = mutableMapOf<String?, LibraryBrowseOptions>()
         val detail =
             DetailUiState(
                 item = Media("movie", "Movie", "Movie"),
@@ -26,7 +27,8 @@ class CollectionControllerTest {
             }
         private val requests = PageRequests(scope, state, { true }, { error("unexpected expiry") })
         private val navigation = NavigationController(state, requests, {}, {}, {}, {}, {}, {})
-        val controller = CollectionController(api, state, requests, navigation::push)
+        val controller = CollectionController(api, state, requests, navigation::push,
+            { saved[it] ?: LibraryBrowseOptions() }, { parent, value -> saved[parent] = value })
 
         suspend fun loaded(): CollectionUiState =
             withTimeout(5000) { state.first { !it.collection.busy }.collection }
@@ -144,6 +146,85 @@ class CollectionControllerTest {
             val appendRequest = server.takeRequest()
             assertEquals("2", appendRequest.requestUrl?.queryParameter("StartIndex"))
             assertEquals(f.detail, f.state.value.detail)
+        }
+    }
+
+    @Test fun libraryOptionsResetPagingPersistPerLibraryAndApplyToEveryPage() = runBlocking {
+        MockWebServer().use { server ->
+            fun response(id: String) = MockResponse().setBody("""{"Items":[{"Id":"$id","Type":"Movie"}],"TotalRecordCount":4}""")
+            server.enqueue(response("old"))
+            server.enqueue(response("filtered"))
+            server.enqueue(response("more"))
+            server.enqueue(response("other"))
+            server.enqueue(response("restored"))
+            val f = Fixture(this, server)
+            f.controller.library("one", worksOnly = true)
+            f.loaded()
+            val initial = server.takeRequest().requestUrl!!
+            assertEquals("DateCreated,SortName", initial.queryParameter("SortBy"))
+            val options = LibraryBrowseOptions(LibrarySort.RATING, false, LibraryWatched.UNWATCHED)
+            f.controller.arrangeLibrary(options)
+            assertTrue(f.state.value.collection.media.isEmpty())
+            assertEquals(0, f.state.value.collection.nextOffset)
+            assertEquals(listOf("filtered"), f.loaded().media.map { it.id })
+            f.controller.loadItems(true)
+            assertEquals(listOf("filtered", "more"), f.loaded().media.map { it.id })
+            val pages = listOf(server.takeRequest().requestUrl!!, server.takeRequest().requestUrl!!)
+            assertEquals(listOf("0", "1"), pages.map { it.queryParameter("StartIndex") })
+            pages.forEach {
+                assertEquals("one", it.queryParameter("ParentId"))
+                assertEquals("CommunityRating,SortName", it.queryParameter("SortBy"))
+                assertEquals("Ascending", it.queryParameter("SortOrder"))
+                assertEquals("false", it.queryParameter("IsPlayed"))
+                assertEquals("true", it.queryParameter("Recursive"))
+                assertEquals("Movie,Series,Video,MusicVideo", it.queryParameter("IncludeItemTypes"))
+            }
+            f.controller.library("two"); f.loaded()
+            assertEquals(LibraryBrowseOptions(), f.state.value.collection.libraryOptions)
+            f.controller.library("one"); f.loaded()
+            assertEquals(options, f.state.value.collection.libraryOptions)
+            assertEquals(options, f.saved["one"])
+        }
+    }
+
+    @Test fun rootDirectoriesRemainUnfilteredWhileAllMediaUsesRecursiveWorksAndItsOwnPreference() = runBlocking {
+        MockWebServer().use { server ->
+            repeat(2) { server.enqueue(MockResponse().setBody("""{"Items":[],"TotalRecordCount":0}""")) }
+            val f = Fixture(this, server)
+            val options = LibraryBrowseOptions(watched = LibraryWatched.WATCHED)
+            f.saved[null] = options
+            f.controller.library(); f.loaded()
+            assertFalse(f.state.value.collection.canArrangeLibrary)
+            f.controller.arrangeLibrary(options.copy(descending = false))
+            val root = server.takeRequest().requestUrl!!
+            assertEquals("SortName", root.queryParameter("SortBy"))
+            assertNull(root.queryParameter("IsPlayed"))
+            assertNull(root.queryParameter("Recursive"))
+            f.controller.library(title = "全部媒体", worksOnly = true); f.loaded()
+            assertTrue(f.state.value.collection.canArrangeLibrary)
+            val all = server.takeRequest().requestUrl!!
+            assertEquals("true", all.queryParameter("Recursive"))
+            assertEquals("Movie,Series,Video,MusicVideo", all.queryParameter("IncludeItemTypes"))
+            assertEquals("true", all.queryParameter("IsPlayed"))
+        }
+    }
+
+    @Test fun changingSortCancelsAnOldAppendAndKeepsTheNewResult() = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"first","Type":"Movie"}],"TotalRecordCount":3}"""))
+            server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"stale","Type":"Movie"}],"TotalRecordCount":3}""")
+                .setHeadersDelay(200, java.util.concurrent.TimeUnit.MILLISECONDS))
+            server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"new","Type":"Movie"}],"TotalRecordCount":1}"""))
+            val f = Fixture(this, server)
+            f.controller.library("one"); f.loaded(); server.takeRequest()
+            f.controller.loadItems(true)
+            withContext(Dispatchers.IO) { server.takeRequest() }
+            f.controller.arrangeLibrary(LibraryBrowseOptions(sort = LibrarySort.YEAR))
+            assertEquals(listOf("new"), f.loaded().media.map { it.id })
+            delay(250)
+            assertEquals(listOf("new"), f.state.value.collection.media.map { it.id })
+            assertEquals(1, f.state.value.collection.nextOffset)
+            assertFalse(f.state.value.collection.appending)
         }
     }
 }

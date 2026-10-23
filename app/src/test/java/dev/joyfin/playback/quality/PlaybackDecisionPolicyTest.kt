@@ -96,6 +96,32 @@ class PlaybackDecisionPolicyTest {
         assertEquals(AudioPath.PASSTHROUGH, decision(requirements = requirements(speed = 1f)).audioPath)
     }
 
+    @Test fun speedCanChangeWithoutReopeningAlreadyDecodedPcm() {
+        for (software in listOf(false, true)) {
+            val caps = capabilities(mapOf("dts" to allPaths.copy(passthroughChannels = 0,
+                platformChannels = if (software) 0 else 8)))
+            val normal = decision(capabilities = caps)
+            val fast = decision(capabilities = caps, requirements = requirements(speed = 2f))
+            assertTrue(PlaybackDecisionPolicy.canChangeSpeedInPlace(normal, fast))
+            assertTrue(PlaybackDecisionPolicy.canChangeSpeedInPlace(fast, normal))
+        }
+    }
+
+    @Test fun temporarySpeedStillRequiresTransitionOutOfAndBackIntoPassthrough() {
+        val normal = decision()
+        val fast = decision(requirements = requirements(speed = 2f))
+        assertFalse(PlaybackDecisionPolicy.canChangeSpeedInPlace(normal, fast))
+        assertFalse(PlaybackDecisionPolicy.canChangeSpeedInPlace(fast, normal))
+    }
+
+    @Test fun silentVideoCanChangeSpeedWithoutChangingItsVideoPath() {
+        val source = source().let { it.copy(streams = it.streams.filter { track -> track.type != "Audio" }) }
+        val normal = decision(source)
+        val fast = decision(source, requirements = requirements(speed = 2f))
+        assertTrue(PlaybackDecisionPolicy.canChangeSpeedInPlace(normal, fast))
+        assertFalse(PlaybackDecisionPolicy.canChangeSpeedInPlace(normal, fast.copy(videoPath = VideoPath.TRANSCODE)))
+    }
+
     @Test fun forcedSoftwareDoesNotReturnToTheFailedPlatformDecoder() {
         val result = decision(capabilities = capabilities(mapOf("dts" to allPaths.copy(softwareChannels = 0))),
             requirements = requirements(forceSoftware = true))

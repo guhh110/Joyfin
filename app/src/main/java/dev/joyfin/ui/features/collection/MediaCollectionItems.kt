@@ -31,7 +31,7 @@ internal fun LazyGridScope.mediaCollectionItems(
                     ui.error.takeUnless { ui.appending },
                     actions.retry,
                     true,
-                    requestKey = Triple(ui.parent, ui.query, ui.person?.id),
+                    requestKey = listOf(ui.parent, ui.query, ui.person?.id, ui.libraryOptions, ui.worksOnly),
                     reserveSpace = false,
                 )
             }
@@ -66,7 +66,9 @@ internal fun LazyGridScope.mediaCollectionItems(
             val (emptyTitle, emptyDesc) = when (ui.kind) {
                 CollectionKind.SEARCH -> "没有找到相关作品" to "换一个片名、剧名或更短的关键词试试。"
                 CollectionKind.PERSON -> "暂无参演作品" to "服务器中暂无此人物的相关收录作品。"
-                CollectionKind.LIBRARY -> "这里还没有内容" to "在服务器中添加媒体后，重新进入此页面查看。"
+                CollectionKind.LIBRARY -> if (ui.canArrangeLibrary && ui.libraryOptions.watched != dev.joyfin.data.LibraryWatched.ALL)
+                    "没有符合条件的作品" to "可将观看状态切回“全部”，查看这个媒体库的其他内容。"
+                    else "这里还没有内容" to "在服务器中添加媒体后，重新进入此页面查看。"
             }
             EmptyContent(emptyTitle, emptyDesc)
         }

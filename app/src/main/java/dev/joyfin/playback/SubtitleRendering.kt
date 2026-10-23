@@ -3,9 +3,11 @@
 package dev.joyfin.playback
 
 import androidx.media3.datasource.DataSource
+import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.SubtitleView
@@ -25,19 +27,22 @@ class SubtitleRendering {
         builder: ExoPlayer.Builder,
         dataSource: DataSource.Factory,
         renderers: DefaultRenderersFactory,
+        dataSourceForItem: (MediaItem) -> DataSource.Factory = { dataSource },
     ): ExoPlayer.Builder {
         val parser = AssSubtitleParserFactory(handler)
+        val factory = DefaultMediaSourceFactory(dataSource,
+            DefaultExtractorsFactory().setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)
+                .withAssMkvSupport(parser, handler)).setSubtitleParserFactory(parser)
         return builder
             .setMediaSourceFactory(
-                DefaultMediaSourceFactory(
-                        dataSource,
-                        DefaultExtractorsFactory()
-                            .setTsExtractorFlags(
-                                DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS
-                            )
-                            .withAssMkvSupport(parser, handler),
-                    )
-                    .setSubtitleParserFactory(parser)
+                object : MediaSource.Factory by factory {
+                    // ExoPlayer creates sources on its application thread. Each source retains
+                    // its own factory, including HLS children and local-subtitle rebuilds.
+                    override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+                        factory.setDataSourceFactory(dataSourceForItem(mediaItem))
+                        return factory.createMediaSource(mediaItem)
+                    }
+                }
             )
             .setRenderersFactory(
                 renderers.withAssSupport(handler)

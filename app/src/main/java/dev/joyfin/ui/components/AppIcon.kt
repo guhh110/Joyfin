@@ -28,6 +28,7 @@ enum class Glyph {
     List,
     Settings,
     Audio,
+    Brightness,
     Subtitle,
     Info,
     Refresh,
@@ -162,6 +163,14 @@ fun AppIcon(glyph: Glyph, modifier: Modifier = Modifier, color: Color = Palette.
                     p.close()
                     p.moveTo(17f, 8f)
                     p.cubicTo(21f, 10f, 21f, 14f, 17f, 16f)
+                }
+                Glyph.Brightness -> {
+                    drawCircle(color, 4f, androidx.compose.ui.geometry.Offset(12f, 12f), style = Stroke(1.6f))
+                    for (ray in 0 until 8) {
+                        val angle = ray * kotlin.math.PI / 4.0
+                        p.moveTo(12f + kotlin.math.cos(angle).toFloat() * 7f, 12f + kotlin.math.sin(angle).toFloat() * 7f)
+                        p.lineTo(12f + kotlin.math.cos(angle).toFloat() * 10f, 12f + kotlin.math.sin(angle).toFloat() * 10f)
+                    }
                 }
                 Glyph.Subtitle -> {
                     p.moveTo(3f, 5f)

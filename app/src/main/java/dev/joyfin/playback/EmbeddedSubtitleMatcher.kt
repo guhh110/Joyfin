@@ -17,16 +17,11 @@ object EmbeddedSubtitleMatcher {
         val mime = SubtitleDelivery.mime(target.codec) ?: return null
         val peers = embedded.filter { SubtitleDelivery.mime(it.codec) == mime }
         val runtimePeers = tracks.indices.filter { tracks[it].mime == mime }
-        // Renderer assignment can reorder formats. Preserve order within a format only.
-        if (peers.size == runtimePeers.size) return runtimePeers.getOrNull(peers.indexOf(target))
-        if (
-            embedded.count {
-                SubtitleDelivery.mime(it.codec) == SubtitleDelivery.mime(target.codec) &&
-                    (target.language.isBlank() || target.language.equals(it.language, true)) &&
+        val uniqueSource =
+            peers.count {
+                (target.language.isBlank() || target.language.equals(it.language, true)) &&
                     (target.title.isBlank() || target.title == it.title)
-            } != 1
-        )
-            return null
+            } == 1
         val matches =
             tracks.indices.filter { i ->
                 val track = tracks[i]
@@ -34,6 +29,9 @@ object EmbeddedSubtitleMatcher {
                     (target.language.isBlank() || target.language.equals(track.language, true)) &&
                     (target.title.isBlank() || target.title == track.label)
             }
-        return matches.singleOrNull()
+        if (uniqueSource && matches.size == 1) return matches.single()
+        // When runtime metadata is absent, retain the existing within-format ordinal mapping.
+        if (peers.size == runtimePeers.size) return runtimePeers.getOrNull(peers.indexOf(target))
+        return null
     }
 }

@@ -159,7 +159,7 @@ internal fun LazyListScope.homeRails(
                 images,
                 actions,
                 retry = { actions.retryHome(HomeRegion.LATEST) },
-                onMore = { actions.library(null, "全部媒体") },
+                onMore = actions.allMedia,
             )
         }
         else -> {

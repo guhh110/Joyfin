@@ -6,6 +6,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SubtitleDeliveryTest {
+    @Test fun mkvTextSubtitlesUseTheNativeDemuxerAndKeepExternalFallbackForOtherContainers() {
+        for (codec in listOf("ass", "ssa", "srt", "subrip", "vtt", "webvtt")) {
+            val track = MediaStream(type = "Subtitle", index = 7, codec = codec)
+            assertTrue(SubtitleDelivery.embedded(track, "mkv"))
+            assertTrue(SubtitleDelivery.embedded(track, "matroska"))
+            assertFalse(SubtitleDelivery.embedded(track, "mp4"))
+            assertFalse(SubtitleDelivery.embedded(track.copy(external = true), "mkv"))
+            assertTrue(SubtitleDelivery.profiles().any { it.format == codec && it.method == "Embed" && it.container == "mkv,matroska" })
+            assertTrue(SubtitleDelivery.profiles().any { it.format == codec && it.method == "External" })
+        }
+    }
+
+    @Test fun independentSourcesAreLimitedToTheSelectedSubtitleAndRemovedForOffOrNativePlayback() {
+        val track = MediaStream(type = "Subtitle", index = 7, codec = "ass")
+        assertFalse(SubtitleDelivery.needsExternalSource(track, -1, true, "mkv"))
+        assertFalse(SubtitleDelivery.needsExternalSource(track, 2, false, "mkv"))
+        assertFalse(SubtitleDelivery.needsExternalSource(track, 7, true, "mkv"))
+        assertTrue(SubtitleDelivery.needsExternalSource(track, 7, false, "mkv"))
+        assertTrue(SubtitleDelivery.needsExternalSource(track.copy(external = true), 7, true, "mkv"))
+        assertTrue(SubtitleDelivery.needsExternalSource(track, 7, true, "mp4"))
+        assertFalse(SubtitleDelivery.needsExternalSource(track.copy(deliveryMethod = "Encode"), 7, false, "mkv"))
+    }
+
     @Test
     fun textConversionIsNotVideoBurnInAndUsesTheServersDeliveryFormat() {
         val sami =

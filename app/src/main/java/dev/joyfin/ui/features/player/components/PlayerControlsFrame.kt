@@ -35,6 +35,7 @@ internal fun PlayerControlsFrame(
                         )
                     )
                 )
+                .safeDrawingPadding()
                 .padding(horizontal = horizontalPadding, vertical = 14.dp)
         ) {
             PlayerHeader(ui, actions, onPanel, Modifier.align(Alignment.TopStart))

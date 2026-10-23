@@ -56,7 +56,9 @@ internal class PlaybackDiagnosticsObserver(
 
     override fun onBandwidthEstimate(eventTime: AnalyticsListener.EventTime, totalLoadTimeMs: Int,
         totalBytesLoaded: Long, bitrateEstimate: Long) {
-        if (accepts(eventTime)) PlaybackDiagnostics.bandwidth(token(), bitrateEstimate)
+        if (accepts(eventTime)) generation(eventTime)?.let {
+            PlaybackDiagnostics.bandwidth(token(), it, bitrateEstimate, totalLoadTimeMs, totalBytesLoaded)
+        }
     }
     override fun onVideoDecoderInitialized(eventTime: AnalyticsListener.EventTime, decoderName: String,
         initializedTimestampMs: Long, initializationDurationMs: Long) {

@@ -7,9 +7,15 @@ object SubtitleDelivery {
     val externalCodecs = listOf("srt", "subrip", "vtt", "webvtt", "ass", "ssa", "ttml")
     val bitmapCodecs = listOf("pgssub", "dvdsub", "dvbsub")
 
-    // These demuxers deliver bitmap samples and required codec initialization data to Media3.
+    // MKV text samples are parsed by Media3/libass, including the file's embedded ASS fonts.
     private val embeddedContainers =
         mapOf(
+            "ass" to listOf("mkv", "matroska"),
+            "ssa" to listOf("mkv", "matroska"),
+            "srt" to listOf("mkv", "matroska"),
+            "subrip" to listOf("mkv", "matroska"),
+            "vtt" to listOf("mkv", "matroska"),
+            "webvtt" to listOf("mkv", "matroska"),
             "pgssub" to listOf("mkv", "matroska"),
             "dvdsub" to listOf("mkv", "matroska"),
             "dvbsub" to listOf("mkv", "matroska", "ts", "mpegts", "m2ts"),
@@ -18,10 +24,10 @@ object SubtitleDelivery {
         )
 
     fun profiles(): List<SubtitleProfile> =
-        externalCodecs.map { SubtitleProfile(it, "External") } +
-            embeddedContainers.map { (codec, containers) ->
-                SubtitleProfile(codec, "Embed", containers.joinToString(","))
-            } +
+        embeddedContainers.map { (codec, containers) ->
+            SubtitleProfile(codec, "Embed", containers.joinToString(","))
+        } +
+            externalCodecs.map { SubtitleProfile(it, "External") } +
             bitmapCodecs.map { SubtitleProfile(it, "Encode") }
 
     fun embedded(track: MediaStream, container: String): Boolean =
@@ -58,6 +64,11 @@ object SubtitleDelivery {
         format(track.deliveryUrl.substringBefore('?').substringAfterLast('.'))
             ?: format(track.codec)
             ?: if (track.textSubtitle) format("srt") else null
+
+    /** Attach only the selected independent source. Direct playback reads native tracks in place. */
+    fun needsExternalSource(track: MediaStream, selected: Int, direct: Boolean, container: String): Boolean =
+        selected >= 0 && track.type == "Subtitle" && track.index == selected &&
+            !track.deliveryMethod.equals("Encode", true) && !(direct && embedded(track, container))
 
     fun select(requested: Int?, streams: List<MediaStream>): Int =
         requested ?: streams.firstOrNull { it.type == "Subtitle" && it.index >= 0 }?.index ?: -1

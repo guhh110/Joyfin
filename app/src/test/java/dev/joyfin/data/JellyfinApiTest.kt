@@ -326,7 +326,7 @@ class JellyfinApiTest {
     }
 
     @Test
-    fun firstAssSubtitleIsExternalAndDoesNotForceVideoTranscode() = runBlocking {
+    fun unknownContainerUsesOnlyTheSelectedExternalSubtitleWithoutForcingVideoTranscode() = runBlocking {
         val streams =
             """[{"Type":"Subtitle","Index":7,"Codec":"ass"},{"Type":"Subtitle","Index":2,"Codec":"subrip"}]"""
         val media =
@@ -345,7 +345,7 @@ class JellyfinApiTest {
         assertTrue(body.getBoolean("EnableDirectPlay"))
         assertTrue(body.getBoolean("AllowVideoStreamCopy"))
         assertEquals("DirectPlay", plan.method)
-        assertEquals(listOf(7, 2), plan.subtitles.map { it.index })
+        assertEquals(listOf(7), plan.subtitles.map { it.index })
         assertEquals("text/x-ssa", plan.subtitles.first().mime)
         assertTrue(plan.subtitles.first().url.endsWith("/7/Stream.ass"))
     }
@@ -375,7 +375,46 @@ class JellyfinApiTest {
             JSONObject(server.takeRequest().body.readUtf8()).getInt("SubtitleStreamIndex"),
         )
         assertEquals(-1, plan.subtitleIndex)
-        assertEquals(listOf(3), plan.subtitles.map { it.index })
+        assertTrue(plan.subtitles.isEmpty())
+    }
+
+    @Test fun mkvEmbeddedTextNeverCreatesASeparateExtractionSourceEvenIfServerAdvertisesExternalDelivery() = runBlocking {
+        val streams = """[{"Type":"Subtitle","Index":7,"Codec":"ass","DeliveryMethod":"External","DeliveryUrl":"/jellyfin/slow-extraction.ass"},{"Type":"Subtitle","Index":2,"Codec":"subrip","DeliveryMethod":"External"}]"""
+        val source = AppJson.decodeFromString<MediaSource>("""{"Id":"source-id","Container":"mkv","MediaStreams":$streams}""")
+        val media = item.copy(sources = listOf(source))
+        repeat(2) { server.enqueue(MockResponse().setBody("""{"MediaSources":[{"Id":"source-id","Container":"mkv","SupportsDirectPlay":true,"MediaStreams":$streams}]}""")) }
+        val ass = api.playback(media, DeviceProfileDto(), 0, subtitle = 7)
+        val srt = api.playback(media, DeviceProfileDto(), 0, subtitle = 2)
+        for (plan in listOf(ass, srt)) {
+            assertEquals("DirectPlay", plan.method)
+            assertTrue(plan.subtitles.isEmpty())
+            assertEquals(listOf(7, 2), plan.streams.filter { it.type == "Subtitle" }.map { it.index })
+            assertTrue(JSONObject(server.takeRequest().body.readUtf8()).getBoolean("AllowVideoStreamCopy"))
+        }
+        assertEquals(7, ass.subtitleIndex)
+        assertEquals(2, srt.subtitleIndex)
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test fun realExternalSubtitleIsLoadedOnlyWhenSelectedAndKeepsItsDeliveryUrl() = runBlocking {
+        val streams = """[{"Type":"Subtitle","Index":7,"Codec":"ass"},{"Type":"Subtitle","Index":2,"Codec":"subrip","IsExternal":true,"DeliveryMethod":"External","DeliveryUrl":"/jellyfin/external.srt"},{"Type":"Subtitle","Index":5,"Codec":"ass","IsExternal":true,"DeliveryMethod":"External","DeliveryUrl":"/jellyfin/unused.ass"}]"""
+        val source = AppJson.decodeFromString<MediaSource>("""{"Id":"source-id","Container":"mkv","MediaStreams":$streams}""")
+        server.enqueue(MockResponse().setBody("""{"MediaSources":[{"Id":"source-id","Container":"mkv","SupportsDirectPlay":true,"MediaStreams":$streams}]}"""))
+        val plan = api.playback(item.copy(sources = listOf(source)), DeviceProfileDto(), 0, subtitle = 2)
+        assertEquals("DirectPlay", plan.method)
+        assertEquals(listOf(2), plan.subtitles.map { it.index })
+        assertTrue(plan.subtitles.single().url.endsWith("/jellyfin/external.srt"))
+        assertEquals(3, plan.streams.count { it.type == "Subtitle" })
+    }
+
+    @Test fun mkvSourceWithVideoTranscodingStillLoadsTheChosenTextSubtitleExternally() = runBlocking {
+        val streams = """[{"Type":"Subtitle","Index":7,"Codec":"ass","DeliveryMethod":"External","DeliveryUrl":"/jellyfin/transcoded.ass"},{"Type":"Subtitle","Index":2,"Codec":"subrip"}]"""
+        val source = AppJson.decodeFromString<MediaSource>("""{"Id":"source-id","Container":"mkv","MediaStreams":$streams}""")
+        server.enqueue(MockResponse().setBody("""{"MediaSources":[{"Id":"source-id","Container":"mkv","SupportsDirectPlay":false,"TranscodingUrl":"/jellyfin/stream.m3u8","MediaStreams":$streams}]}"""))
+        val plan = api.playback(item.copy(sources = listOf(source)), DeviceProfileDto(), 0, subtitle = 7)
+        assertEquals("Transcode", plan.method)
+        assertEquals(listOf(7), plan.subtitles.map { it.index })
+        assertTrue(plan.subtitles.single().url.endsWith("/jellyfin/transcoded.ass"))
     }
 
     @Test
@@ -507,6 +546,33 @@ class JellyfinApiTest {
         assertEquals("Series", items.first().type)
         assertEquals("Full series metadata", items.first().overview)
         assertEquals(24, items.first().childCount)
+    }
+
+    @Test fun nextEpisodeTransfersOnlyTheCurrentAndFollowingEpisodeAndCanCrossSeasons() = runBlocking {
+        val current = Media("s1e24", "Finale", "Episode", seriesId = "series", season = 1, episode = 24)
+        server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"s1e24","Type":"Episode","SeriesId":"series","ParentIndexNumber":1,"IndexNumber":24},{"Id":"s2e1","Type":"Episode","SeriesId":"series","ParentIndexNumber":2,"IndexNumber":1}]}"""))
+        val next = api.nextEpisode(current)
+        assertEquals("s2e1", next?.id)
+        assertEquals(2, next?.season)
+        val url = server.takeRequest().requestUrl!!
+        assertEquals("/jellyfin/Shows/series/Episodes", url.encodedPath)
+        assertEquals("s1e24", url.queryParameter("StartItemId"))
+        assertEquals("2", url.queryParameter("Limit"))
+        assertEquals("ParentId", url.queryParameter("Fields"))
+        assertEquals("false", url.queryParameter("EnableImages"))
+        assertEquals("false", url.queryParameter("EnableUserData"))
+        assertEquals("false", url.queryParameter("IsMissing"))
+        assertNull(url.queryParameter("SeasonId"))
+        server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"s2e1","Type":"Episode","SeriesId":"series"}]}"""))
+        assertNull(api.nextEpisode(requireNotNull(next)))
+    }
+
+    @Test fun continuationDoesNotGuessWhenTheCurrentEpisodeIsMissingOrTheFollowingItemIsForeign() = runBlocking {
+        val current = Media("current", "Episode", "Episode", seriesId = "series")
+        server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"other","Type":"Episode"},{"Id":"second","Type":"Episode"}]}"""))
+        assertNull(api.nextEpisode(current))
+        server.enqueue(MockResponse().setBody("""{"Items":[{"Id":"current","Type":"Episode"},{"Id":"foreign","Type":"Episode","SeriesId":"elsewhere"}]}"""))
+        assertNull(api.nextEpisode(current))
     }
 
     @Test

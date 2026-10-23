@@ -2,6 +2,7 @@ package dev.joyfin.browse
 
 import dev.joyfin.data.Media
 import dev.joyfin.data.Person
+import dev.joyfin.data.LibraryBrowseOptions
 
 enum class CollectionKind {
     LIBRARY,
@@ -23,4 +24,8 @@ data class CollectionUiState(
     val error: String? = null,
     val person: Person? = null,
     val personDetail: Media? = null,
-)
+    val libraryOptions: LibraryBrowseOptions = LibraryBrowseOptions(),
+    val worksOnly: Boolean = false,
+) {
+    val canArrangeLibrary: Boolean get() = kind == CollectionKind.LIBRARY && (parent != null || worksOnly)
+}

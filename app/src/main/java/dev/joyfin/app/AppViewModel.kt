@@ -39,7 +39,10 @@ class AppViewModel @JvmOverloads constructor(
         PageRequests(viewModelScope, mutable, { api.session != null }, ::expireSession)
     private val homeController =
         HomeController(viewModelScope, api, mutable, requests, ::expireSession)
-    private val collections = CollectionController(api, mutable, requests, ::push)
+    private val libraryBrowseStore = LibraryBrowseStore(storageContext)
+    private val collections = CollectionController(api, mutable, requests, ::push,
+        { libraryBrowseStore.load(api.session, it) },
+        { parent, value -> libraryBrowseStore.save(api.session, parent, value) })
     private val details =
         DetailController(viewModelScope, api, mutable, requests, ::push, ::library, ::expireSession)
     private val session: SessionController =
@@ -101,6 +104,12 @@ class AppViewModel @JvmOverloads constructor(
     fun retryLibrary(id: String) = homeController.retryLibrary(id)
 
     fun library(id: String? = null, title: String = "媒体库") = collections.library(id, title)
+
+    fun allMedia() = collections.library(title = "全部媒体", worksOnly = true)
+
+    fun libraryWorks(id: String, title: String) = collections.library(id, title, worksOnly = true)
+
+    fun arrangeLibrary(value: LibraryBrowseOptions) = collections.arrangeLibrary(value)
 
     fun search() = collections.search()
 

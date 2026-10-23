@@ -7,6 +7,11 @@ import dev.joyfin.playback.AudioPlaybackCapabilities
 
 /** Pure policy: no Android APIs, persistence, player calls or network requests. */
 internal object PlaybackDecisionPolicy {
+    fun canChangeSpeedInPlace(current: PlaybackDecision, next: PlaybackDecision): Boolean =
+        current.audioPath == next.audioPath && current.videoPath == next.videoPath &&
+            current.audioTranscode == next.audioTranscode && current.videoTranscode == next.videoTranscode &&
+            (current.audioPath == AudioPath.NONE || current.pcmOnly == next.pcmOnly)
+
     fun decide(source: MediaSource?, audioIndex: Int?, capabilities: PlaybackCapabilitySnapshot,
         requirements: PlaybackRequirements): PlaybackDecision {
         val (mode, compatible, forcePcm, forceSoftware, forceAudio, forceVideo, speed) = requirements

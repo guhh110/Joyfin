@@ -21,6 +21,7 @@ data class PlayerUiState(
     val durationMs: Long = 0,
     val bufferedMs: Long = 0,
     val speed: Float = 1f,
+    val speedBoosting: Boolean = false,
     val method: String = "",
     val loading: Boolean = false,
     val hasRenderedFrame: Boolean = false,
@@ -39,6 +40,8 @@ data class PlayerUiState(
     val sourceId: String? = null,
     val nextItem: Media? = null,
     val nextSeconds: Int = 0,
+    val nextPreparing: Boolean = false,
+    val nextPreparationError: String? = null,
     val episodeError: String? = null,
     val localSubtitle: LocalSubtitleSelection? = null,
     val localSubtitleError: String? = null,
@@ -79,6 +82,8 @@ data class PlayerActions(
     val undoSkip: () -> Unit = {},
     val retrySegments: () -> Unit = {},
     val setNavigationBlocked: (Boolean) -> Unit = {},
+    val retryNext: () -> Unit = {},
+    val speedBoost: SpeedBoostActions = SpeedBoostActions(),
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =

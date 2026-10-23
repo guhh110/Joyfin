@@ -10,6 +10,7 @@ import dev.joyfin.browse.CollectionUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.collection.mediaCollectionItems
 import dev.joyfin.ui.features.collection.directoryGrid
+import dev.joyfin.ui.features.collection.rememberCollectionGridState
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import kotlin.math.ceil
@@ -36,10 +37,11 @@ internal fun TvMediaCollectionLayout(
                 .toInt()
                 .coerceAtLeast(2)
         val skeletonVisible =
-            rememberSkeletonVisible(ui.busy, Triple(ui.parent, ui.query, ui.person?.name))
+            rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
         LazyVerticalGrid(
             GridCells.Fixed(columns),
             Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
+            state = rememberCollectionGridState(ui),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),

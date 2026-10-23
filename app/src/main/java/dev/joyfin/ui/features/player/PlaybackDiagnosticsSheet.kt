@@ -70,6 +70,7 @@ internal fun PlaybackDiagnosticsSheet(onDismiss: () -> Unit) {
                 } else {
                     DiagnosticOverview(ui)
                     DiagnosticTiming(ui.timing)
+                    DiagnosticNetwork(ui.network)
                     if (tv) TvPlaybackDiagnosticsLayout({ DiagnosticSource(ui) }, { DiagnosticOutput(ui) })
                     else MobilePlaybackDiagnosticsLayout({ DiagnosticSource(ui) }, { DiagnosticOutput(ui) })
                     DiagnosticEvents(ui)
@@ -85,6 +86,14 @@ private fun DiagnosticTiming(timing: PlaybackTimingSnapshot) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle("启动与缓冲")
         timing.reportLines().forEach { Caption(it, color = Palette.Text) }
+    }
+}
+
+@Composable
+private fun DiagnosticNetwork(network: PlaybackNetworkSnapshot) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionTitle("HTTP 读取与带宽样本")
+        network.reportLines().forEach { Caption(it, color = Palette.Text, maxLines = 8) }
     }
 }
 

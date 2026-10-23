@@ -18,6 +18,9 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
     private val fallbackPolicy = PlaybackFallbackPolicy()
     private var owner = PlaybackOutputOwner(0, 0)
     private var active: PlaybackNegotiation? = null
+    private var activeSource: MediaSource? = null
+    private var activeAudioIndex: Int? = null
+    private var activeCompatible = false
     private var serverReasons: List<String> = emptyList()
     private var runtimeReasons: List<String> = emptyList()
     var notice: String? = null
@@ -50,6 +53,9 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
 
     fun begin(generation: Long, diagnosticId: Long) {
         owner = PlaybackOutputOwner(generation, diagnosticId)
+        active = null
+        activeSource = null
+        activeAudioIndex = null
         audioEngine.begin(owner)
     }
     suspend fun negotiate(mediaId: String, source: MediaSource?, audioIndex: Int?, bitrate: Int, compatible: Boolean): PlaybackNegotiation {
@@ -67,8 +73,11 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
         val decision = PlaybackDecisionPolicy.decide(source, selected?.index, capabilities, requirements)
         return DeviceProfile.negotiate(capabilities, decision, source, selected?.index, bitrate)
     }
-    fun activate(value: PlaybackNegotiation, transcodeReasons: List<String> = emptyList()) {
+    fun activate(value: PlaybackNegotiation, transcodeReasons: List<String>, source: MediaSource?, audioIndex: Int?, compatible: Boolean) {
         active = value
+        activeSource = source
+        activeAudioIndex = audioIndex
+        activeCompatible = compatible
         serverReasons = serverPlaybackReasons(transcodeReasons)
         runtimeReasons = emptyList()
         audioEngine.activate(owner, value.decision)
@@ -88,7 +97,22 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
     fun setSpeed(value: Float) {
         val changedPath = (speed == 1f) != (value == 1f)
         speed = value
-        if (changedPath) changed(PlaybackLoadReason.SPEED)
+        if (!changedPath) return
+        val current = active
+        val next = current?.let {
+            PlaybackDecisionPolicy.decide(activeSource, activeAudioIndex, it.capabilities,
+                PlaybackRequirements(mode, activeCompatible, fallbackPolicy.forcePcm, fallbackPolicy.forceSoftware,
+                    fallbackPolicy.forceAudio, fallbackPolicy.forceVideo, value))
+        }
+        if (current != null && next != null && !needsReload &&
+            PlaybackDecisionPolicy.canChangeSpeedInPlace(current.decision, next)) {
+            // Already-decoded PCM can change speed without stopping or renegotiating the stream.
+            val updated = current.copy(decision = next)
+            active = updated
+            audioEngine.activate(owner, next)
+            PlaybackDiagnostics.negotiation(owner.diagnosticId, updated)
+            publishNotice(emptyList())
+        } else changed(PlaybackLoadReason.SPEED)
     }
 
     fun videoInput(format: Format) {

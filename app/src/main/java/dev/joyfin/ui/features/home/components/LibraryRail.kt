@@ -13,7 +13,7 @@ fun LibraryRail(state: LibraryRailState, images: ArtworkSource, actions: BrowseA
         RegionLoad(state.loading, state.error, !state.loading && state.error == null),
         images,
         actions,
-        onMore = { actions.library(state.library.id, state.library.name) },
+        onMore = { actions.libraryWorks(state.library.id, state.library.name) },
         retry = { actions.retryLibrary(state.library.id) },
         focusPrefix = "library:${state.library.id}",
     )

@@ -165,6 +165,9 @@ internal fun BrowseHost(
                 },
                 setAudioOutputMode = vm::setAudioOutputMode,
                 setHomeLayout = vm::setHomeLayout,
+                arrangeLibrary = vm::arrangeLibrary,
+                allMedia = vm::allMedia,
+                libraryWorks = vm::libraryWorks,
             )
         }
     val images =
