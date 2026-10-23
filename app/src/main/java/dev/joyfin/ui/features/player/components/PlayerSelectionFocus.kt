@@ -24,6 +24,7 @@ internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
         PlayerPanel.Chapters -> (ui.navigation.chapters.lastOrNull { it.positionMs <= ui.positionMs }
             ?: ui.navigation.chapters.firstOrNull())?.let { choiceKey(it.positionMs) } ?: "sheet:close"
         PlayerPanel.AudioOutput -> choiceKey(ui.audioOutputMode.name)
+        PlayerPanel.VideoScale -> choiceKey(ui.videoScaleMode.name)
         PlayerPanel.Quality ->
             choiceKey(
                 qualityChoices.firstOrNull { it.first == ui.bitrate }?.first

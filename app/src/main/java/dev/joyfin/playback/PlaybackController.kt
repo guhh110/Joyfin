@@ -37,8 +37,9 @@ class PlaybackController(
     private val api = JellyfinApi(store.deviceId).apply { session = store.load() }
     private val reporter = PlaybackReporter(api, store)
     private val preferenceStore = PlaybackPreferenceStore(context)
+    private val videoScalePreferences = VideoScalePreferences(context)
     private var pendingPreference: Pair<String, PlaybackTrackPreferences>? = null
-    private val mutable = MutableStateFlow(PlayerUiState())
+    private val mutable = MutableStateFlow(PlayerUiState(videoScaleMode = videoScalePreferences.mode))
     val state = mutable.asStateFlow()
     private var currentId = restored?.getString("itemId") ?: itemId
     private var diagnosticMediaId = currentId
@@ -239,6 +240,12 @@ class PlaybackController(
             retrySegments = navigation::retry,
             setNavigationBlocked = { navigationBlocked = it },
             retryNext = nextEpisode::retry,
+            setVideoScaleMode = { mode ->
+                if (!released && mutable.value.videoScaleMode != mode) {
+                    videoScalePreferences.mode = mode
+                    mutable.update { it.copy(videoScaleMode = mode) }
+                }
+            },
             speedBoost = SpeedBoostActions(
                 begin = {
                     val ui = mutable.value

@@ -22,6 +22,7 @@ data class PlayerUiState(
     val bufferedMs: Long = 0,
     val speed: Float = 1f,
     val speedBoosting: Boolean = false,
+    val videoScaleMode: dev.joyfin.data.VideoScaleMode = dev.joyfin.data.VideoScaleMode.FIT,
     val method: String = "",
     val loading: Boolean = false,
     val hasRenderedFrame: Boolean = false,
@@ -84,6 +85,7 @@ data class PlayerActions(
     val setNavigationBlocked: (Boolean) -> Unit = {},
     val retryNext: () -> Unit = {},
     val speedBoost: SpeedBoostActions = SpeedBoostActions(),
+    val setVideoScaleMode: (dev.joyfin.data.VideoScaleMode) -> Unit = {},
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =

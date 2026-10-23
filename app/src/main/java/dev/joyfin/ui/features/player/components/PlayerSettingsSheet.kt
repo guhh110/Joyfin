@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
+import dev.joyfin.data.VideoScaleMode
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.RememberScreenFocus
 import dev.joyfin.ui.interaction.LocalScreenFocus
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.first
 enum class PlayerPanel(val title: String) {
     Settings("播放设置"),
     Quality("画质"),
+    VideoScale("画面缩放"),
     Audio("音轨"),
     AudioOutput("音频输出"),
     Subtitle("字幕"),
@@ -84,6 +86,8 @@ fun PlayerSettingsSheet(
                         ) {
                             onPanel(PlayerPanel.Subtitle)
                         }
+                        ChoiceRow("画面缩放", Modifier.focusTarget("player:settings-video-scale"),
+                            subtitle = ui.videoScaleMode.label) { onPanel(PlayerPanel.VideoScale) }
                         ChoiceRow(
                             "音轨",
                             subtitle =
@@ -135,6 +139,16 @@ fun PlayerSettingsSheet(
                             ) {
                                 onDismiss()
                                 actions.selectAudio(track.index)
+                            }
+                        }
+                    }
+                    PlayerPanel.VideoScale -> {
+                        Caption("此设备记住选择，切换立即生效。")
+                        VideoScaleMode.entries.forEach { mode ->
+                            ChoiceRow(mode.label, Modifier.focusTarget(panel.choiceKey(mode.name)),
+                                subtitle = mode.description, selected = mode == ui.videoScaleMode) {
+                                actions.setVideoScaleMode(mode)
+                                onDismiss()
                             }
                         }
                     }

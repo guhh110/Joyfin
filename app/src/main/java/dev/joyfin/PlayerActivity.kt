@@ -21,12 +21,17 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.ui.PlayerView
 import dev.joyfin.playback.PlaybackController
 import dev.joyfin.playback.AndroidPlayerDeviceControls
+import dev.joyfin.playback.output.PlayerVideoViewport
 import dev.joyfin.ui.features.player.PlayerRoute
 import dev.joyfin.ui.features.player.PlayerSubtitleSearchRoute
 import dev.joyfin.ui.theme.BoundlessTheme
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 /**
  * Owns the native video surface, safe insets and lifecycle; all playback execution is delegated.
@@ -34,6 +39,7 @@ import dev.joyfin.ui.theme.BoundlessTheme
 class PlayerActivity : ComponentActivity() {
     private lateinit var controller: PlaybackController
     private lateinit var video: PlayerView
+    private lateinit var viewport: PlayerVideoViewport
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,6 +76,12 @@ class PlayerActivity : ComponentActivity() {
                 useController = false
                 setShutterBackgroundColor(Color.BLACK)
             }
+        viewport = PlayerVideoViewport(video).apply { apply(controller.state.value.videoScaleMode) }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                controller.state.map { it.videoScaleMode }.distinctUntilChanged().collect(viewport::apply)
+            }
+        }
         frame.addView(video, FrameLayout.LayoutParams(-1, -1))
         val deviceControls = AndroidPlayerDeviceControls(this)
         frame.addView(
@@ -133,6 +145,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (::viewport.isInitialized) viewport.release()
         if (::video.isInitialized) video.player = null
         if (::controller.isInitialized) controller.release()
         super.onDestroy()
