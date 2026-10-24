@@ -22,12 +22,16 @@ internal fun TvSettingsLayout(
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
 ) {
-    Column(
-        Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 48.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
-    ) {
-        SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries)
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier.fillMaxHeight()
+                .widthIn(max = 820.dp)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 48.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
+        ) {
+            SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries)
+        }
     }
 }

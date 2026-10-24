@@ -45,6 +45,7 @@ fun ChoiceRow(
     subtitle: String = "",
     selected: Boolean = false,
     enabled: Boolean = true,
+    chevron: Boolean = false,
     onClick: () -> Unit,
 ) {
     val rowShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
@@ -79,6 +80,7 @@ fun ChoiceRow(
                 if (subtitle.isNotBlank()) Caption(subtitle)
             }
             if (selected) AppIcon(Glyph.CheckCircle, Modifier.size(20.dp), color = Palette.Text)
+            else if (chevron) AppIcon(Glyph.Next, Modifier.size(18.dp), color = Palette.Muted)
         }
     }
 }

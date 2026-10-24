@@ -108,7 +108,8 @@ internal fun ColumnScope.SettingsContent(
         SectionTitle("播放偏好")
         ChoiceRow("音频输出", Modifier.focusTarget("settings:audio-output"),
             subtitle = if (audioOutputMode == AudioOutputMode.AUTO) "自动 · 优先编码输出，不可用时兼容播放"
-                else "PCM 兼容 · 本机解码，必要时由服务器转换") {
+                else "PCM 兼容 · 本机解码，必要时由服务器转换",
+            chevron = true) {
             actions.setAudioOutputMode(if (audioOutputMode == AudioOutputMode.AUTO) AudioOutputMode.PCM else AudioOutputMode.AUTO)
         }
         ChoiceRow(
@@ -121,15 +122,17 @@ internal fun ColumnScope.SettingsContent(
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChoiceRow("最近一次播放诊断", Modifier.focusTarget("settings:diagnostics"),
-            subtitle = "查看格式、播放阶段与错误，复制脱敏报告") {
+            subtitle = "查看格式、播放阶段与错误，复制脱敏报告",
+            chevron = true) {
             returnFromDiagnostics = true
             diagnostics = true
         }
-        ArtworkCacheSummary()
-        ChoiceRow("片库体检", Modifier.focusTarget("settings:audit"), subtitle = "检查缺集、版本、字幕与媒体信息，查看判断依据") {
+        ChoiceRow("片库体检", Modifier.focusTarget("settings:audit"), subtitle = "检查缺集、版本、字幕与媒体信息，查看判断依据",
+            chevron = true) {
             actions.libraryAudit(null, "全部电影与剧集")
         }
-        ChoiceRow("首页栏目", Modifier.focusTarget("settings:home-layout"), subtitle = "调整栏目顺序与显示，按账号保存在此设备") {
+        ChoiceRow("首页栏目", Modifier.focusTarget("settings:home-layout"), subtitle = "调整栏目顺序与显示，按账号保存在此设备",
+            chevron = true) {
             returnFromHome = true
             editHome = true
         }
@@ -181,16 +184,4 @@ internal fun ColumnScope.SettingsContent(
     }
     if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
     if (editHome) HomeLayoutSheet(homeLayout, homeLibraries, actions.setHomeLayout) { editHome = false }
-}
-
-@Composable
-private fun ArtworkCacheSummary() {
-    val stats by dev.joyfin.artwork.ArtworkCacheDiagnostics.state.collectAsState()
-    Column(Modifier.fillMaxWidth().background(Palette.Surface, RoundedCornerShape(10.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        SectionTitle("图片缓存 · 本次运行")
-        Caption("内存命中 ${stats.memory} · 磁盘命中 ${stats.disk} · 网络加载 ${stats.network}")
-        Caption("本地资源 ${stats.local} · 加载失败 ${stats.failed}")
-        Caption("统计已完成的图片请求；磁盘缓存过期后的网络校验也计为网络加载。")
-    }
 }

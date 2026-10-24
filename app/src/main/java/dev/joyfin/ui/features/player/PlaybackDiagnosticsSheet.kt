@@ -74,10 +74,22 @@ internal fun PlaybackDiagnosticsSheet(onDismiss: () -> Unit) {
                     if (tv) TvPlaybackDiagnosticsLayout({ DiagnosticSource(ui) }, { DiagnosticOutput(ui) })
                     else MobilePlaybackDiagnosticsLayout({ DiagnosticSource(ui) }, { DiagnosticOutput(ui) })
                     DiagnosticEvents(ui)
+                    DiagnosticArtworkCache()
                     Caption("报告仅包含播放技术信息；不包含服务器地址、凭据、账号、媒体名称、文件路径或设备序列号。", maxLines = 4)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DiagnosticArtworkCache() {
+    val stats by dev.joyfin.artwork.ArtworkCacheDiagnostics.state.collectAsState()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionTitle("图片缓存 · 本次运行")
+        Caption("内存命中 ${stats.memory} · 磁盘命中 ${stats.disk} · 网络加载 ${stats.network}")
+        Caption("本地资源 ${stats.local} · 加载失败 ${stats.failed}")
+        Caption("统计已完成的图片请求；磁盘缓存过期后的网络校验也计为网络加载。")
     }
 }
 
