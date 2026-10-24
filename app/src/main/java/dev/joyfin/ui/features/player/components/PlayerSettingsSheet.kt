@@ -1,12 +1,23 @@
 package dev.joyfin.ui.features.player.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import dev.joyfin.artwork.ArtworkCacheIdentity
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.data.VideoScaleMode
@@ -16,6 +27,7 @@ import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.player.PlaybackDiagnosticsSheet
 import dev.joyfin.ui.interaction.focusTarget
+import dev.joyfin.ui.theme.Palette
 import kotlinx.coroutines.flow.first
 
 enum class PlayerPanel(val title: String) {
@@ -43,6 +55,8 @@ fun PlayerSettingsSheet(
     onPanel: (PlayerPanel) -> Unit,
     onDismiss: () -> Unit,
     initialFocus: String = panel.initialFocus(ui),
+    imageAuthorization: String = "",
+    imageCacheNamespace: String = "",
 ) {
     if (panel == PlayerPanel.Diagnostics) {
         PlaybackDiagnosticsSheet(onDismiss)
@@ -279,9 +293,16 @@ fun PlayerSettingsSheet(
                         else if (ui.navigation.chapters.isEmpty()) Caption("服务器没有提供此视频的章节")
                         val current = ui.navigation.chapters.lastOrNull { it.positionMs <= ui.positionMs }
                         ui.navigation.chapters.forEach { chapter ->
-                            ChoiceRow(chapter.title, Modifier.focusTarget(panel.choiceKey(chapter.positionMs)),
-                                subtitle = dev.joyfin.playback.diagnosticTime(chapter.positionMs), selected = current == chapter,
-                                enabled = ui.canSeek && !ui.loading && !ui.subtitleApplying) {
+                            ChoiceRow(
+                                chapter.title,
+                                Modifier.focusTarget(panel.choiceKey(chapter.positionMs)),
+                                subtitle = dev.joyfin.playback.diagnosticTime(chapter.positionMs),
+                                selected = current == chapter,
+                                enabled = ui.canSeek && !ui.loading && !ui.subtitleApplying,
+                                leading = {
+                                    ChapterThumb(chapter.imageUrl, imageAuthorization, imageCacheNamespace)
+                                },
+                            ) {
                                 onDismiss()
                                 actions.selectChapter(chapter.positionMs)
                             }
@@ -290,6 +311,37 @@ fun PlayerSettingsSheet(
                     PlayerPanel.Skip -> SkipSettings(ui, actions)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ChapterThumb(url: String?, authorization: String, cacheNamespace: String) {
+    val context = LocalContext.current
+    Box(
+        Modifier
+            .size(width = 112.dp, height = 63.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(Palette.Surface),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (url.isNullOrBlank()) {
+            AppIcon(Glyph.Film, Modifier.size(20.dp), color = Palette.Muted)
+        } else {
+            val key = ArtworkCacheIdentity.key(cacheNamespace, url)
+            val request = ImageRequest.Builder(context)
+                .data(url)
+                .addHeader("Authorization", authorization)
+                .memoryCacheKey(key)
+                .diskCacheKey(key)
+                .crossfade(false)
+                .build()
+            AsyncImage(
+                model = request,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
         }
     }
 }

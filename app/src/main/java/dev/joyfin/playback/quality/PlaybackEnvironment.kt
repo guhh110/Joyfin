@@ -85,8 +85,9 @@ internal class PlaybackEnvironment(private val context: Context, private val sco
         publishNotice(emptyList())
     }
     private fun publishNotice(actualReasons: List<String>) {
-        notice = (active?.decision?.reasons.orEmpty() + serverReasons + runtimeReasons + actualReasons).distinct()
-            .takeIf { it.isNotEmpty() }?.joinToString(" · ")
+        notice = friendlyPlaybackReasons(
+            active?.decision?.reasons.orEmpty() + serverReasons + runtimeReasons + actualReasons
+        ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
         onNotice(notice)
     }
     fun isCurrent(value: PlaybackNegotiation): Boolean = value.capabilities.revision == revision

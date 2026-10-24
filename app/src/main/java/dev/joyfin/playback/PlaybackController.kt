@@ -91,7 +91,7 @@ class PlaybackController(
     private val navigation = PlaybackNavigation(scope,
         { media -> api.session?.let { skipPreferences.load(it, media) } ?: SkipPreferences() },
         { media, value -> api.session?.let { skipPreferences.save(it, media, value) } }, api::mediaSegments,
-        { value -> mutable.update { it.copy(navigation = value) } }, { onClose(true) })
+        { value -> mutable.update { it.copy(navigation = value) } }, { onClose(true) }, api::chapterImage)
     private val http =
         DefaultHttpDataSource.Factory()
             .setUserAgent("Joyfin/${BuildConfig.VERSION_NAME}")
@@ -1222,6 +1222,11 @@ class PlaybackController(
         nextEpisode.clear()
         stopCurrentStream()
     }
+
+    fun imageAuthorization(): String = api.authorization()
+
+    fun imageCacheNamespace(): String =
+        dev.joyfin.artwork.ArtworkCacheIdentity.namespace(api.session)
 
     fun handleMediaKey(code: Int): Boolean {
         if (mutable.value.subtitleSearchOpen && code in setOf(

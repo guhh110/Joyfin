@@ -104,7 +104,8 @@ class PlayerActivity : ComponentActivity() {
                 setContent {
                     val ui by controller.state.collectAsStateWithLifecycle()
                     BoundlessTheme {
-                        PlayerRoute(ui, controller.actions, deviceControls)
+                        PlayerRoute(ui, controller.actions, deviceControls,
+                            controller.imageAuthorization(), controller.imageCacheNamespace())
                         PlayerSubtitleSearchRoute(controller.subtitleSearch)
                     }
                 }

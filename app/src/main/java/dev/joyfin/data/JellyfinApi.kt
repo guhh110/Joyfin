@@ -483,6 +483,13 @@ class JellyfinApi(
                     .toString()
             }
 
+    fun chapterImage(media: Media, index: Int, tag: String): String? =
+        tag.takeIf { it.isNotBlank() }
+            ?.let {
+                url("Items/${media.id}/Images/Chapter/$index",
+                    mapOf("MaxWidth" to 320, "Quality" to 85, "Tag" to it)).toString()
+            }
+
     suspend fun playback(
         item: Media,
         profile: DeviceProfileDto,

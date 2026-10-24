@@ -3,7 +3,12 @@ package dev.joyfin.playback
 import dev.joyfin.data.*
 import kotlinx.coroutines.*
 
-data class ChapterChoice(val positionMs: Long, val title: String)
+data class ChapterChoice(
+    val positionMs: Long,
+    val title: String,
+    val index: Int = 0,
+    val imageUrl: String? = null,
+)
 data class SkipRange(val startMs: Long, val endMs: Long, val label: String) {
     val key: String get() = "$startMs:$endMs:$label"
 }
@@ -24,9 +29,17 @@ internal object PlaybackNavigationPolicy {
     fun chapters(media: Media, durationMs: Long): List<ChapterChoice> = media.chapters
         .filter { it.ticks >= 0 && it.ticks / 10_000 < durationMs }
         .sortedBy { it.ticks }.distinctBy { it.ticks / 10_000 }
-        .mapIndexed { index, chapter -> ChapterChoice(chapter.ticks / 10_000, chapter.name.ifBlank { "第 ${index + 1} 章" }) }
+        .mapIndexed { index, chapter ->
+            ChapterChoice(chapter.ticks / 10_000, chapter.name.ifBlank { "第 ${index + 1} 章" }, index)
+        }
 
-    fun ranges(segments: List<MediaSegment>, durationMs: Long, preferences: SkipPreferences, manual: Boolean): List<SkipRange> {
+    fun ranges(
+        segments: List<MediaSegment>,
+        durationMs: Long,
+        preferences: SkipPreferences,
+        manual: Boolean,
+        chapters: List<MediaChapter> = emptyList(),
+    ): List<SkipRange> {
         if (durationMs <= 0) return emptyList()
         val server = segments.mapNotNull {
             val label = when (it.type) { "Intro" -> "片头"; "Outro" -> "片尾"; else -> return@mapNotNull null }
@@ -40,10 +53,37 @@ internal object PlaybackNavigationPolicy {
             result += SkipRange(0, prefs.introSeconds * 1000L, "片头")
         if (manual && server.none { it.label == "片尾" } && prefs.outroSeconds > 0 && prefs.outroSeconds * 1000L < durationMs)
             result += SkipRange(durationMs - prefs.outroSeconds * 1000L, durationMs, "片尾")
+        // Fall back to explicitly named chapters only when the server has no matching segment
+        // and the user has not configured a manual duration.
+        if (server.none { it.label == "片头" } && !(manual && prefs.introSeconds > 0))
+            chapterRange(chapters, durationMs, introNames, "片头")?.let { result += it }
+        if (server.none { it.label == "片尾" } && !(manual && prefs.outroSeconds > 0))
+            chapterRange(chapters, durationMs, outroNames, "片尾")?.let { result += it }
         // Conflicting ranges are unsafe to apply automatically or offer as a single skip.
         return result.filter { range -> result.none { other -> other != range && other.startMs < range.endMs && range.startMs < other.endMs } }
             .sortedBy { it.startMs }
     }
+
+    private fun chapterRange(
+        chapters: List<MediaChapter>,
+        durationMs: Long,
+        names: Set<String>,
+        label: String,
+    ): SkipRange? {
+        val ordered = chapters.sortedBy { it.ticks }
+        val index = ordered.indexOfFirst { chapter ->
+            val name = chapter.name.trim().lowercase()
+            names.any { name == it || name.startsWith("$it ") }
+        }
+        if (index < 0) return null
+        val start = ordered[index].ticks / 10_000
+        val end = ordered.getOrNull(index + 1)?.ticks?.div(10_000) ?: durationMs
+        if (start < 0 || end <= start || end > durationMs) return null
+        return SkipRange(start, end, label)
+    }
+
+    private val introNames = setOf("intro", "opening", "opening credits", "op", "open", "main titles", "片头", "片头曲")
+    private val outroNames = setOf("outro", "ending", "end credits", "closing credits", "credits", "ed", "end", "片尾", "片尾曲")
 }
 
 /** Request ownership, persistence and skip gating; it cannot call or recreate the player. */
@@ -54,6 +94,7 @@ internal class PlaybackNavigation(
     private val segments: suspend (String) -> List<MediaSegment>,
     private val publish: (PlaybackNavigationState) -> Unit,
     private val expired: () -> Unit,
+    private val chapterImage: (Media, Int, String) -> String? = { _, _, _ -> null },
 ) {
     private var ticket = 0L
     private var job: Job? = null
@@ -112,8 +153,12 @@ internal class PlaybackNavigation(
     fun tick(position: Long, duration: Long, automaticAllowed: Boolean, now: Long): Long? {
         val item = media ?: return null
         val chapters = if (!current.timelineAvailable) emptyList() else if (chapterDuration == duration) current.chapters
-            else PlaybackNavigationPolicy.chapters(item, duration).also { chapterDuration = duration }
-        val ranges = PlaybackNavigationPolicy.ranges(server, duration, current.preferences, current.canConfigure && !current.loading)
+        else PlaybackNavigationPolicy.chapters(item, duration).map { chapter ->
+            val tag = item.chapters.getOrNull(chapter.index)?.imageTag.orEmpty()
+            chapter.copy(imageUrl = tag.takeIf { it.isNotBlank() }?.let { chapterImage(item, chapter.index, it) })
+        }.also { chapterDuration = duration }
+        val ranges = PlaybackNavigationPolicy.ranges(server, duration, current.preferences,
+            current.canConfigure && !current.loading, item.chapters)
         val range = ranges.firstOrNull { position >= it.startMs && position < it.endMs && it.key !in suppressed }
         val undo = current.undoPositionMs?.takeIf { now <= undoUntil }
         update(current.copy(chapters = chapters, offer = range, undoPositionMs = undo,

@@ -5,7 +5,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MediaChapter(@SerialName("StartPositionTicks") val ticks: Long = 0,
-    @SerialName("Name") val name: String = "")
+    @SerialName("Name") val name: String = "",
+    @SerialName("ImageTag") val imageTag: String = "")
 
 @Serializable
 data class MediaSegment(@SerialName("ItemId") val itemId: String = "",

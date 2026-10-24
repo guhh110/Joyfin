@@ -46,6 +46,7 @@ fun ChoiceRow(
     selected: Boolean = false,
     enabled: Boolean = true,
     chevron: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val rowShape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
@@ -71,6 +72,7 @@ fun ChoiceRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            leading?.invoke()
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 androidx.tv.material3.Text(
                     title,

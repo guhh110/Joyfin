@@ -44,7 +44,13 @@ import kotlinx.coroutines.flow.first
 
 /** Presentation only: never creates a player, requests an API or submits playback reports. */
 @Composable
-fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions, deviceControls: PlayerDeviceControls? = null) {
+fun PlayerRoute(
+    ui: PlayerUiState,
+    actions: PlayerActions,
+    deviceControls: PlayerDeviceControls? = null,
+    imageAuthorization: String = "",
+    imageCacheNamespace: String = "",
+) {
     var visible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
     var lockControlsVisible by remember { mutableStateOf(false) }
@@ -302,6 +308,8 @@ fun PlayerRoute(ui: PlayerUiState, actions: PlayerActions, deviceControls: Playe
                         current == PlayerPanel.Settings && settingsDiagnosticsReturn -> "player:settings-diagnostics"
                         else -> current.initialFocus(ui)
                     },
+                    imageAuthorization = imageAuthorization,
+                    imageCacheNamespace = imageCacheNamespace,
                 )
             }
         }

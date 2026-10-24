@@ -26,11 +26,23 @@ class PlaybackNavigationTest {
         assertTrue(PlaybackNavigationPolicy.ranges(emptyList(), 600000, SkipPreferences(90, 90), false).isEmpty())
     }
 
+    @Test fun namedChaptersProvideFallbackWhenServerHasNoSegments() {
+        val chapters = listOf(
+            MediaChapter(0, "片头"),
+            MediaChapter(300_000_000, "正片"),
+            MediaChapter(600_000_000, "片尾"),
+        )
+        assertEquals(
+            listOf(SkipRange(0, 30000, "片头"), SkipRange(60000, 90000, "片尾")),
+            PlaybackNavigationPolicy.ranges(emptyList(), 90000, SkipPreferences(), false, chapters),
+        )
+    }
+
     @Test fun chaptersAreSortedUniqueAndBoundedByTheActualVideoDuration() {
         val media = episode.copy(chapters = listOf(MediaChapter(500_000_000, "Middle"),
             MediaChapter(0), MediaChapter(-1, "Invalid"), MediaChapter(500_000_000, "Duplicate"),
             MediaChapter(1_000_000_000, "Past end")))
-        assertEquals(listOf(ChapterChoice(0, "第 1 章"), ChapterChoice(50000, "Middle")),
+        assertEquals(listOf(ChapterChoice(0, "第 1 章", 0), ChapterChoice(50000, "Middle", 1)),
             PlaybackNavigationPolicy.chapters(media, 100000))
     }
 
