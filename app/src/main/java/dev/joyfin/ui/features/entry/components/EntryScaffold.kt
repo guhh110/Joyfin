@@ -11,8 +11,10 @@ import dev.joyfin.ui.features.entry.tv.TvEntryLayout
 fun EntryScaffold(
     step: String,
     login: Boolean = false,
+    title: String? = null,
+    subtitle: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (LocalDeviceLayout.current.television) TvEntryLayout(step, content)
+    if (LocalDeviceLayout.current.television) TvEntryLayout(step, title, subtitle, content)
     else MobileEntryLayout(step, login, content)
 }

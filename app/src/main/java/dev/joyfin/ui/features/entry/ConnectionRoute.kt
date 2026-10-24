@@ -32,7 +32,13 @@ fun ConnectionRoute(ui: EntryState, actions: EntryActions, login: Boolean = fals
         if (ui.error != null && !ui.busy) password.edit { replace(0, length, "") }
     }
     DisposableEffect(Unit) { onDispose { password.edit { replace(0, length, "") } } }
-    EntryScaffold(if (login) "02 / 02" else "01 / 02", login) {
+    EntryScaffold(
+        if (login) "02 / 02" else "01 / 02",
+        login,
+        title = if (login) "账号登录" else "连接媒体库",
+        subtitle = if (login) "登录你的 Jellyfin 账号，同步媒体收藏与观影记录。"
+        else "输入你的 Jellyfin 服务器地址，开启专属私享视听。",
+    ) {
         if (login)
             AccountLoginForm(
                 name,

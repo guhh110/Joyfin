@@ -16,9 +16,11 @@ internal fun ColumnScope.ServerConnectionForm(
     onCancel: () -> Unit,
 ) {
     val tv = LocalDeviceLayout.current.television
-    EntryStep("01", "连接服务器")
-    EntryTitle("连接媒体库")
-    EntryText("输入你的 Jellyfin 服务器地址，开启专属私享视听。")
+    if (!tv) {
+        EntryStep("01", "连接服务器")
+        EntryTitle("连接媒体库")
+        EntryText("输入你的 Jellyfin 服务器地址，开启专属私享视听。")
+    }
     EntryTextField(
         "服务器地址",
         address,

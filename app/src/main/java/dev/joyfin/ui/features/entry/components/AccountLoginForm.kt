@@ -45,9 +45,11 @@ internal fun ColumnScope.AccountLoginForm(
     }
     LaunchedEffect(name.text.toString()) { if (name.text.isNotBlank()) nameError = null }
     val tv = LocalDeviceLayout.current.television
-    EntryStep("02", "登录账号")
-    EntryTitle("账号登录")
-    EntryText("登录你的 Jellyfin 账号，同步媒体收藏与观影记录。")
+    if (!tv) {
+        EntryStep("02", "登录账号")
+        EntryTitle("账号登录")
+        EntryText("登录你的 Jellyfin 账号，同步媒体收藏与观影记录。")
+    }
     ConnectedServerSummary(
         serverName,
         server,
@@ -122,5 +124,5 @@ internal fun ColumnScope.AccountLoginForm(
         busy = busy,
         enabledWhileBusy = true,
     )
-    EntryText("账号与权限由你的 Jellyfin 服务器验证管理", subdued = true)
+    if (!tv) EntryText("账号与权限由你的 Jellyfin 服务器验证管理", subdued = true)
 }

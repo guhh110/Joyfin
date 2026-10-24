@@ -19,7 +19,12 @@ import dev.joyfin.ui.features.entry.components.*
 import dev.joyfin.ui.theme.Palette
 
 @Composable
-internal fun TvEntryLayout(step: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun TvEntryLayout(
+    step: String,
+    title: String?,
+    subtitle: String?,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Box(
         Modifier
             .fillMaxSize()
@@ -36,7 +41,7 @@ internal fun TvEntryLayout(step: String, content: @Composable ColumnScope.() -> 
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .imePadding()
-                .padding(horizontal = 56.dp, vertical = 40.dp),
+                .padding(horizontal = 56.dp, vertical = 28.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 左翼：品牌核心与影院纯粹视听定位 (不堆砌多余口号)
@@ -111,12 +116,31 @@ internal fun TvEntryLayout(step: String, content: @Composable ColumnScope.() -> 
                     .border(0.5.dp, Palette.Line, consoleShape)
                     .padding(horizontal = 32.dp, vertical = 24.dp),
             ) {
+                if (title != null) {
+                    Text(
+                        title,
+                        color = Palette.Text,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.5).sp,
+                    )
+                    if (subtitle != null) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            subtitle,
+                            color = Palette.Muted,
+                            fontSize = 13.sp,
+                            lineHeight = 20.sp,
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                }
                 EntryFormViewport(
-                    topPadding = 8.dp,
-                    bottomPadding = 12.dp,
+                    topPadding = 4.dp,
+                    bottomPadding = 8.dp,
                     width = 440.dp,
-                    spacing = 16.dp,
-                    arrangement = Arrangement.Center,
+                    spacing = 8.dp,
+                    arrangement = Arrangement.Top,
                     content = content,
                 )
                 if (!imeVisible) {
