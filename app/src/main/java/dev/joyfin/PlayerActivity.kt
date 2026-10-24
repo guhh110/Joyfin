@@ -22,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import dev.joyfin.playback.PlaybackController
 import dev.joyfin.playback.AndroidPlayerDeviceControls
@@ -71,7 +72,21 @@ class PlayerActivity : ComponentActivity() {
         val frame = FrameLayout(this)
         video =
             PlayerView(this).apply {
-                subtitleView?.let(controller::bindSubtitles)
+                subtitleView?.let { view ->
+                    controller.bindSubtitles(view)
+                    // Media3's caption style fills each text cue with an opaque black box.
+                    // Keep the outline but drop the background for SRT/VTT/TTML tracks.
+                    view.setStyle(
+                        CaptionStyleCompat(
+                            Color.WHITE,
+                            Color.TRANSPARENT,
+                            Color.TRANSPARENT,
+                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                            Color.BLACK,
+                            null,
+                        ),
+                    )
+                }
                 player = controller.player
                 useController = false
                 setShutterBackgroundColor(Color.BLACK)
