@@ -30,4 +30,4 @@ Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客
 
 脚本生成启用 R8 与资源优化的 Preview APK，沿用当前机器的 debug 签名。同一个 APK 支持 Android 9+ 手机和 TV，包含 ARM32、ARM64、x86、x86_64；运行时自动选择布局、触摸／遥控器操作与浏览页方向。覆盖安装需要与原安装使用同一签名密钥。
 
-每次产物写入独立的 `dist/joyfin-时间-随机后缀/`，包含 `Joyfin-版本号.apk`（当前为 `Joyfin-0.2.1.apk`）、构建日志、Gradle 输出元数据与 `SHA256SUMS.txt`，不会覆盖历史安装包。文件名中的版本由 Python 3 从本次构建元数据读取；脚本不安装 APK、不修改版本号、不发布 Release。源码修改不会自动执行此脚本。
+每次产物写入独立的 `dist/joyfin-时间-随机后缀/`，包含 `Joyfin-版本号.apk`（当前为 `Joyfin-0.2.2.apk`）、构建日志、Gradle 输出元数据与 `SHA256SUMS.txt`，不会覆盖历史安装包。文件名中的版本由 Python 3 从本次构建元数据读取；脚本不安装 APK、不修改版本号、不发布 Release。源码修改不会自动执行此脚本。
