@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
+import dev.joyfin.data.fileSizeLabel
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.RememberScreenFocus
 
@@ -49,18 +50,9 @@ fun MediaInformationContent(
                     )
                     .joinToString(" · ")
             )
-            source
-                .size
-                .takeIf { it > 0 }
-                ?.let { bytes ->
-                    Caption(
-                        java.lang.String.format(
-                            java.util.Locale.ROOT,
-                            "文件大小 · %.1f GiB",
-                            bytes / 1_073_741_824.0,
-                        )
-                    )
-                }
+            fileSizeLabel(source.size)?.let { size ->
+                Caption("文件大小 · $size")
+            }
             source
                 .streams
                 .filter { it.type in setOf("Audio", "Subtitle") }

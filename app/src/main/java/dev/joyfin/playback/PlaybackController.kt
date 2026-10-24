@@ -480,7 +480,7 @@ class PlaybackController(
                                         media.year.takeIf { year -> year > 0 }?.toString(),
                                         media.ticks
                                             .takeIf { time -> time > 0 }
-                                            ?.let { time -> "${time / 600_000_000} 分钟" },
+                                            ?.let(::runtimeLabel),
                                     )
                                     .joinToString(" · "),
                         versions =

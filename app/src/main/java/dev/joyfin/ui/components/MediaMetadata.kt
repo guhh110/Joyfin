@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
+import dev.joyfin.data.runtimeLabel
 import dev.joyfin.ui.theme.Palette
 import java.util.Locale
 
@@ -53,9 +54,8 @@ fun MediaMetadata(item: Media) {
                 6 -> QualityBadge("5.1")
             }
         }
-        if (item.ticks > 0) {
-            val minutes = item.ticks / 600_000_000
-            MediaPill("$minutes 分钟", icon = Glyph.Clock)
+        runtimeLabel(item.ticks)?.let {
+            MediaPill(it, icon = Glyph.Clock)
         }
     }
 }

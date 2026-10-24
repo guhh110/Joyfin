@@ -22,6 +22,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Text
 import dev.joyfin.browse.*
 import dev.joyfin.data.Media
+import dev.joyfin.data.fileSizeLabel
+import dev.joyfin.data.runtimeLabel
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.RememberScreenFocus
@@ -54,7 +56,7 @@ fun TvEpisodeDetails(
     val dismissView = if (mediaInfo) onDetails else onDismiss
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
-    val height = minOf(screenHeight * .85f, (screenHeight * .48f).coerceIn(270.dp, 360.dp) + 48.dp * (fontScale - 1f))
+    val height = minOf(screenHeight * .85f, (screenHeight * .48f).coerceIn(270.dp, 360.dp) + 58.dp + 48.dp * (fontScale - 1f))
     RememberScreenFocus("episode:sheet-play") {
         val memory = LocalScreenFocus.current
         LaunchedEffect(mediaInfo) {
@@ -84,6 +86,24 @@ fun TvEpisodeDetails(
                         Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                if (mediaInfo) "媒体信息与版本" else "本集详情",
+                                Modifier.weight(1f),
+                                color = Palette.Text,
+                                fontSize = 16.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            )
+                            IconButton(
+                                "关闭",
+                                Glyph.Close,
+                                onDismiss,
+                                Modifier.focusTarget("sheet:close"),
+                            )
+                        }
                         Row(
                             Modifier.weight(1f)
                                 .fillMaxWidth()
@@ -140,8 +160,8 @@ fun TvEpisodeDetails(
                                         source?.bitrate?.takeIf { it > 0 }?.let {
                                             MediaPill("${it / 1_000_000} Mbps")
                                         }
-                                        source?.size?.takeIf { it > 0 }?.let {
-                                            MediaPill(String.format(java.util.Locale.ROOT, "%.1f GiB", it / 1_073_741_824.0))
+                                        source?.size?.let(::fileSizeLabel)?.let {
+                                            MediaPill(it)
                                         }
                                     }
                                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -171,8 +191,8 @@ fun TvEpisodeDetails(
                                             episode.resumeTicks > 0 -> MediaPill("看到 ${timeLabel(episode.resumeTicks / 10_000)}", highlight = true)
                                             else -> MediaPill("未观看")
                                         }
-                                        if (episode.ticks > 0) {
-                                            MediaPill("${episode.ticks / 600_000_000} 分钟", icon = Glyph.Clock)
+                                        runtimeLabel(episode.ticks)?.let {
+                                            MediaPill(it, icon = Glyph.Clock)
                                         }
                                         if (has4kQuality(episode)) {
                                             QualityBadge("4K")
@@ -209,7 +229,7 @@ fun TvEpisodeDetails(
                                         "播放此版本"
                                     else label,
                                     { onPlay(episode, false, if (mediaInfo) sourceId else null) },
-                                    Modifier.weight(1f).fillMaxHeight().focusTarget("episode:sheet-play"),
+                                    Modifier.width(220.dp).fillMaxHeight().focusTarget("episode:sheet-play"),
                                     icon = Glyph.Play,
                                     primary = true,
                                     enabled = (!mediaInfo || sourceId != null) && canPlay(episode, trigger),
@@ -220,30 +240,32 @@ fun TvEpisodeDetails(
                                 )
                                 if (mediaInfo) {
                                     val browse = canPlay(episode, "media:${episode.id}")
-                                    ActionButton(
-                                        "上一版本",
-                                        { version = index - 1 },
-                                        Modifier.weight(1f)
-                                            .fillMaxHeight()
-                                            .focusTarget("episode:version-prev"),
-                                        icon = Glyph.Back,
-                                        enabled = browse && index > 0,
-                                        maxLines = 2,
-                                    )
-                                    ActionButton(
-                                        "下一版本",
-                                        { version = index + 1 },
-                                        Modifier.weight(1f)
-                                            .fillMaxHeight()
-                                            .focusTarget("episode:version-next"),
-                                        icon = Glyph.Next,
-                                        enabled = browse && index + 1 < episode.sources.size,
-                                        maxLines = 2,
-                                    )
+                                    if (episode.sources.size > 1) {
+                                        ActionButton(
+                                            "上一版本",
+                                            { version = index - 1 },
+                                            Modifier.width(150.dp)
+                                                .fillMaxHeight()
+                                                .focusTarget("episode:version-prev"),
+                                            icon = Glyph.Back,
+                                            enabled = browse && index > 0,
+                                            maxLines = 2,
+                                        )
+                                        ActionButton(
+                                            "下一版本",
+                                            { version = index + 1 },
+                                            Modifier.width(150.dp)
+                                                .fillMaxHeight()
+                                                .focusTarget("episode:version-next"),
+                                            icon = Glyph.Next,
+                                            enabled = browse && index + 1 < episode.sources.size,
+                                            maxLines = 2,
+                                        )
+                                    }
                                     ActionButton(
                                         "返回集详情",
                                         onDetails,
-                                        Modifier.weight(1f)
+                                        Modifier.width(180.dp)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-details"),
                                         icon = Glyph.Back,
@@ -255,7 +277,7 @@ fun TvEpisodeDetails(
                                         if (start.startsWith("取消") || start.startsWith("重试")) start
                                         else "从头播放",
                                         { onPlay(episode, true, null) },
-                                        Modifier.weight(1f)
+                                        Modifier.width(180.dp)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-start"),
                                         icon = Glyph.Refresh,
@@ -268,7 +290,7 @@ fun TvEpisodeDetails(
                                     ActionButton(
                                         "媒体信息",
                                         onMediaInfo,
-                                        Modifier.weight(1f)
+                                        Modifier.width(160.dp)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-media"),
                                         icon = Glyph.Info,
@@ -277,13 +299,10 @@ fun TvEpisodeDetails(
                                     )
                                 }
                                 RetryAction("重试信息", details.error, details.loading, onRetry,
-                                    Modifier.weight(1f).fillMaxHeight().focusTarget("episode:sheet-retry"))
+                                    Modifier.width(160.dp).fillMaxHeight().focusTarget("episode:sheet-retry"))
                             }
                         }
                     }
-                    IconButton("关闭", Glyph.Close, onDismiss,
-                        Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 8.dp)
-                            .focusTarget("sheet:close"))
                 }
             }
         }
