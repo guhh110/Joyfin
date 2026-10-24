@@ -38,6 +38,8 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
         val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val resumeEmpty = home.resume.isEmpty() && !home.resumeLoad.loading && home.resumeLoad.error == null
+        val heroHeight = if (resumeEmpty) viewportHeight * .82f else viewportHeight
         val resumeWidth = ((maxWidth - LocalDeviceLayout.current.gutter * 2 - MediaCardLayout.RailGap * 3) / 4 / scale)
             .coerceIn(140.dp, 280.dp)
         CompositionLocalProvider(LocalBringIntoViewSpec provides viewportScroll) {
@@ -54,15 +56,18 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                             featured,
                             images,
                             0.dp,
-                            Modifier.height(viewportHeight).testTag("home:hero"),
+                            Modifier.height(heroHeight).testTag("home:hero"),
                         ) {
                             Column(Modifier.fillMaxSize()) {
-                                AppHeader(actions)
+                                AppHeader(actions, active = "home")
                                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                     HomeHeroContent(
                                         home,
                                         actions,
-                                        modifier = Modifier.align(if (result.visible) Alignment.CenterStart else Alignment.BottomStart),
+                                        modifier = Modifier.align(
+                                            if (result.visible || resumeEmpty) Alignment.CenterStart
+                                            else Alignment.BottomStart
+                                        ),
                                         result = result,
                                         compact =
                                             maxHeight / LocalDensity.current.fontScale < 240.dp,

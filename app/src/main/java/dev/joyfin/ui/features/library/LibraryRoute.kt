@@ -3,6 +3,8 @@ package dev.joyfin.ui.features.library
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionUiState
@@ -36,11 +38,22 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
         }
     }
     MediaCollection(ui, actions, images) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppHeader(actions, true, horizontalInset = 0.dp)
-            FilmTitle(ui.title.ifBlank { "媒体库" })
-            ActionButton("片库体检", { actions.libraryAudit(ui.parent, if (ui.parent == null) "全部电影与剧集" else ui.title) },
-                androidx.compose.ui.Modifier.focusTarget("library:audit"), Glyph.CheckCircle)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                FilmTitle(ui.title.ifBlank { "媒体库" }, Modifier.weight(1f))
+                ActionButton(
+                    "片库体检",
+                    { actions.libraryAudit(ui.parent, if (ui.parent == null) "全部电影与剧集" else ui.title) },
+                    Modifier.focusTarget("library:audit"),
+                    icon = Glyph.CheckCircle,
+                    quiet = true,
+                )
+            }
             Caption(if ((ui.busy || ui.error != null) && ui.media.isEmpty()) " "
                 else if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品")
             if (ui.canArrangeLibrary) {

@@ -21,7 +21,7 @@ fun PersonRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
     val person = ui.person ?: return
     MediaCollection(ui, actions, images) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            AppHeader(actions, true, horizontalInset = 0.dp)
+            AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
             Row(
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalAlignment = Alignment.CenterVertically,

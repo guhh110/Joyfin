@@ -95,14 +95,19 @@ internal fun LazyGridScope.mediaCollectionItems(
                         reserveSpace = false,
                     )
                 val more = ui.nextOffset < ui.total
-                if (!ui.appending || ui.error == null) ActionButton(
-                    if (!more) "已加载全部 · ${ui.media.size}"
-                    else "加载更多 · ${ui.media.size} / ${ui.total}",
-                    actions.loadMore,
-                    Modifier.focusTarget("collection:more"),
-                    enabled = more && !ui.busy,
-                    loading = ui.appending && ui.busy,
-                )
+                if (!ui.appending || ui.error == null) {
+                    if (more) {
+                        ActionButton(
+                            "加载更多 · ${ui.media.size} / ${ui.total}",
+                            actions.loadMore,
+                            Modifier.focusTarget("collection:more"),
+                            enabled = !ui.busy,
+                            loading = ui.appending && ui.busy,
+                        )
+                    } else {
+                        Caption("已加载全部 · ${ui.media.size}", Modifier.padding(vertical = 12.dp))
+                    }
+                }
             }
         }
     if (ui.appending && ui.busy)

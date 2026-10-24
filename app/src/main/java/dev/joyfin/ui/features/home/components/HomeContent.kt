@@ -181,6 +181,7 @@ internal fun LazyListScope.homeRails(
 
 @Composable
 internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions, cardWidth: Dp? = null) {
+    if (home.resume.isEmpty() && !home.resumeLoad.loading && home.resumeLoad.error == null) return
     LoadingMediaRail(
         "继续观看",
         home.resume,

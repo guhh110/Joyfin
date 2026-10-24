@@ -25,7 +25,7 @@ data class Home(
 
 fun Media.isVideoLibrary(): Boolean =
     collectionType.lowercase() in
-        setOf("movies", "tvshows", "homevideos", "musicvideos", "mixed", "")
+        setOf("movies", "tvshows", "homevideos", "musicvideos", "mixed")
 
 /** Keep server ordering and only one entry per updated series. */
 fun groupLatestVideo(items: List<Media>): List<Media> =

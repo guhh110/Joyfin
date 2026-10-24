@@ -25,7 +25,7 @@ internal fun TvMediaCollectionLayout(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val columns =
-            floor(((maxWidth - 96.dp + 14.dp) / (174.dp + 14.dp)).toDouble())
+            floor(((maxWidth - 96.dp + 14.dp) / (150.dp + 14.dp)).toDouble())
                 .toInt()
                 .coerceAtLeast(1)
         val cardWidth = (maxWidth - 96.dp - 14.dp * (columns - 1)) / columns
@@ -42,7 +42,7 @@ internal fun TvMediaCollectionLayout(
             GridCells.Fixed(columns),
             Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
             state = rememberCollectionGridState(ui),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 20.dp),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {

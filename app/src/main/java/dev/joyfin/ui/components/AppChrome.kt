@@ -29,7 +29,7 @@ import dev.joyfin.ui.theme.Palette
 
 @Composable
 fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boolean = false,
-    horizontalInset: androidx.compose.ui.unit.Dp? = null) {
+    horizontalInset: androidx.compose.ui.unit.Dp? = null, active: String? = null) {
     val device = LocalDeviceLayout.current
     Row(
         Modifier.fillMaxWidth()
@@ -60,9 +60,9 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
         }
         if (device.television) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true)
-                ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true)
-                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true)
+                ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true, selected = active == "home")
+                ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true, selected = active == "library")
+                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true, selected = active == "subtitles")
             }
         } else Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

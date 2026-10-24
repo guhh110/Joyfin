@@ -101,15 +101,18 @@ internal class CollectionController(
                 else api.items(snapshot.parent, snapshot.query, start,
                     snapshot.libraryOptions.takeIf { snapshot.canArrangeLibrary }, snapshot.worksOnly)
             currentCoroutineContext().ensureActive()
+            val root = snapshot.kind == CollectionKind.LIBRARY &&
+                snapshot.parent == null && snapshot.query.isBlank()
+            val items = if (root) result.items.filter { it.isVideoLibrary() } else result.items
             mutable.value =
                 mutable.value.copy(
                     collection =
                         mutable.value.collection.copy(
                             media =
-                                if (more) (snapshot.media + result.items).distinctBy { it.id }
-                                else result.items,
-                            total = result.total,
-                            nextOffset = start + result.items.size,
+                                if (more) (snapshot.media + items).distinctBy { it.id }
+                                else items,
+                            total = if (root) items.size else result.total,
+                            nextOffset = start + items.size,
                         )
                 )
         }
