@@ -83,7 +83,7 @@ internal fun LazyGridScope.mediaCollectionItems(
             showSubtitle = !directories,
         )
     }
-    if (ui.total > 0)
+    if (ui.total > 0 && ui.nextOffset < ui.total)
         item(span = { GridItemSpan(maxLineSpan) }, key = "more") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (ui.appending && !ui.busy && ui.error != null)
@@ -94,20 +94,14 @@ internal fun LazyGridScope.mediaCollectionItems(
                         true,
                         reserveSpace = false,
                     )
-                val more = ui.nextOffset < ui.total
-                if (!ui.appending || ui.error == null) {
-                    if (more) {
-                        ActionButton(
-                            "加载更多 · ${ui.media.size} / ${ui.total}",
-                            actions.loadMore,
-                            Modifier.focusTarget("collection:more"),
-                            enabled = !ui.busy,
-                            loading = ui.appending && ui.busy,
-                        )
-                    } else {
-                        Caption("已加载全部 · ${ui.media.size}", Modifier.padding(vertical = 12.dp))
-                    }
-                }
+                if (!ui.appending || ui.error == null)
+                    ActionButton(
+                        "加载更多 · ${ui.media.size} / ${ui.total}",
+                        actions.loadMore,
+                        Modifier.focusTarget("collection:more"),
+                        enabled = !ui.busy,
+                        loading = ui.appending && ui.busy,
+                    )
             }
         }
     if (ui.appending && ui.busy)
