@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionUiState
@@ -40,7 +41,7 @@ internal fun TvMediaCollectionLayout(
             rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
         LazyVerticalGrid(
             GridCells.Fixed(columns),
-            Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
+            Modifier.fillMaxSize().focusRestorer().semantics { if (ui.busy) stateDescription = "正在加载" },
             state = rememberCollectionGridState(ui),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),

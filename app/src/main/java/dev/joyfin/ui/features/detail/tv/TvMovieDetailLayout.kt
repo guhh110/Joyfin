@@ -293,8 +293,10 @@ private fun TvMovieIntroduction(ui: DetailUiState, images: ArtworkSource, availa
     if (media?.name.isNullOrBlank()) {
         SkeletonBlock(Modifier.fillMaxWidth(.7f).height(if (compact) 40.dp else 56.dp))
     } else {
-        MediaTitle(media, images, large = !compact, maxLines = if (compact) 1 else 2,
-            logoWidth = 420.dp, logoHeight = if (compact) 40.dp else 88.dp)
+        Box(Modifier.titleScrim().padding(horizontal = 8.dp, vertical = 4.dp)) {
+            MediaTitle(media, images, large = !compact, maxLines = if (compact) 1 else 2,
+                logoWidth = 420.dp, logoHeight = if (compact) 40.dp else 88.dp)
+        }
     }
     if (media != null) {
         if (!compact && media.originalTitle.isNotBlank() && media.originalTitle != media.name) {

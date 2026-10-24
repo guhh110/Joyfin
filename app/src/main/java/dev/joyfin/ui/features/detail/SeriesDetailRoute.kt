@@ -24,6 +24,7 @@ import dev.joyfin.ui.features.detail.components.*
 import dev.joyfin.ui.features.detail.mobile.*
 import dev.joyfin.ui.features.detail.tv.*
 import dev.joyfin.ui.interaction.SeriesFocusCoordinator
+import dev.joyfin.ui.interaction.SeriesFocusMemory
 import dev.joyfin.ui.interaction.seriesPersonFocusKey
 import dev.joyfin.ui.model.*
 import kotlinx.coroutines.flow.first
@@ -32,9 +33,23 @@ import kotlinx.coroutines.flow.first
 @Composable
 fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: ArtworkSource) {
     val tv = LocalDeviceLayout.current.television
-    var focused by rememberSaveable(ui.visit) { mutableStateOf(if (tv) "detail:play" else "") }
-    val entryTarget = remember(ui.visit) { focused.ifBlank { "detail:play" } }
+    val seriesId = ui.item?.id.orEmpty()
+    var focused by rememberSaveable(ui.visit) {
+        mutableStateOf(if (tv) SeriesFocusMemory.get(seriesId) ?: "detail:play" else "")
+    }
     val focus = remember(ui.visit) { SeriesFocusCoordinator({ focused }) { focused = it } }
+    LaunchedEffect(seriesId) {
+        val remembered = SeriesFocusMemory.get(seriesId)
+        if (tv && seriesId.isNotBlank() && remembered != null) {
+            // Page-level focus restoration can run first; re-assert the remembered episode.
+            kotlinx.coroutines.delay(150)
+            if (!focused.startsWith("series:preview:")) focus.move(remembered)
+        }
+    }
+    LaunchedEffect(focused) {
+        SeriesFocusMemory.put(seriesId, focused)
+    }
+    val entryTarget = remember(ui.visit) { focused.ifBlank { "detail:play" } }
     var modal by rememberSaveable(ui.visit) { mutableStateOf<String?>(null) }
     var modalReturn by rememberSaveable(ui.visit) { mutableStateOf("header:back") }
     var modalEpisodeId by rememberSaveable(ui.visit) { mutableStateOf<String?>(null) }

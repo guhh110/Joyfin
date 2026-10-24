@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.*
@@ -161,8 +162,19 @@ private fun SeriesPreviewHeading(
 ) {
     val seasons = ui.series?.seasons
     val selected = seasons?.data?.find { it.id == ui.series.seasonId }
+    val episodes = ui.series?.episodes?.data.orEmpty()
+    val next = episodes.firstOrNull { !it.played && it.resumeTicks <= 0 }
+        ?: episodes.firstOrNull { !it.played }
+        ?: episodes.firstOrNull()
+    val nextRequester = next?.let { focus.attached["series:preview:${it.id}"] }
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown &&
+                nextRequester != null) {
+                nextRequester.requestFocus()
+                true
+            } else false
+        },
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
