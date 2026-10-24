@@ -2,6 +2,7 @@ package dev.joyfin.ui.features.detail.mobile
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -41,13 +42,14 @@ fun MobileEpisodeDetails(
                         .height(IntrinsicSize.Min)
                         .testTag("episode:sheet-actions"),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (!mediaInfo) {
                         val trigger = "sheet:${episode.id}:null"
                         ActionButton(
                             playLabel(episode, trigger),
                             { onPlay(episode, false, null) },
-                            Modifier.weight(1f).focusTarget("episode:sheet-play"),
+                            Modifier.weight(1.15f).focusTarget("episode:sheet-play"),
                             icon = Glyph.Play,
                             primary = true,
                             maxLines = 2,
@@ -71,14 +73,6 @@ fun MobileEpisodeDetails(
                             enabledWhileLoading = true,
                             loadingLabel = "正在准备，点击取消",
                         )
-                        ActionButton(
-                            "媒体信息",
-                            onMediaInfo,
-                            Modifier.weight(1f).testTag("episode:sheet-media"),
-                            icon = Glyph.Info,
-                            maxLines = 2,
-                            enabled = canPlay(episode, "media:${episode.id}"),
-                        )
                     }
                     RetryAction(
                         "重试信息",
@@ -87,6 +81,16 @@ fun MobileEpisodeDetails(
                         onRetry,
                         Modifier.weight(1f).testTag("episode:sheet-retry"),
                     )
+                    if (!mediaInfo) {
+                        IconButton(
+                            "媒体信息",
+                            Glyph.Info,
+                            onMediaInfo,
+                            Modifier.testTag("episode:sheet-media")
+                                .focusTarget("episode:sheet-media"),
+                            enabled = canPlay(episode, "media:${episode.id}"),
+                        )
+                    }
                 }
             },
         ) {
