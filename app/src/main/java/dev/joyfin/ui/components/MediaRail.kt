@@ -1,11 +1,14 @@
 package dev.joyfin.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Dp
@@ -14,7 +17,9 @@ import dev.joyfin.data.Media
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
+import dev.joyfin.ui.model.LocalRailBringIntoViewSpec
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MediaRail(
     title: String,
@@ -41,24 +46,30 @@ fun MediaRail(
                     "$focusPrefix:more",
                 )
             }
-        LazyRow(
-            state = state,
-            modifier = Modifier.testTag("rail:$focusPrefix"),
-            contentPadding = PaddingValues(horizontal = LocalDeviceLayout.current.gutter),
-            horizontalArrangement = Arrangement.spacedBy(MediaCardLayout.RailGap),
-        ) {
-            items(items, key = { it.id }, contentType = { "media-card" }) { item ->
-                MediaCard(
-                    item,
-                    images,
-                    { onOpen(item) },
-                    focusModifier = itemFocus(item),
-                    wide = wide,
-                    cardWidth = cardWidth,
-                    focusKey = "$focusPrefix:${item.id}",
-                    preferSeriesTitle = preferSeriesTitle,
-                )
+        val railSpec = LocalRailBringIntoViewSpec.current
+        val rail: @Composable () -> Unit = {
+            LazyRow(
+                state = state,
+                modifier = Modifier.testTag("rail:$focusPrefix"),
+                contentPadding = PaddingValues(horizontal = LocalDeviceLayout.current.gutter),
+                horizontalArrangement = Arrangement.spacedBy(MediaCardLayout.RailGap),
+            ) {
+                items(items, key = { it.id }, contentType = { "media-card" }) { item ->
+                    MediaCard(
+                        item,
+                        images,
+                        { onOpen(item) },
+                        focusModifier = itemFocus(item),
+                        wide = wide,
+                        cardWidth = cardWidth,
+                        focusKey = "$focusPrefix:${item.id}",
+                        preferSeriesTitle = preferSeriesTitle,
+                    )
+                }
             }
         }
+        if (railSpec != null)
+            CompositionLocalProvider(LocalBringIntoViewSpec provides railSpec) { rail() }
+        else rail()
     }
 }
