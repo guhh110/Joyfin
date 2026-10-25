@@ -72,7 +72,7 @@ internal fun LazyGridScope.mediaCollectionItems(
             }
             EmptyContent(emptyTitle, emptyDesc)
         }
-    items(ui.media, key = { it.id }) { media ->
+    items(ui.media, key = { it.id }, contentType = { if (directories) "directory" else "media" }) { media ->
         MediaCard(
             media,
             images,

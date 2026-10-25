@@ -3,15 +3,12 @@ package dev.joyfin.ui.interaction
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -53,11 +50,11 @@ fun Modifier.actionVisualFeedback(
     val pressColorSpec = rememberMotionSpec<Color>(MotionTokens.PressDurationMs)
 
     val targetScale = if (focused && enabled) focusedScale else MotionTokens.FixedScale
-    val animatedScale by
+    val animatedScale =
         animateFloatAsState(targetValue = targetScale, animationSpec = scaleSpec, label = "actionScale")
 
     val targetBorderWidth = if (focused) 2.dp else if (selected) 1.dp else 0.dp
-    val animatedBorderWidth by
+    val animatedBorderWidth =
         animateDpAsState(
             targetValue = targetBorderWidth,
             animationSpec = dpSpec,
@@ -71,7 +68,7 @@ fun Modifier.actionVisualFeedback(
                 selected -> Palette.Muted
                 else -> Color.Transparent
             }
-    val animatedBorderColor by
+    val animatedBorderColor =
         animateColorAsState(
             targetValue = targetBorderColor,
             animationSpec = colorSpec,
@@ -99,14 +96,14 @@ fun Modifier.actionVisualFeedback(
         } else {
             baseBg
         }
-    val animatedBackground by
+    val animatedBackground =
         animateColorAsState(
             targetValue = targetBackgroundColor,
             animationSpec = if (pressed) pressColorSpec else colorSpec,
             label = "actionBackground",
         )
 
-    val primaryFocusSeparator by animateColorAsState(
+    val primaryFocusSeparator = animateColorAsState(
         targetValue = if (primary && focused) Palette.Background else Palette.Background.copy(alpha = 0f),
         animationSpec = colorSpec,
         label = "actionPrimaryFocusSeparator",
@@ -115,24 +112,32 @@ fun Modifier.actionVisualFeedback(
     return this
         .zIndex(if (focused) 1f else 0f)
         .graphicsLayer {
-            scaleX = animatedScale
-            scaleY = animatedScale
+            scaleX = animatedScale.value
+            scaleY = animatedScale.value
         }
-        .border(animatedBorderWidth, animatedBorderColor, shape)
         .clip(shape)
-        .background(animatedBackground)
-        .drawWithCache {
+        .drawWithContent {
+            val outline = shape.createOutline(size, layoutDirection, this)
+            drawOutline(outline, animatedBackground.value)
+            drawContent()
+            val borderWidth = animatedBorderWidth.value.toPx()
+            if (borderWidth > 0f)
+                drawOutline(outline, animatedBorderColor.value, style = Stroke(borderWidth))
             // Draw inside the existing bounds: white outer frame, dark separator, light fill.
             // This also stays visible on fixed-size player/footer actions without layout changes.
             val inset = 3.dp.toPx()
-            val outline = if (size.width > inset * 2 && size.height > inset * 2)
-                shape.createOutline(Size(size.width - inset * 2, size.height - inset * 2), layoutDirection, this)
-            else null
-            val stroke = Stroke(2.dp.toPx())
-            onDrawWithContent {
-                drawContent()
-                if (outline != null && primaryFocusSeparator.alpha > 0f)
-                    translate(inset, inset) { drawOutline(outline, primaryFocusSeparator, style = stroke) }
+            if (size.width > inset * 2 && size.height > inset * 2) {
+                val separator = primaryFocusSeparator.value
+                if (separator.alpha > 0f) {
+                    val inner = shape.createOutline(
+                        Size(size.width - inset * 2, size.height - inset * 2),
+                        layoutDirection,
+                        this,
+                    )
+                    translate(inset, inset) {
+                        drawOutline(inner, separator, style = Stroke(2.dp.toPx()))
+                    }
+                }
             }
         }
 }

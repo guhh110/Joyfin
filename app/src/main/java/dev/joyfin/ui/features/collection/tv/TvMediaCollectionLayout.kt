@@ -1,8 +1,12 @@
 package dev.joyfin.ui.features.collection.tv
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -13,9 +17,11 @@ import dev.joyfin.ui.features.collection.directoryGrid
 import dev.joyfin.ui.features.collection.rememberCollectionGridState
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.ui.model.FirstViewportScrollSpec
 import kotlin.math.ceil
 import kotlin.math.floor
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvMediaCollectionLayout(
     ui: CollectionUiState,
@@ -38,15 +44,19 @@ internal fun TvMediaCollectionLayout(
                 .coerceAtLeast(2)
         val skeletonVisible =
             rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
-        LazyVerticalGrid(
-            GridCells.Fixed(columns),
-            Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
-            state = rememberCollectionGridState(ui),
-            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
+        val platformScroll = LocalBringIntoViewSpec.current
+        val visibilityScroll = remember(platformScroll) { FirstViewportScrollSpec(platformScroll) }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
+            LazyVerticalGrid(
+                GridCells.Fixed(columns),
+                Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
+                state = rememberCollectionGridState(ui),
+                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
+            }
         }
     }
 }
