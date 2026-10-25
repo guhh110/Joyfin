@@ -8,8 +8,7 @@ import org.junit.Test
 @OptIn(ExperimentalFoundationApi::class)
 class FirstViewportScrollSpecTest {
     @Test
-    fun visibleHeroIsHeldButSecondScreenUsesTheExactPlatformDistance() {
-        var hold = true
+    fun fullyVisibleTargetsAreHeldWithoutAskingThePlatform() {
         var calls = 0
         val platform =
             object : BringIntoViewSpec {
@@ -22,12 +21,9 @@ class FirstViewportScrollSpecTest {
                     return -123f
                 }
             }
-        val spec = FirstViewportScrollSpec(platform) { hold }
+        val spec = FirstViewportScrollSpec(platform)
         assertEquals(0f, spec.calculateScrollDistance(620f, 60f, 720f), 0f)
         assertEquals(0, calls)
-        hold = false
-        assertEquals(-123f, spec.calculateScrollDistance(620f, 60f, 720f), 0f)
-        assertEquals(1, calls)
     }
 
     @Test
@@ -40,7 +36,7 @@ class FirstViewportScrollSpecTest {
                     containerSize: Float,
                 ) = 87f
             }
-        val spec = FirstViewportScrollSpec(platform) { true }
+        val spec = FirstViewportScrollSpec(platform)
         assertEquals(87f, spec.calculateScrollDistance(700f, 60f, 720f), 0f)
         assertEquals(87f, spec.calculateScrollDistance(-1f, 60f, 720f), 0f)
         assertEquals(87f, spec.calculateScrollDistance(0f, 800f, 720f), 0f)

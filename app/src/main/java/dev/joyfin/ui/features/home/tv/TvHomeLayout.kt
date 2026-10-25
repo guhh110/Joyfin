@@ -31,9 +31,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
     val platformScroll = LocalBringIntoViewSpec.current
     val viewportScroll =
         remember(platformScroll, scroll) {
-            FirstViewportScrollSpec(platformScroll) {
-                scroll.firstVisibleItemIndex == 0 && scroll.firstVisibleItemScrollOffset == 0
-            }
+            FirstViewportScrollSpec(platformScroll)
         }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight

@@ -58,14 +58,8 @@ internal fun TvMovieDetailLayout(
         try { entryFocus.requestFocus() } catch (_: Throwable) {}
     }
 
-    val visibilityScroll = remember(platformScroll, scroll, focusedKey) {
-        FirstViewportScrollSpec(platformScroll) {
-            scroll.value == 0 && focusedKey in setOf(
-                "", "movie:entry",
-                "header:back", "header:subtitles", "header:media-info", "header:search", "header:account",
-                "detail:play", "detail:play-again", "favorite",
-            )
-        }
+    val visibilityScroll = remember(platformScroll, scroll) {
+        FirstViewportScrollSpec(platformScroll)
     }
 
     val rootModifier = modifier

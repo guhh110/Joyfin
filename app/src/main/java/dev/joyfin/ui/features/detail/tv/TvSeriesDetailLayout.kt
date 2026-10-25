@@ -26,11 +26,8 @@ import dev.joyfin.ui.model.ArtworkSource
 @Composable
 internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modifier = Modifier) {
     val platformScroll = LocalBringIntoViewSpec.current
-    val visibilityScroll = remember(platformScroll, content.scroll, content.focus) {
-        FirstViewportScrollSpec(platformScroll) {
-            content.scroll.value == 0 && (content.focus.pending ?: content.focus.target) in
-                setOf("header:back", "header:search", "header:account", "detail:play", "favorite")
-        }
+    val visibilityScroll = remember(platformScroll) {
+        FirstViewportScrollSpec(platformScroll)
     }
     CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
         BoxWithConstraints(modifier.fillMaxSize()) {
