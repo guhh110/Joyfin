@@ -37,6 +37,7 @@ fun Modifier.actionVisualFeedback(
     primary: Boolean = false,
     transparent: Boolean = false,
     focusedScale: Float = MotionTokens.FixedScale,
+    focusedBackground: Boolean = true,
     shape: Shape,
     interactionSource: MutableInteractionSource? = null,
     overrideBorderColor: Color? = null,
@@ -79,7 +80,8 @@ fun Modifier.actionVisualFeedback(
         when {
             primary -> if (focused) Palette.Text else Palette.Text.copy(alpha = 0.92f)
             selected -> Palette.Selected
-            focused -> Palette.Elevated
+            focused -> if (focusedBackground) Palette.Elevated
+                else if (transparent) Color.Transparent else Palette.Surface
             transparent -> Color.Transparent
             else -> Palette.Surface
         }
@@ -89,7 +91,8 @@ fun Modifier.actionVisualFeedback(
         if (pressed && enabled) {
             when {
                 primary -> Palette.Text.copy(alpha = 0.82f)
-                focused -> Palette.Elevated.copy(alpha = 0.90f)
+                focused -> if (focusedBackground) Palette.Elevated.copy(alpha = 0.90f)
+                    else if (transparent) Color.White.copy(alpha = 0.12f) else Palette.Pressed
                 transparent -> Color.White.copy(alpha = 0.12f)
                 else -> Palette.Pressed
             }

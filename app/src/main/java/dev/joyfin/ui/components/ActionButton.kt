@@ -39,6 +39,7 @@ fun FocusSurface(
     selected: Boolean = false,
     transparent: Boolean = false,
     focusedScale: Float? = null,
+    focusedBackground: Boolean = true,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -56,6 +57,7 @@ fun FocusSurface(
                 primary = primary,
                 transparent = transparent,
                 focusedScale = scale,
+                focusedBackground = focusedBackground,
                 shape = shape,
                 interactionSource = interactionSource,
             )
