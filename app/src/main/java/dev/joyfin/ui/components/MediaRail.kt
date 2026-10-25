@@ -18,6 +18,7 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.LocalRailBringIntoViewSpec
+import dev.joyfin.ui.tv.scroll.tvFocusTarget
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -33,12 +34,13 @@ fun MediaRail(
     showHeading: Boolean = true,
     cardWidth: Dp? = null,
     preferSeriesTitle: Boolean = true,
+    outerIndex: Int = 0,
     itemFocus: @Composable (Media) -> Modifier = { Modifier.focusTarget("$focusPrefix:${it.id}") },
 ) {
     if (items.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (showHeading)
-            Box(Modifier.padding(horizontal = LocalDeviceLayout.current.gutter)) {
+            Box(Modifier.padding(horizontal = LocalDeviceLayout.current.gutter).tvFocusTarget(outerIndex)) {
                 SectionHeading(
                     title,
                     if (onMore != null) "查看全部" else null,
@@ -59,7 +61,7 @@ fun MediaRail(
                         item,
                         images,
                         { onOpen(item) },
-                        focusModifier = itemFocus(item),
+                        focusModifier = itemFocus(item).tvFocusTarget(outerIndex),
                         wide = wide,
                         cardWidth = cardWidth,
                         focusKey = "$focusPrefix:${item.id}",

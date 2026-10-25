@@ -6,7 +6,7 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.model.*
 
 @Composable
-fun LibraryRail(state: LibraryRailState, images: ArtworkSource, actions: BrowseActions) {
+fun LibraryRail(state: LibraryRailState, images: ArtworkSource, actions: BrowseActions, outerIndex: Int = 0) {
     LoadingMediaRail(
         state.library.name,
         state.items,
@@ -16,5 +16,6 @@ fun LibraryRail(state: LibraryRailState, images: ArtworkSource, actions: BrowseA
         onMore = { actions.libraryWorks(state.library.id, state.library.name) },
         retry = { actions.retryLibrary(state.library.id) },
         focusPrefix = "library:${state.library.id}",
+        outerIndex = outerIndex,
     )
 }

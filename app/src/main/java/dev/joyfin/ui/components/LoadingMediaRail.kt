@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import dev.joyfin.data.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.model.*
+import dev.joyfin.ui.tv.scroll.tvFocusTarget
 
 @Composable
 fun LoadingMediaRail(
@@ -21,13 +22,15 @@ fun LoadingMediaRail(
     retry: () -> Unit = actions.retry,
     focusPrefix: String = title,
     cardWidth: Dp? = null,
+    outerIndex: Int = 0,
 ) {
     Column {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (items.isNotEmpty())
-                MediaRail(title, items, images, actions.open, wide, onMore, focusPrefix, cardWidth = cardWidth)
+                MediaRail(title, items, images, actions.open, wide, onMore, focusPrefix,
+                    cardWidth = cardWidth, outerIndex = outerIndex)
             else {
-                Box(Modifier.padding(horizontal = LocalDeviceLayout.current.gutter)) {
+                Box(Modifier.padding(horizontal = LocalDeviceLayout.current.gutter).tvFocusTarget(outerIndex)) {
                     SectionHeading(
                         title,
                         if (onMore != null) "查看全部" else null,

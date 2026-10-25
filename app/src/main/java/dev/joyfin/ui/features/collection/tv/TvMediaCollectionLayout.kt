@@ -1,14 +1,8 @@
 package dev.joyfin.ui.features.collection.tv
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
@@ -19,11 +13,11 @@ import dev.joyfin.ui.features.collection.directoryGrid
 import dev.joyfin.ui.features.collection.rememberCollectionGridState
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
-import dev.joyfin.ui.model.NoBringIntoViewSpec
+import dev.joyfin.ui.tv.scroll.TvFocusScrollHost
+import dev.joyfin.ui.tv.scroll.rememberTvFocusScroller
 import kotlin.math.ceil
 import kotlin.math.floor
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvMediaCollectionLayout(
     ui: CollectionUiState,
@@ -47,16 +41,8 @@ internal fun TvMediaCollectionLayout(
         val skeletonVisible =
             rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
         val gridState = rememberCollectionGridState(ui)
-        val focusedIndex = remember { mutableIntStateOf(-1) }
-        LaunchedEffect(focusedIndex.intValue, gridState) {
-            val index = focusedIndex.intValue
-            if (index < 0) return@LaunchedEffect
-            val info = gridState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
-            val fullyVisible = info != null && info.offset.y >= 0 &&
-                info.offset.y + info.size.height <= gridState.layoutInfo.viewportEndOffset
-            if (!fullyVisible) gridState.animateScrollToItem(index)
-        }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides NoBringIntoViewSpec) {
+        val scroller = rememberTvFocusScroller(gridState)
+        TvFocusScrollHost(scroller) {
             LazyVerticalGrid(
                 GridCells.Fixed(columns),
                 Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
@@ -65,8 +51,7 @@ internal fun TvMediaCollectionLayout(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible,
-                    onFocused = { focusedIndex.intValue = it })
+                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
             }
         }
     }

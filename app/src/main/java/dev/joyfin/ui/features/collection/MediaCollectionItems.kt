@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionKind
@@ -13,6 +12,7 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.ui.tv.scroll.tvFocusTarget
 
 internal fun LazyGridScope.mediaCollectionItems(
     ui: CollectionUiState,
@@ -21,11 +21,10 @@ internal fun LazyGridScope.mediaCollectionItems(
     header: @Composable () -> Unit,
     skeletonCount: Int,
     skeletonVisible: Boolean,
-    onFocused: (Int) -> Unit = {},
 ) {
     val directories = ui.directoryGrid
     item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
-        Column(Modifier.onFocusChanged { if (it.hasFocus) onFocused(0) }) {
+        Column(Modifier.tvFocusTarget(0)) {
             header()
             if (ui.media.isNotEmpty()) {
                 RegionLoadFeedback(
@@ -82,9 +81,9 @@ internal fun LazyGridScope.mediaCollectionItems(
             { actions.open(media) },
             Modifier.fillMaxWidth(),
             focusKey = "collection:${media.id}",
+            focusModifier = Modifier.focusTarget("collection:${media.id}").tvFocusTarget(index + 1),
             wide = directories,
             showSubtitle = !directories,
-            onFocused = { onFocused(index + 1) },
         )
     }
     if (ui.total > 0 && ui.nextOffset < ui.total)

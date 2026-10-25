@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -31,7 +30,6 @@ fun MediaCard(
     focusModifier: Modifier? = null,
     showSubtitle: Boolean = true,
     preferSeriesTitle: Boolean = true,
-    onFocused: (() -> Unit)? = null,
 ) {
     val tv = LocalDeviceLayout.current.television
     val imageUrl =
@@ -44,8 +42,7 @@ fun MediaCard(
             .width(
                 cardWidth ?: MediaCardLayout.width(tv, wide)
             )
-            .then(focusModifier ?: Modifier.focusTarget(focusKey))
-            .onFocusChanged { if (it.isFocused) onFocused?.invoke() },
+            .then(focusModifier ?: Modifier.focusTarget(focusKey)),
         transparent = true,
         focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
         focusedBackground = false,

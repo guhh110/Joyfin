@@ -14,11 +14,11 @@ import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.HomeUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.home.components.*
-import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
-import dev.joyfin.ui.model.LocalRailBringIntoViewSpec
-import dev.joyfin.ui.model.NoBringIntoViewSpec
+import dev.joyfin.ui.tv.scroll.TvFocusScrollHost
+import dev.joyfin.ui.tv.scroll.rememberTvFocusScroller
+import dev.joyfin.ui.tv.scroll.tvFocusTarget
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.data.HomeLayoutPreferences
 
@@ -31,28 +31,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
     val pinResume = layout.visibleKeys(home.libraries.map { it.id }).firstOrNull() == "resume"
     val scroll = rememberLazyListState()
     val platformScroll = LocalBringIntoViewSpec.current
-    val screenFocus = LocalScreenFocus.current
-    LaunchedEffect(scroll, screenFocus) {
-        val memory = screenFocus ?: return@LaunchedEffect
-        snapshotFlow { memory.target() }.collect { key ->
-            if (key.isBlank()) return@collect
-            val info = scroll.layoutInfo.visibleItemsInfo.firstOrNull { item ->
-                val itemKey = item.key as? String ?: return@firstOrNull false
-                val prefix = when (itemKey) {
-                    "hero" -> "hero:"
-                    "resume" -> "继续观看:"
-                    "latest" -> "最近加入:"
-                    else -> "$itemKey:"
-                }
-                key.startsWith(prefix)
-            }
-            // Header and hero controls live in item 0; rails use their own item index.
-            val index = info?.index ?: 0
-            val fullyVisible = info != null && info.offset >= 0 &&
-                info.offset + info.size <= scroll.layoutInfo.viewportEndOffset
-            if (!fullyVisible) scroll.animateScrollToItem(index)
-        }
-    }
+    val scroller = rememberTvFocusScroller(scroll)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
         val scale = LocalDensity.current.fontScale.coerceAtLeast(1f)
@@ -60,10 +39,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
         val heroHeight = if (resumeEmpty) viewportHeight * .82f else viewportHeight
         val resumeWidth = ((maxWidth - LocalDeviceLayout.current.gutter * 2 - MediaCardLayout.RailGap * 3) / 4 / scale)
             .coerceIn(140.dp, 280.dp)
-        CompositionLocalProvider(
-            LocalBringIntoViewSpec provides NoBringIntoViewSpec,
-            LocalRailBringIntoViewSpec provides platformScroll,
-        ) {
+        TvFocusScrollHost(scroller) {
             LazyColumn(
                 Modifier.fillMaxSize().testTag("home:scroll"),
                 state = scroll,
@@ -79,7 +55,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                             0.dp,
                             Modifier.height(heroHeight).testTag("home:hero"),
                         ) {
-                            Column(Modifier.fillMaxSize()) {
+                            Column(Modifier.fillMaxSize().tvFocusTarget(0)) {
                                 AppHeader(actions, active = "home")
                                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                     HomeHeroContent(
@@ -99,7 +75,8 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                         }
                     }
                 }
-                homeRails(home, images, actions, includeResume = !pinResume, resultOnly = result.visible, layout = layout)
+                homeRails(home, images, actions, includeResume = !pinResume, resultOnly = result.visible,
+                    layout = layout, startIndex = 1)
             }
         }
     }

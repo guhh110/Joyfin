@@ -131,10 +131,12 @@ internal fun LazyListScope.homeRails(
     includeResume: Boolean = true,
     resultOnly: Boolean = home.noContentResult,
     layout: HomeLayoutPreferences = HomeLayoutPreferences(),
+    startIndex: Int = 1,
 ) {
     if (resultOnly) return
     val keys = layout.visibleKeys(home.libraries.map { it.id })
     var libraryStatusAdded = false
+    var nextIndex = startIndex
     fun libraryStatus() {
         if (libraryStatusAdded) return
         libraryStatusAdded = true
@@ -147,25 +149,34 @@ internal fun LazyListScope.homeRails(
                     if (home.librariesLoad.loading && home.rails.isEmpty()) RailSkeleton()
                 }
             }
+            nextIndex++
         }
     }
     keys.forEach { key -> when (key) {
-        "resume" -> if (includeResume) item("resume", contentType = "rail") { HomeResumeRail(home, images, actions) }
-        "latest" -> item("latest", contentType = "rail") {
-            LoadingMediaRail(
-                "最近加入",
-                home.latest,
-                home.latestLoad,
-                images,
-                actions,
-                retry = { actions.retryHome(HomeRegion.LATEST) },
-                onMore = actions.allMedia,
-            )
+        "resume" -> if (includeResume) {
+            val index = nextIndex++
+            item("resume", contentType = "rail") { HomeResumeRail(home, images, actions, outerIndex = index) }
+        }
+        "latest" -> {
+            val index = nextIndex++
+            item("latest", contentType = "rail") {
+                LoadingMediaRail(
+                    "最近加入",
+                    home.latest,
+                    home.latestLoad,
+                    images,
+                    actions,
+                    retry = { actions.retryHome(HomeRegion.LATEST) },
+                    onMore = actions.allMedia,
+                    outerIndex = index,
+                )
+            }
         }
         else -> {
             libraryStatus()
             home.rails.firstOrNull { "library:${it.library.id}" == key }?.let { rail ->
-                item(key, contentType = "library-rail") { LibraryRail(rail, images, actions) }
+                val index = nextIndex++
+                item(key, contentType = "library-rail") { LibraryRail(rail, images, actions, outerIndex = index) }
             }
         }
     } }
@@ -180,7 +191,7 @@ internal fun LazyListScope.homeRails(
 }
 
 @Composable
-internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions, cardWidth: Dp? = null) {
+internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions, cardWidth: Dp? = null, outerIndex: Int = 0) {
     if (home.resume.isEmpty() && !home.resumeLoad.loading && home.resumeLoad.error == null) return
     LoadingMediaRail(
         "继续观看",
@@ -191,5 +202,6 @@ internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseAc
         wide = true,
         cardWidth = cardWidth,
         retry = { actions.retryHome(HomeRegion.RESUME) },
+        outerIndex = outerIndex,
     )
 }
