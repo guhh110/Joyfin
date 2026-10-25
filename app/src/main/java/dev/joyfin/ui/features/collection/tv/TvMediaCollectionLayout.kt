@@ -13,8 +13,6 @@ import dev.joyfin.ui.features.collection.directoryGrid
 import dev.joyfin.ui.features.collection.rememberCollectionGridState
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
-import dev.joyfin.ui.tv.scroll.TvFocusScrollHost
-import dev.joyfin.ui.tv.scroll.rememberTvFocusScroller
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -40,19 +38,15 @@ internal fun TvMediaCollectionLayout(
                 .coerceAtLeast(2)
         val skeletonVisible =
             rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
-        val gridState = rememberCollectionGridState(ui)
-        val scroller = rememberTvFocusScroller(gridState)
-        TvFocusScrollHost(scroller) {
-            LazyVerticalGrid(
-                GridCells.Fixed(columns),
-                Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
-                state = gridState,
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
-            }
+        LazyVerticalGrid(
+            GridCells.Fixed(columns),
+            Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
+            state = rememberCollectionGridState(ui),
+            contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
         }
     }
 }

@@ -38,6 +38,7 @@ fun Modifier.actionVisualFeedback(
     transparent: Boolean = false,
     focusedScale: Float = MotionTokens.FixedScale,
     focusedBackground: Boolean = true,
+    borderOnly: Boolean = false,
     shape: Shape,
     interactionSource: MutableInteractionSource? = null,
     overrideBorderColor: Color? = null,
@@ -52,7 +53,8 @@ fun Modifier.actionVisualFeedback(
 
     val targetScale = if (focused && enabled) focusedScale else MotionTokens.FixedScale
     val animatedScale =
-        animateFloatAsState(targetValue = targetScale, animationSpec = scaleSpec, label = "actionScale")
+        if (borderOnly && focusedScale == MotionTokens.FixedScale) null
+        else animateFloatAsState(targetValue = targetScale, animationSpec = scaleSpec, label = "actionScale")
 
     val targetBorderWidth = if (focused) 2.dp else if (selected) 1.dp else 0.dp
     val animatedBorderWidth =
@@ -100,24 +102,28 @@ fun Modifier.actionVisualFeedback(
             baseBg
         }
     val animatedBackground =
-        animateColorAsState(
+        if (borderOnly) null
+        else animateColorAsState(
             targetValue = targetBackgroundColor,
             animationSpec = if (pressed) pressColorSpec else colorSpec,
             label = "actionBackground",
         )
 
-    val primaryFocusSeparator = animateColorAsState(
-        targetValue = if (primary && focused) Palette.Background else Palette.Background.copy(alpha = 0f),
-        animationSpec = colorSpec,
-        label = "actionPrimaryFocusSeparator",
-    )
+    val primaryFocusSeparator =
+        if (borderOnly) null
+        else animateColorAsState(
+            targetValue = if (primary && focused) Palette.Background else Palette.Background.copy(alpha = 0f),
+            animationSpec = colorSpec,
+            label = "actionPrimaryFocusSeparator",
+        )
 
-    return this
-        .zIndex(if (focused) 1f else 0f)
-        .graphicsLayer {
+    var modifier = this.zIndex(if (focused) 1f else 0f)
+    if (animatedScale != null)
+        modifier = modifier.graphicsLayer {
             scaleX = animatedScale.value
             scaleY = animatedScale.value
         }
+    return modifier
         .clip(shape)
         .drawWithCache {
             val outline = shape.createOutline(size, layoutDirection, this)
@@ -131,15 +137,15 @@ fun Modifier.actionVisualFeedback(
             else null
             val separatorStroke = Stroke(2.dp.toPx())
             onDrawWithContent {
-                drawOutline(outline, animatedBackground.value)
+                drawOutline(outline, animatedBackground?.value ?: Color.Transparent)
                 drawContent()
                 val borderWidth = animatedBorderWidth.value.toPx()
                 if (borderWidth > 0f)
                     drawOutline(outline, animatedBorderColor.value, style = Stroke(borderWidth))
                 // Draw inside the existing bounds: white outer frame, dark separator, light fill.
                 // This also stays visible on fixed-size player/footer actions without layout changes.
-                val separator = primaryFocusSeparator.value
-                if (inner != null && separator.alpha > 0f) {
+                val separator = primaryFocusSeparator?.value
+                if (inner != null && separator != null && separator.alpha > 0f) {
                     translate(inset, inset) {
                         drawOutline(inner, separator, style = separatorStroke)
                     }

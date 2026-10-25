@@ -1,7 +1,5 @@
 package dev.joyfin.ui.features.detail.tv
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -18,19 +16,12 @@ import dev.joyfin.browse.DetailUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.detail.components.*
-import dev.joyfin.ui.model.FirstViewportScrollSpec
 import dev.joyfin.ui.model.ArtworkSource
 
 /** TV owns the complete introductory viewport; only subsequent sections scroll into view. */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modifier = Modifier) {
-    val platformScroll = LocalBringIntoViewSpec.current
-    val visibilityScroll = remember(platformScroll) {
-        FirstViewportScrollSpec(platformScroll)
-    }
-    CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
-        BoxWithConstraints(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
             val height = maxHeight
             val gutter = LocalDeviceLayout.current.gutter
             val posterWidth = (maxWidth * .20f).coerceIn(140.dp, 230.dp)
@@ -65,12 +56,9 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
                         }
                     }
                 }
-                CompositionLocalProvider(LocalBringIntoViewSpec provides platformScroll) {
-                    SeriesOverviewSections(content)
-                }
+                SeriesOverviewSections(content)
             }
         }
-    }
 }
 
 @Composable

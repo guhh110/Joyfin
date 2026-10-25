@@ -44,8 +44,10 @@ fun MediaCard(
             )
             .then(focusModifier ?: Modifier.focusTarget(focusKey)),
         transparent = true,
-        focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
+        focusedScale = if (tv) dev.joyfin.ui.theme.MotionTokens.CardFocusedScale
+            else dev.joyfin.ui.theme.MotionTokens.FixedScale,
         focusedBackground = false,
+        borderOnly = true,
     ) {
         Column(Modifier.padding(MediaCardLayout.ContentInset)) {
             Box(

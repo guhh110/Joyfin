@@ -12,7 +12,6 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
-import dev.joyfin.ui.tv.scroll.tvFocusTarget
 
 internal fun LazyGridScope.mediaCollectionItems(
     ui: CollectionUiState,
@@ -24,7 +23,7 @@ internal fun LazyGridScope.mediaCollectionItems(
 ) {
     val directories = ui.directoryGrid
     item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
-        Column(Modifier.tvFocusTarget(0)) {
+        Column {
             header()
             if (ui.media.isNotEmpty()) {
                 RegionLoadFeedback(
@@ -73,15 +72,13 @@ internal fun LazyGridScope.mediaCollectionItems(
             }
             EmptyContent(emptyTitle, emptyDesc)
         }
-    itemsIndexed(ui.media, key = { _, media -> media.id },
-        contentType = { _, _ -> if (directories) "directory" else "media" }) { index, media ->
+    items(ui.media, key = { it.id }, contentType = { if (directories) "directory" else "media" }) { media ->
         MediaCard(
             media,
             images,
             { actions.open(media) },
             Modifier.fillMaxWidth(),
             focusKey = "collection:${media.id}",
-            focusModifier = Modifier.focusTarget("collection:${media.id}").tvFocusTarget(index + 1),
             wide = directories,
             showSubtitle = !directories,
         )
