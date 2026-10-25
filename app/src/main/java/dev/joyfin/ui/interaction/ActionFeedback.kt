@@ -8,7 +8,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -116,26 +116,29 @@ fun Modifier.actionVisualFeedback(
             scaleY = animatedScale.value
         }
         .clip(shape)
-        .drawWithContent {
+        .drawWithCache {
             val outline = shape.createOutline(size, layoutDirection, this)
-            drawOutline(outline, animatedBackground.value)
-            drawContent()
-            val borderWidth = animatedBorderWidth.value.toPx()
-            if (borderWidth > 0f)
-                drawOutline(outline, animatedBorderColor.value, style = Stroke(borderWidth))
-            // Draw inside the existing bounds: white outer frame, dark separator, light fill.
-            // This also stays visible on fixed-size player/footer actions without layout changes.
             val inset = 3.dp.toPx()
-            if (size.width > inset * 2 && size.height > inset * 2) {
+            val inner = if (size.width > inset * 2 && size.height > inset * 2)
+                shape.createOutline(
+                    Size(size.width - inset * 2, size.height - inset * 2),
+                    layoutDirection,
+                    this,
+                )
+            else null
+            val separatorStroke = Stroke(2.dp.toPx())
+            onDrawWithContent {
+                drawOutline(outline, animatedBackground.value)
+                drawContent()
+                val borderWidth = animatedBorderWidth.value.toPx()
+                if (borderWidth > 0f)
+                    drawOutline(outline, animatedBorderColor.value, style = Stroke(borderWidth))
+                // Draw inside the existing bounds: white outer frame, dark separator, light fill.
+                // This also stays visible on fixed-size player/footer actions without layout changes.
                 val separator = primaryFocusSeparator.value
-                if (separator.alpha > 0f) {
-                    val inner = shape.createOutline(
-                        Size(size.width - inset * 2, size.height - inset * 2),
-                        layoutDirection,
-                        this,
-                    )
+                if (inner != null && separator.alpha > 0f) {
                     translate(inset, inset) {
-                        drawOutline(inner, separator, style = Stroke(2.dp.toPx()))
+                        drawOutline(inner, separator, style = separatorStroke)
                     }
                 }
             }
