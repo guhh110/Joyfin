@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.*
@@ -17,7 +19,7 @@ import dev.joyfin.ui.features.collection.directoryGrid
 import dev.joyfin.ui.features.collection.rememberCollectionGridState
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
-import dev.joyfin.ui.model.FirstViewportScrollSpec
+import dev.joyfin.ui.model.NoBringIntoViewSpec
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -44,18 +46,27 @@ internal fun TvMediaCollectionLayout(
                 .coerceAtLeast(2)
         val skeletonVisible =
             rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
-        val platformScroll = LocalBringIntoViewSpec.current
-        val visibilityScroll = remember(platformScroll) { FirstViewportScrollSpec(platformScroll) }
-        CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
+        val gridState = rememberCollectionGridState(ui)
+        val focusedIndex = remember { mutableIntStateOf(-1) }
+        LaunchedEffect(focusedIndex.intValue, gridState) {
+            val index = focusedIndex.intValue
+            if (index < 0) return@LaunchedEffect
+            val info = gridState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+            val fullyVisible = info != null && info.offset.y >= 0 &&
+                info.offset.y + info.size.height <= gridState.layoutInfo.viewportEndOffset
+            if (!fullyVisible) gridState.animateScrollToItem(index)
+        }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides NoBringIntoViewSpec) {
             LazyVerticalGrid(
                 GridCells.Fixed(columns),
                 Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
-                state = rememberCollectionGridState(ui),
+                state = gridState,
                 contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
+                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible,
+                    onFocused = { focusedIndex.intValue = it })
             }
         }
     }

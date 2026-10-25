@@ -12,3 +12,9 @@ internal class FirstViewportScrollSpec(
         if (offset >= 0f && offset + size <= containerSize) 0f
         else platform.calculateScrollDistance(offset, size, containerSize)
 }
+
+/** Focus scrolling is driven by an explicit animateScrollToItem instead of an instant jump. */
+@OptIn(ExperimentalFoundationApi::class)
+internal object NoBringIntoViewSpec : BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
