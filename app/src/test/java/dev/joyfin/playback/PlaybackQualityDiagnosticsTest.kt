@@ -113,6 +113,6 @@ class PlaybackQualityDiagnosticsTest {
 
     @Test fun serverReasonsAreAllowlistedAndDeduplicated() {
         val reasons = serverPlaybackReasons(listOf("AudioCodecNotSupported", "AudioCodecNotSupported", "https://example.test/private"))
-        assertEquals(listOf("设备不支持音频编码", "服务端提供了其他转码原因"), reasons)
+        assertEquals(listOf("音频编码设备无法直接解码", "服务端提供了其他转码原因"), reasons)
     }
 }
