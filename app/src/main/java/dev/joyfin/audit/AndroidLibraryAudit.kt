@@ -6,6 +6,8 @@ import dev.joyfin.data.subtitles.LocalSubtitleStore
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 internal class FileAuditPersistence(private val directory: File) : AuditPersistence {
     constructor(context: Context) : this(File(context.noBackupFilesDir, "library-audit"))
@@ -28,7 +30,8 @@ internal class FileAuditPersistence(private val directory: File) : AuditPersiste
         val file = file(owner, saved.report.scope)
         val temporary = File(directory, file.name + ".tmp")
         temporary.writeBytes(encoded)
-        check(temporary.renameTo(file)) { "Cannot save audit" }
+        Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        Unit
     }
 }
 

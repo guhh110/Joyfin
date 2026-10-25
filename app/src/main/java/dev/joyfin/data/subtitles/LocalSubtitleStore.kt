@@ -3,6 +3,8 @@ package dev.joyfin.data.subtitles
 import android.content.Context
 import dev.joyfin.data.AppJson
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -35,7 +37,7 @@ class LocalSubtitleStore private constructor(context: Context) {
         check(directory.isDirectory || directory.mkdirs())
         val temp = File(directory, "index.tmp")
         temp.writeText(AppJson.encodeToString(index))
-        check(temp.renameTo(indexFile)) { "无法保存字幕索引" }
+        Files.move(temp.toPath(), indexFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
     private fun valid(file: LocalSubtitleFile): Boolean =
         Regex("[a-f0-9]{64}\\.(srt|vtt|ass|ssa)").matches(file.path) && File(directory, file.path).isFile
@@ -154,7 +156,7 @@ class LocalSubtitleStore private constructor(context: Context) {
         val destination = File(directory, file.path)
         val temp = File(directory, "$id.tmp")
         temp.writeText(text)
-        check(temp.renameTo(destination))
+        Files.move(temp.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
         val index = read()
         write(index.copy(files = index.files + (id to file),
             downloads = index.downloads + (key to (index.downloads[key].orEmpty() + id).distinct())))

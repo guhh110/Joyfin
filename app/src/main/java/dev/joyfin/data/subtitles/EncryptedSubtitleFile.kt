@@ -4,6 +4,8 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -36,7 +38,7 @@ internal class EncryptedSubtitleFile(context: Context, name: String) {
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val temp = File(file.parentFile, "${file.name}.tmp")
         temp.writeBytes(cipher.iv + cipher.doFinal(text.toByteArray(Charsets.UTF_8)))
-        check(temp.renameTo(file)) { "无法保存来源配置" }
+        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
     @Synchronized fun remove() {
         check(!file.exists() || file.delete()) { "无法移除来源配置" }
