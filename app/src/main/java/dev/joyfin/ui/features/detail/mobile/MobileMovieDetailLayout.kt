@@ -152,7 +152,7 @@ private fun MobileMovieIntroduction(ui: DetailUiState, images: ArtworkSource) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            MediaPill("电影", icon = Glyph.Film, outlined = true)
+            MediaPill("电影", icon = Glyph.Film)
         }
         if (media?.name.isNullOrBlank()) {
             SkeletonBlock(Modifier.fillMaxWidth(.7f).height(40.dp))
@@ -160,7 +160,7 @@ private fun MobileMovieIntroduction(ui: DetailUiState, images: ArtworkSource) {
             MediaTitle(media, images, maxLines = Int.MAX_VALUE)
         }
         if (media != null) {
-            if (media.originalTitle.isNotBlank() && media.originalTitle != media.name) {
+            if (!hasMediaLogo(media, images) && media.originalTitle.isNotBlank() && media.originalTitle != media.name) {
                 Caption(media.originalTitle)
             }
             MediaMetadata(media)

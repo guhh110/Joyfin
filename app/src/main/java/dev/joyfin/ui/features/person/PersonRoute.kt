@@ -45,7 +45,7 @@ fun PersonRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
                     FilmTitle(person.name)
                     if (person.type.isNotBlank()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            MediaPill(person.type, outlined = true)
+                            MediaPill(person.type)
                         }
                     }
                 }

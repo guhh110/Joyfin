@@ -224,12 +224,14 @@ fun TvEpisodeDetails(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 val label = playLabel(episode, trigger)
+                                val playWidth =
+                                    if (mediaInfo) Modifier.width(200.dp) else Modifier.weight(1.3f)
                                 ActionButton(
                                     if (mediaInfo && !label.startsWith("取消") && !label.startsWith("重试"))
                                         "播放此版本"
                                     else label,
                                     { onPlay(episode, false, if (mediaInfo) sourceId else null) },
-                                    Modifier.width(220.dp).fillMaxHeight().focusTarget("episode:sheet-play"),
+                                    playWidth.fillMaxHeight().focusTarget("episode:sheet-play"),
                                     icon = Glyph.Play,
                                     primary = true,
                                     enabled = (!mediaInfo || sourceId != null) && canPlay(episode, trigger),
@@ -244,7 +246,7 @@ fun TvEpisodeDetails(
                                         ActionButton(
                                             "上一版本",
                                             { version = index - 1 },
-                                            Modifier.width(150.dp)
+                                            Modifier.width(140.dp)
                                                 .fillMaxHeight()
                                                 .focusTarget("episode:version-prev"),
                                             icon = Glyph.Back,
@@ -254,7 +256,7 @@ fun TvEpisodeDetails(
                                         ActionButton(
                                             "下一版本",
                                             { version = index + 1 },
-                                            Modifier.width(150.dp)
+                                            Modifier.width(140.dp)
                                                 .fillMaxHeight()
                                                 .focusTarget("episode:version-next"),
                                             icon = Glyph.Next,
@@ -265,7 +267,7 @@ fun TvEpisodeDetails(
                                     ActionButton(
                                         "返回集详情",
                                         onDetails,
-                                        Modifier.width(180.dp)
+                                        Modifier.width(160.dp)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-details"),
                                         icon = Glyph.Back,
@@ -277,7 +279,7 @@ fun TvEpisodeDetails(
                                         if (start.startsWith("取消") || start.startsWith("重试")) start
                                         else "从头播放",
                                         { onPlay(episode, true, null) },
-                                        Modifier.width(180.dp)
+                                        Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-start"),
                                         icon = Glyph.Refresh,
@@ -290,7 +292,7 @@ fun TvEpisodeDetails(
                                     ActionButton(
                                         "媒体信息",
                                         onMediaInfo,
-                                        Modifier.width(160.dp)
+                                        Modifier.weight(1f)
                                             .fillMaxHeight()
                                             .focusTarget("episode:sheet-media"),
                                         icon = Glyph.Info,
@@ -299,7 +301,7 @@ fun TvEpisodeDetails(
                                     )
                                 }
                                 RetryAction("重试信息", details.error, details.loading, onRetry,
-                                    Modifier.width(160.dp).fillMaxHeight().focusTarget("episode:sheet-retry"))
+                                    Modifier.width(140.dp).fillMaxHeight().focusTarget("episode:sheet-retry"))
                             }
                         }
                     }

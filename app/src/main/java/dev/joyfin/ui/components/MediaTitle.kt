@@ -48,3 +48,7 @@ fun MediaTitle(
         },
     )
 }
+
+/** Logo artwork already carries the title, so alternate-title text is redundant. */
+fun hasMediaLogo(media: Media, images: ArtworkSource): Boolean =
+    !images.logo(media).isNullOrBlank()

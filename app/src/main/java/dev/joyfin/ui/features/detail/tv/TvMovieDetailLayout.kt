@@ -288,7 +288,7 @@ private fun TvMovieIntroduction(ui: DetailUiState, images: ArtworkSource, availa
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        MediaPill("电影", icon = Glyph.Film, outlined = true)
+        MediaPill("电影", icon = Glyph.Film)
     }
     if (media?.name.isNullOrBlank()) {
         SkeletonBlock(Modifier.fillMaxWidth(.7f).height(if (compact) 40.dp else 56.dp))
@@ -297,7 +297,7 @@ private fun TvMovieIntroduction(ui: DetailUiState, images: ArtworkSource, availa
             logoWidth = 420.dp, logoHeight = if (compact) 40.dp else 88.dp)
     }
     if (media != null) {
-        if (!compact && media.originalTitle.isNotBlank() && media.originalTitle != media.name) {
+        if (!compact && !hasMediaLogo(media, images) && media.originalTitle.isNotBlank() && media.originalTitle != media.name) {
             Caption(media.originalTitle, maxLines = 1)
         }
         if (available > 220.dp) {

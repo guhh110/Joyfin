@@ -50,7 +50,7 @@ private fun MobileSeriesIntroduction(ui: DetailUiState, images: ArtworkSource) {
         if (media?.name.isNullOrBlank()) SkeletonBlock(Modifier.fillMaxWidth(.7f).height(40.dp))
         else MediaTitle(media, images, maxLines = Int.MAX_VALUE)
         if (media != null) {
-            if (media.originalTitle.isNotBlank() && media.originalTitle != media.name)
+            if (!hasMediaLogo(media, images) && media.originalTitle.isNotBlank() && media.originalTitle != media.name)
                 Caption(media.originalTitle)
             MediaMetadata(media)
         }

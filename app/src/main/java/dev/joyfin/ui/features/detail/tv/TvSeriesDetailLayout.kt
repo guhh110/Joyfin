@@ -85,7 +85,7 @@ private fun TvSeriesIntroduction(ui: DetailUiState, images: ArtworkSource, avail
     else MediaTitle(media, images, large = !compact, maxLines = if (compact) 1 else 2,
         logoWidth = 420.dp, logoHeight = if (compact) 40.dp else 88.dp)
     if (media != null) {
-        if (!compact && media.originalTitle.isNotBlank() && media.originalTitle != media.name)
+        if (!compact && !hasMediaLogo(media, images) && media.originalTitle.isNotBlank() && media.originalTitle != media.name)
             Caption(media.originalTitle, maxLines = 1)
         if (available > 220.dp) MediaMetadata(media)
     }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
 import dev.joyfin.data.runtimeLabel
@@ -16,6 +17,7 @@ fun MediaMetadata(item: Media) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         item.rating?.let {
             RatingPill(it)
@@ -27,7 +29,7 @@ fun MediaMetadata(item: Media) {
             MediaPill(item.genres.take(2).joinToString(" / "))
         }
         if (item.officialRating.isNotBlank()) {
-            MediaPill(item.officialRating, outlined = true)
+            MediaPill(item.officialRating)
         }
         val streams = item.sources.firstOrNull()?.streams.orEmpty()
         val video = streams.firstOrNull { it.type == "Video" }

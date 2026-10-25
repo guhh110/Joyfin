@@ -24,28 +24,20 @@ fun MediaPill(
     modifier: Modifier = Modifier,
     icon: Glyph? = null,
     iconColor: Color = Palette.Text,
-    outlined: Boolean = false,
     highlight: Boolean = false,
 ) {
     val shape = RoundedCornerShape(4.dp)
-    val background = when {
-        outlined -> Color(0x1AFFFFFF)
-        highlight -> Palette.Elevated
-        else -> Palette.Surface
-    }
-    val border = when {
-        outlined -> Color(0x40FFFFFF)
-        highlight -> Color(0x33FFFFFF)
-        else -> Palette.BorderSubtle
-    }
+    val background = if (highlight) Palette.Elevated else Color(0x1AFFFFFF)
+    val border = Color(0x33FFFFFF)
     val textColor = if (highlight) Palette.Text else Color(0xDDFFFFFF)
 
     Row(
         modifier = modifier
+            .heightIn(min = 24.dp)
             .clip(shape)
             .background(background)
             .border(1.dp, border, shape)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -57,8 +49,8 @@ fun MediaPill(
             color = textColor,
             fontSize = 11.sp,
             lineHeight = 15.sp,
-            fontWeight = if (highlight || outlined) FontWeight.SemiBold else FontWeight.Medium,
-            letterSpacing = if (outlined) 0.4.sp else 0.1.sp,
+            fontWeight = if (highlight) FontWeight.SemiBold else FontWeight.Medium,
+            letterSpacing = 0.1.sp,
             maxLines = 1,
         )
     }
@@ -71,7 +63,6 @@ fun RatingPill(rating: Double, modifier: Modifier = Modifier) {
         text = String.format(Locale.ROOT, "%.1f", rating),
         icon = Glyph.Star,
         iconColor = Color(0xFFFFD166),
-        highlight = true,
         modifier = modifier,
     )
 }
@@ -79,11 +70,7 @@ fun RatingPill(rating: Double, modifier: Modifier = Modifier) {
 /** Quality & dynamic range badge (4K UHD, HDR, Dolby Vision, 5.1ch). */
 @Composable
 fun QualityBadge(text: String, modifier: Modifier = Modifier) {
-    MediaPill(
-        text = text,
-        outlined = true,
-        modifier = modifier,
-    )
+    MediaPill(text = text, modifier = modifier)
 }
 
 /** Floating badge overlay on media poster cards. */

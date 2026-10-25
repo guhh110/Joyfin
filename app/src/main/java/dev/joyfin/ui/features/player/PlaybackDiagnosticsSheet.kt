@@ -114,8 +114,8 @@ private fun DiagnosticNetwork(network: PlaybackNetworkSnapshot) {
 private fun DiagnosticOverview(ui: PlaybackDiagnosticSnapshot) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            MediaPill(ui.state.label, outlined = true)
-            MediaPill(ui.method, outlined = true)
+            MediaPill(ui.state.label)
+            MediaPill(ui.method)
         }
         DiagnosticValue("当前阶段", ui.stage.label)
         DiagnosticValue("播放策略", ui.selection)

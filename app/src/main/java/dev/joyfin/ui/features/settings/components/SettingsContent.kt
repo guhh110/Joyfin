@@ -165,7 +165,7 @@ internal fun ColumnScope.SettingsContent(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp,
                     )
-                    MediaPill("v${BuildConfig.VERSION_NAME}", outlined = true)
+                    MediaPill("v${BuildConfig.VERSION_NAME}")
                 }
                 Text(
                     "无界影院 · 私享视听客户端",
