@@ -1,5 +1,7 @@
 package dev.joyfin.ui.features.detail.tv
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -16,12 +18,22 @@ import dev.joyfin.browse.DetailUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.detail.components.*
+import dev.joyfin.ui.model.FirstViewportScrollSpec
 import dev.joyfin.ui.model.ArtworkSource
 
 /** TV owns the complete introductory viewport; only subsequent sections scroll into view. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modifier = Modifier) {
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    val platformScroll = LocalBringIntoViewSpec.current
+    val visibilityScroll = remember(platformScroll, content.scroll, content.focus) {
+        FirstViewportScrollSpec(platformScroll) {
+            content.scroll.value == 0 && (content.focus.pending ?: content.focus.target) in
+                setOf("header:back", "header:search", "header:account", "detail:play", "favorite")
+        }
+    }
+    CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
+        BoxWithConstraints(modifier.fillMaxSize()) {
             val height = maxHeight
             val gutter = LocalDeviceLayout.current.gutter
             val posterWidth = (maxWidth * .20f).coerceIn(140.dp, 230.dp)
@@ -56,9 +68,12 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
                         }
                     }
                 }
-                SeriesOverviewSections(content)
+                CompositionLocalProvider(LocalBringIntoViewSpec provides platformScroll) {
+                    SeriesOverviewSections(content)
+                }
             }
         }
+    }
 }
 
 @Composable
