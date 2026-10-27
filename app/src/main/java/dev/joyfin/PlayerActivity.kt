@@ -24,12 +24,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import dev.joyfin.playback.PlaybackController
 import dev.joyfin.playback.AndroidPlayerDeviceControls
 import dev.joyfin.playback.output.PlayerVideoViewport
 import dev.joyfin.ui.features.player.PlayerRoute
 import dev.joyfin.ui.features.player.PlayerSubtitleSearchRoute
 import dev.joyfin.ui.theme.BoundlessTheme
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -74,17 +76,10 @@ class PlayerActivity : ComponentActivity() {
             PlayerView(this).apply {
                 subtitleView?.let { view ->
                     controller.bindSubtitles(view)
-                    // Media3's caption style fills each text cue with an opaque black box.
-                    // Keep the outline but drop the background for SRT/VTT/TTML tracks.
-                    view.setStyle(
-                        CaptionStyleCompat(
-                            Color.WHITE,
-                            Color.TRANSPARENT,
-                            Color.TRANSPARENT,
-                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                            Color.BLACK,
-                            null,
-                        ),
+                    applySubtitleStyle(
+                        view,
+                        controller.state.value.subtitleSize,
+                        controller.state.value.subtitleBackground,
                     )
                 }
                 player = controller.player
@@ -95,6 +90,17 @@ class PlayerActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 controller.state.map { it.videoScaleMode }.distinctUntilChanged().collect(viewport::apply)
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                combine(
+                    controller.state.map { it.subtitleSize }.distinctUntilChanged(),
+                    controller.state.map { it.subtitleBackground }.distinctUntilChanged(),
+                ) { size, bg -> size to bg }
+                    .collect { (size, bg) ->
+                        video.subtitleView?.let { view -> applySubtitleStyle(view, size, bg) }
+                    }
             }
         }
         frame.addView(video, FrameLayout.LayoutParams(-1, -1))
@@ -166,4 +172,20 @@ class PlayerActivity : ComponentActivity() {
         if (::controller.isInitialized) controller.release()
         super.onDestroy()
     }
+
+    private fun applySubtitleStyle(view: SubtitleView, size: dev.joyfin.data.SubtitleSize, background: Boolean) {
+        view.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * size.scale, true)
+        val bgColor = if (background) Color.argb(168, 0, 0, 0) else Color.TRANSPARENT
+        view.setStyle(
+            CaptionStyleCompat(
+                Color.WHITE,
+                bgColor,
+                Color.TRANSPARENT,
+                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                Color.BLACK,
+                null,
+            ),
+        )
+    }
 }
+

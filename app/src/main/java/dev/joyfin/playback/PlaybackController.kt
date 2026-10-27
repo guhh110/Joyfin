@@ -38,8 +38,15 @@ class PlaybackController(
     private val reporter = PlaybackReporter(api, store)
     private val preferenceStore = PlaybackPreferenceStore(context)
     private val videoScalePreferences = VideoScalePreferences(context)
+    private val subtitleStylePreferences = dev.joyfin.data.SubtitleStylePreferences(context)
     private var pendingPreference: Pair<String, PlaybackTrackPreferences>? = null
-    private val mutable = MutableStateFlow(PlayerUiState(videoScaleMode = videoScalePreferences.mode))
+    private val mutable = MutableStateFlow(
+        PlayerUiState(
+            videoScaleMode = videoScalePreferences.mode,
+            subtitleSize = subtitleStylePreferences.size,
+            subtitleBackground = subtitleStylePreferences.hasBackground,
+        )
+    )
     val state = mutable.asStateFlow()
     private var currentId = restored?.getString("itemId") ?: itemId
     private var diagnosticMediaId = currentId
@@ -224,6 +231,18 @@ class PlaybackController(
             subtitleOffset = ::setSubtitleOffset,
             selectLocalFile = ::selectManagedSubtitle,
             searchSubtitles = ::openSubtitleSearch,
+            setSubtitleSize = { size ->
+                if (!released && mutable.value.subtitleSize != size) {
+                    subtitleStylePreferences.size = size
+                    mutable.update { it.copy(subtitleSize = size) }
+                }
+            },
+            setSubtitleBackground = { enabled ->
+                if (!released && mutable.value.subtitleBackground != enabled) {
+                    subtitleStylePreferences.hasBackground = enabled
+                    mutable.update { it.copy(subtitleBackground = enabled) }
+                }
+            },
             setAudioOutputMode = environment::setAudioMode,
             selectChapter = { position ->
                 if (mutable.value.navigation.chapters.any { it.positionMs == position }) seek(position)

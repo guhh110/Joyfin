@@ -59,4 +59,21 @@ class PlayerUiContractTest {
         assertTrue(plan().trackChoices("Audio").isEmpty())
         assertTrue(plan().trackChoices("Subtitle").isEmpty())
     }
+
+    @Test
+    fun subtitleCustomizationStateAndSizesAreConfigured() {
+        val state = PlayerUiState()
+        assertEquals(SubtitleSize.STANDARD, state.subtitleSize)
+        assertFalse(state.subtitleBackground)
+
+        assertEquals(1.0f, SubtitleSize.STANDARD.scale, 0.001f)
+        assertEquals(1.2f, SubtitleSize.LARGE.scale, 0.001f)
+        assertEquals(1.4f, SubtitleSize.EXTRA_LARGE.scale, 0.001f)
+        assertEquals(0.8f, SubtitleSize.COMPACT.scale, 0.001f)
+
+        val largeState = state.copy(subtitleSize = SubtitleSize.LARGE, subtitleBackground = true)
+        assertEquals(SubtitleSize.LARGE, largeState.subtitleSize)
+        assertTrue(largeState.subtitleBackground)
+    }
 }
+

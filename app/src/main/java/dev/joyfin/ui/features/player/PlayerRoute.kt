@@ -61,6 +61,7 @@ fun PlayerRoute(
     var lastSubtitleApplication by remember { mutableIntStateOf(ui.subtitleSearchApplied) }
     var diagnosticsParent by remember { mutableStateOf<PlayerPanel?>(null) }
     var settingsDiagnosticsReturn by remember { mutableStateOf(false) }
+    var subtitleStyleReturn by remember { mutableStateOf(false) }
     LaunchedEffect(ui.subtitleSearchOpen) {
         if (ui.subtitleSearchOpen) subtitleSearchReturn = true
     }
@@ -287,6 +288,7 @@ fun PlayerRoute(
                     {
                         if (it == PlayerPanel.Diagnostics) diagnosticsParent = current
                         settingsDiagnosticsReturn = false
+                        subtitleStyleReturn = false
                         panel = it
                         subtitleSearchReturn = false
                         touch()
@@ -295,9 +297,13 @@ fun PlayerRoute(
                         if (current == PlayerPanel.Diagnostics && diagnosticsParent == PlayerPanel.Settings) {
                             panel = PlayerPanel.Settings
                             settingsDiagnosticsReturn = true
+                        } else if (current == PlayerPanel.SubtitleStyle) {
+                            panel = PlayerPanel.Subtitle
+                            subtitleStyleReturn = true
                         } else {
                             panel = null
                             settingsDiagnosticsReturn = false
+                            subtitleStyleReturn = false
                             focusReturn++
                         }
                         subtitleSearchReturn = false
@@ -305,6 +311,7 @@ fun PlayerRoute(
                     },
                     initialFocus = when {
                         current == PlayerPanel.Subtitle && subtitleSearchReturn -> "player:subtitle-search"
+                        current == PlayerPanel.Subtitle && subtitleStyleReturn -> "player:subtitle-style"
                         current == PlayerPanel.Settings && settingsDiagnosticsReturn -> "player:settings-diagnostics"
                         else -> current.initialFocus(ui)
                     },

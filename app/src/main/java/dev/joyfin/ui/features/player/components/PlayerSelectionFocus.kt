@@ -39,6 +39,7 @@ internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
         PlayerPanel.Subtitle ->
             if (ui.localSubtitle != null) "player:local-subtitle"
             else choiceKey(ui.subtitles.firstOrNull { it.index == ui.subtitleIndex }?.index ?: -1)
+        PlayerPanel.SubtitleStyle -> choiceKey(ui.subtitleSize.name)
         PlayerPanel.SubtitleOffset -> "player:offset-reset"
         PlayerPanel.Episodes ->
             (ui.episodes.firstOrNull { it.id == ui.itemId } ?: ui.episodes.firstOrNull())?.let {

@@ -37,6 +37,7 @@ enum class PlayerPanel(val title: String) {
     Audio("音轨"),
     AudioOutput("音频输出"),
     Subtitle("字幕"),
+    SubtitleStyle("字幕排版与底槽"),
     SubtitleOffset("字幕时间偏移"),
     Speed("播放速度"),
     Episodes("选集"),
@@ -177,11 +178,40 @@ fun PlayerSettingsSheet(
                         }
                     }
                     PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.subtitles.SubtitleOffsetContent(ui, actions)
+                    PlayerPanel.SubtitleStyle -> {
+                        Caption("纯文本字幕字号大小")
+                        dev.joyfin.data.SubtitleSize.entries.forEach { size ->
+                            ChoiceRow(
+                                size.label,
+                                Modifier.focusTarget(panel.choiceKey(size.name)),
+                                subtitle = size.description,
+                                selected = size == ui.subtitleSize,
+                            ) {
+                                actions.setSubtitleSize(size)
+                            }
+                        }
+                        Caption("抗强光高亮画面底槽")
+                        ChoiceRow(
+                            "抗强光底槽",
+                            Modifier.focusTarget("player:subtitle-background"),
+                            subtitle = if (ui.subtitleBackground) "已开启 · 柔和半透明暗黑底槽，强光画面不丢字" else "已关闭 · 透明背景",
+                            selected = ui.subtitleBackground,
+                        ) {
+                            actions.setSubtitleBackground(!ui.subtitleBackground)
+                        }
+                    }
                     PlayerPanel.Subtitle -> {
                         ActionButton("搜索字幕", actions.searchSubtitles,
                             Modifier.focusTarget("player:subtitle-search"), icon = Glyph.Search,
                             enabled = !ui.loading && ui.error == null && !ui.subtitleApplying,
                             focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale)
+                        ChoiceRow(
+                            "字幕排版与底槽",
+                            Modifier.focusTarget("player:subtitle-style"),
+                            subtitle = "${ui.subtitleSize.label} · ${if (ui.subtitleBackground) "底槽已开启" else "底槽关闭"}",
+                        ) {
+                            onPanel(PlayerPanel.SubtitleStyle)
+                        }
                         ui.localSubtitle?.let { local ->
                             ChoiceRow(local.label, Modifier.focusTarget("player:local-subtitle"),
                                 subtitle = "本地字幕 · ${local.offsetMs / 1000.0} 秒偏移", selected = true) {
