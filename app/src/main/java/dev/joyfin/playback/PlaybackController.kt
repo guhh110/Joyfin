@@ -65,6 +65,7 @@ class PlaybackController(
     private var metadataJob: Job? = null
     private var seasonJob: Job? = null
     private var countdown: Job? = null
+    private var countdownDismissed = false
     private var pollJob: Job? = null
     private var reportJob: Job? = null
     private var metadataGeneration = 0L
@@ -406,7 +407,8 @@ class PlaybackController(
         localSubtitleKey = null
         seekPreview.cancel()
         loadJob?.cancel()
-        cancelCountdown()
+        countdownDismissed = false
+        cancelCountdown(dismiss = false)
         pendingPlay = autoPlay
         plan?.let { reporter.send(it, "Stopped", positionTicks(), true) }
         plan = null
@@ -1127,25 +1129,55 @@ class PlaybackController(
         seekPreview.cancel()
         stopCurrentStream()
         mutable.update { it.copy(playing = false, canSeek = false) }
-        if (!store.autoNext) {
+        if (!store.autoNext || countdownDismissed) {
             onClose(false)
             return
         }
+        if (countdown?.isActive == true) return
         val generation = playbackGeneration
         countdown = scope.launch {
             val upcoming = nextEpisode.state.next ?: withTimeoutOrNull(5_000) { nextEpisode.awaitNext() }
             ensureActive()
             if (released || generation != playbackGeneration) return@launch
             if (upcoming == null) { onClose(false); return@launch }
-            for (seconds in 8 downTo 1) {
+            for (seconds in 5 downTo 1) {
+                ensureActive()
+                if (released || generation != playbackGeneration) return@launch
                 mutable.update { it.copy(nextSeconds = seconds, nextItem = upcoming) }
                 delay(1000)
             }
+            ensureActive()
+            if (released || generation != playbackGeneration) return@launch
+            mutable.update { it.copy(nextSeconds = 0) }
             playEpisode(upcoming)
         }
     }
 
-    fun cancelCountdown() {
+    private fun checkUpcomingCountdown(positionMs: Long, durationMs: Long, playing: Boolean) {
+        if (!store.autoNext || countdown != null || countdownDismissed || !playing) return
+        if (durationMs <= 10_000L || positionMs < 0) return
+        val remainingMs = durationMs - positionMs
+        if (remainingMs in 0..5_000L) {
+            val upcoming = nextEpisode.state.next ?: return
+            val generation = playbackGeneration
+            countdown = scope.launch {
+                val initialSeconds = ((remainingMs + 999) / 1000).toInt().coerceIn(1, 5)
+                for (seconds in initialSeconds downTo 1) {
+                    ensureActive()
+                    if (released || generation != playbackGeneration) return@launch
+                    mutable.update { it.copy(nextSeconds = seconds, nextItem = upcoming) }
+                    delay(1000)
+                }
+                ensureActive()
+                if (released || generation != playbackGeneration) return@launch
+                mutable.update { it.copy(nextSeconds = 0) }
+                playEpisode(upcoming)
+            }
+        }
+    }
+
+    fun cancelCountdown(dismiss: Boolean = true) {
+        if (dismiss) countdownDismissed = true
         countdown?.cancel()
         countdown = null
         mutable.update { it.copy(nextSeconds = 0) }
@@ -1187,6 +1219,7 @@ class PlaybackController(
                         !navigationBlocked && player.isPlaying && ui.canSeek && !ui.loading && ui.error == null && !ui.subtitleApplying &&
                             !ui.subtitleSearchOpen && ui.seekPreview?.active != true,
                         android.os.SystemClock.elapsedRealtime())?.let(::seek)
+                    checkUpcomingCountdown(ui.positionMs, ui.durationMs, player.isPlaying && !ui.loading && ui.error == null)
                 }
                 if (plan != null && diagnosticSecond != second) {
                     diagnosticSecond = second

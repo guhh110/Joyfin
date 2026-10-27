@@ -3,6 +3,7 @@ package dev.joyfin.ui.features.entry.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicSecureTextField
@@ -31,6 +32,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import dev.joyfin.ui.components.AppIcon
+import dev.joyfin.ui.components.Glyph
 import dev.joyfin.ui.components.stableAction
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
@@ -239,6 +242,23 @@ internal fun EntryTextField(
                                 1.2.dp.toPx(),
                             )
                     }
+                }
+            if (!secret && !tv && enabled && state.text.isNotEmpty())
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(shape)
+                        .clickable { state.edit { replace(0, length, "") } }
+                        .semantics {
+                            contentDescription = "清空输入"
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AppIcon(
+                        Glyph.Close,
+                        Modifier.size(16.dp),
+                        color = Palette.Muted,
+                    )
                 }
         }
         if (showErrorText) error?.let { EntryError(it) }

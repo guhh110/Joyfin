@@ -132,8 +132,20 @@ internal fun BoxScope.VideoGestureSurface(
                     }
                 }
             }
-            .pointerInput(locked, speedBoost, gestureKey) {
-                detectPlayerPressGestures(speedBoost.takeUnless { locked }) {
+            .pointerInput(locked, speedBoost, seekEnabled, gestureKey) {
+                detectPlayerPressGestures(
+                    speedBoost.takeUnless { locked },
+                    onDoubleTap = if (!locked && !tv) { offset ->
+                        val width = size.width.toFloat()
+                        if (seekEnabled && offset.x < width * 0.42f) {
+                            currentActions.adjust(-10_000)
+                        } else if (seekEnabled && offset.x > width * 0.58f) {
+                            currentActions.adjust(10_000)
+                        } else {
+                            confirm()
+                        }
+                    } else null,
+                ) {
                     if (locked) lockedTap() else tap()
                 }
             }

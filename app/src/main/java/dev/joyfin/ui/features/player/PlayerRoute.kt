@@ -214,7 +214,7 @@ fun PlayerRoute(
                 speedBoost = actions.speedBoost.takeIf { speedBoostEnabled },
                 gestureKey = ui.itemId to ui.sourceId,
             )
-            val showControls = !locked && (visible || panel != null || ui.error != null || ui.nextSeconds > 0)
+            val showControls = !locked && (visible || panel != null || ui.error != null || (ui.nextSeconds > 0 && !ui.playing))
             PlayerControlsExitHost(visible = showControls) {
                 val onPanel: (PlayerPanel) -> Unit = {
                     touch()

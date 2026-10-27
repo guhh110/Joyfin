@@ -234,12 +234,6 @@ fun PlayerSettingsSheet(
                             modifier = Modifier.focusTarget("player:episode-season"),
                             icon = Glyph.Down,
                         )
-                        Caption(ui.nextPreparationError ?: ui.nextItem?.let { "下一集：${it.label}" }
-                            ?: if (ui.nextPreparing) " " else "暂无下一集")
-                        ActionButton("准备下一集", actions.retryNext,
-                            Modifier.focusTarget("player:next-preparation"),
-                            enabled = ui.nextPreparationError != null && !ui.nextPreparing,
-                            loading = ui.nextPreparing, maxLines = 1)
                         if (ui.episodeError != null) {
                             Caption(ui.episodeError)
                             ActionButton(
@@ -248,12 +242,25 @@ fun PlayerSettingsSheet(
                             )
                         } else if (ui.episodes.isEmpty()) Caption("暂无可选剧集")
                         ui.episodes.forEach { episode ->
+                            val isPlaying = episode.id == ui.itemId
                             ChoiceRow(
                                 episode.label,
                                 subtitle =
-                                    if (episode.id == ui.itemId) "正在播放"
+                                    if (isPlaying) "正在播放"
                                     else if (episode.played) "已看" else "",
-                                selected = episode.id == ui.itemId,
+                                selected = isPlaying,
+                                leading = if (isPlaying) {
+                                    {
+                                        Box(
+                                            Modifier
+                                                .size(8.dp)
+                                                .background(
+                                                    androidx.compose.ui.graphics.Color(0xFF22C55E),
+                                                    androidx.compose.foundation.shape.CircleShape,
+                                                )
+                                        )
+                                    }
+                                } else null,
                                 modifier = Modifier.focusTarget(panel.choiceKey(episode.id)),
                             ) {
                                 onDismiss()

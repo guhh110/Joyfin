@@ -1,5 +1,7 @@
 package dev.joyfin.ui.features.detail.tv
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,11 +28,13 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
+import dev.joyfin.ui.model.FirstViewportScrollSpec
 
 /**
  * TV Movie Detail layout: full-viewport introductory screen matching the series experience,
  * followed by Cast and Related rails.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TvMovieDetailLayout(
     ui: DetailUiState,
@@ -47,6 +51,23 @@ internal fun TvMovieDetailLayout(
     val playAgainRequester = remember { FocusRequester() }
     val favRequester = remember { FocusRequester() }
     val backRequester = remember { FocusRequester() }
+
+    val platformScroll = LocalBringIntoViewSpec.current
+    val visibilityScroll = remember(platformScroll, scroll, focusedKey) {
+        FirstViewportScrollSpec(platformScroll) {
+            scroll.value == 0 && focusedKey in setOf(
+                "movie:entry",
+                "header:back",
+                "header:subtitles",
+                "header:media-info",
+                "header:search",
+                "header:account",
+                "detail:play",
+                "detail:play-again",
+                "favorite",
+            )
+        }
+    }
 
     LaunchedEffect(ui.visit) {
         withFrameNanos {}
@@ -75,7 +96,8 @@ internal fun TvMovieDetailLayout(
             }
         }
 
-    BoxWithConstraints(rootModifier) {
+    CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
+        BoxWithConstraints(rootModifier) {
             val height = maxHeight
             val gutter = LocalDeviceLayout.current.gutter
             val posterWidth = (maxWidth * .20f).coerceIn(140.dp, 230.dp)
@@ -83,6 +105,8 @@ internal fun TvMovieDetailLayout(
             Box(
                 Modifier
                     .size(1.dp)
+                    .focusRequester(entryFocus)
+                    .focusable()
                     .focusProperties {
                         down = playRequester
                         right = playRequester
@@ -165,10 +189,11 @@ internal fun TvMovieDetailLayout(
                         }
                     }
                 }
-                Column(
-                    Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 36.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                ) {
+                CompositionLocalProvider(LocalBringIntoViewSpec provides platformScroll) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 36.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                    ) {
                         if (ui.busy && !ui.ready && media?.people.isNullOrEmpty()) {
                             PeopleRailSkeleton()
                         } else {
@@ -191,6 +216,8 @@ internal fun TvMovieDetailLayout(
                 }
             }
         }
+    }
+}
 
 @Composable
 private fun TvMovieHeader(

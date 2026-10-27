@@ -41,7 +41,7 @@ internal fun MobileSheetLayout(
     val dragOffsetY = remember { Animatable(0f) }
     val dismissThresholdPx = with(density) { 72.dp.toPx() }
 
-    val dragHandleModifier = if (!side) {
+    val dragModifier = if (!side) {
         Modifier.pointerInput(onDismiss) {
             detectVerticalDragGestures(
                 onVerticalDrag = { change, dragAmount ->
@@ -74,7 +74,11 @@ internal fun MobileSheetLayout(
                     }
                 },
             )
-        }.pointerInput(onDismiss) {
+        }
+    } else Modifier
+
+    val dragHandleModifier = if (!side) {
+        dragModifier.pointerInput(onDismiss) {
             detectTapGestures { onDismiss() }
         }
     } else Modifier
@@ -110,6 +114,7 @@ internal fun MobileSheetLayout(
                 scrollContent,
                 isMobileBottom = !side,
                 dragHandleModifier = dragHandleModifier,
+                dragModifier = dragModifier,
                 content = content,
             )
         }
