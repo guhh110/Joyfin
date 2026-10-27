@@ -30,6 +30,7 @@ fun MediaCard(
     focusModifier: Modifier? = null,
     showSubtitle: Boolean = true,
     preferSeriesTitle: Boolean = true,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val tv = LocalDeviceLayout.current.television
     val imageUrl =
@@ -48,6 +49,7 @@ fun MediaCard(
             else dev.joyfin.ui.theme.MotionTokens.FixedScale,
         focusedBackground = false,
         borderOnly = true,
+        onLongClick = onLongClick,
     ) {
         Column(Modifier.padding(MediaCardLayout.ContentInset)) {
             Box(

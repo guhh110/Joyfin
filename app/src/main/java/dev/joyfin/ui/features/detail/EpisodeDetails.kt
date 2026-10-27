@@ -26,6 +26,8 @@ internal fun EpisodeDetails(
     playLabel: (Media, String) -> String,
     canPlay: (Media, String) -> Boolean,
     isPreparing: (Media, String) -> Boolean = { _, _ -> false },
+    onTogglePlayed: (Media) -> Unit = {},
+    actionBusy: Boolean = false,
 ) {
     if (LocalDeviceLayout.current.television) {
         TvEpisodeDetails(
@@ -42,6 +44,8 @@ internal fun EpisodeDetails(
             playLabel,
             canPlay,
             isPreparing,
+            onTogglePlayed,
+            actionBusy,
         )
     } else {
         MobileEpisodeDetails(
@@ -57,6 +61,8 @@ internal fun EpisodeDetails(
             playLabel,
             canPlay,
             isPreparing,
+            onTogglePlayed,
+            actionBusy,
         )
     }
 }

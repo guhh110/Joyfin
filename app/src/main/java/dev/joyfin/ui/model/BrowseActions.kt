@@ -41,4 +41,7 @@ data class BrowseActions(
     val libraryAudit: (String?, String) -> Unit = { _, _ -> },
     val openAuditItem: (dev.joyfin.audit.AuditFinding) -> Unit = {},
     val auditSubtitles: (dev.joyfin.audit.AuditFinding) -> Unit = {},
+    val toggleEpisodePlayed: (Media) -> Unit = {},
+    val removeResumeItem: (Media) -> Unit = {},
+    val markResumeItemPlayed: (Media) -> Unit = {},
 )

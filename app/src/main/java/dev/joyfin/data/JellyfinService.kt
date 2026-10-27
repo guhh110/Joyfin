@@ -147,6 +147,31 @@ internal interface JellyfinService {
     ): Response<Unit>
 
     @Headers("Accept: application/json")
+    @POST("Users/{userId}/PlayedItems/{id}")
+    suspend fun markPlayed(
+        @Header("Authorization") auth: String,
+        @Path("userId") user: String,
+        @Path("id") id: String,
+        @Body body: Map<String, String> = emptyMap(),
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @DELETE("Users/{userId}/PlayedItems/{id}")
+    suspend fun markUnplayed(
+        @Header("Authorization") auth: String,
+        @Path("userId") user: String,
+        @Path("id") id: String,
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
+    @DELETE("Users/{userId}/PlayingItems/{id}")
+    suspend fun removeResume(
+        @Header("Authorization") auth: String,
+        @Path("userId") user: String,
+        @Path("id") id: String,
+    ): Response<Unit>
+
+    @Headers("Accept: application/json")
     @POST("Items/{id}/PlaybackInfo")
     suspend fun playback(
         @Header("Authorization") auth: String,

@@ -293,6 +293,8 @@ fun SeriesDetailRoute(ui: DetailUiState, actions: BrowseActions, images: Artwork
                             matches(trigger, media) &&
                                 state?.playback is EpisodePlaybackState.Preparing
                         },
+                        onTogglePlayed = actions.toggleEpisodePlayed,
+                        actionBusy = state?.episodeActionBusy == true,
                     )
                 }
     }

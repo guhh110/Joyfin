@@ -414,6 +414,18 @@ class JellyfinApi(
         response.checked()
     }
 
+    suspend fun setPlayed(id: String, played: Boolean) {
+        val user = requireSession().userId
+        val response =
+            if (played) service().markPlayed(authorization(), user, id)
+            else service().markUnplayed(authorization(), user, id)
+        response.checked()
+    }
+
+    suspend fun removeResume(id: String) {
+        service().removeResume(authorization(), requireSession().userId, id).checked()
+    }
+
     suspend fun nextEpisode(current: Media): Media? {
         if (current.type != "Episode" || current.seriesId.isBlank()) return null
         return withContext(Dispatchers.Default) {

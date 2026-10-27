@@ -167,10 +167,12 @@ internal fun BrowseHost(
                 setHomeLayout = vm::setHomeLayout,
                 arrangeLibrary = vm::arrangeLibrary,
                 allMedia = vm::allMedia,
-                libraryWorks = vm::libraryWorks,
                 libraryAudit = vm::openLibraryAudit,
                 openAuditItem = vm::openAuditItem,
                 auditSubtitles = vm::auditSubtitles,
+                toggleEpisodePlayed = vm::toggleEpisodePlayed,
+                removeResumeItem = vm::removeResumeItem,
+                markResumeItemPlayed = vm::markResumeItemPlayed,
             )
         }
     val images =

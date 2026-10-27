@@ -13,6 +13,7 @@ class SeriesDetailController(
     private val expired: () -> Unit,
     private val seasons: suspend (String) -> List<Media> = { emptyList() },
     private val progress: suspend (String) -> List<Media> = { episodes(it, null) },
+    private val setPlayed: suspend (String, Boolean) -> Unit = { _, _ -> },
 ) {
     private var visit = 0L
     private var seasonVersion = 0L
@@ -296,6 +297,42 @@ class SeriesDetailController(
                 publish(now.copy(episodeDetails = SeriesResource.Idle))
                 episode(it)
             }
+    }
+
+    fun togglePlayed(episode: Media) {
+        val before = current() ?: return
+        if (before.episodeActionBusy) return
+        val targetPlayed = !episode.played
+        val owner = visit
+        publish(before.copy(episodeActionBusy = true))
+        scope.launch {
+            try {
+                setPlayed(episode.id, targetPlayed)
+                ensureActive()
+                val now = owned(owner, before.seriesId) ?: return@launch
+                val updatedEpisodes = now.episodes.data?.map { item ->
+                    if (item.id == episode.id) item.copy(played = targetPlayed) else item
+                }
+                val updatedDetail = if (now.episodeDetails.data?.id == episode.id) {
+                    now.episodeDetails.data?.copy(played = targetPlayed)
+                } else now.episodeDetails.data
+                publish(
+                    now.copy(
+                        episodes = if (updatedEpisodes != null) SeriesResource.Ready(updatedEpisodes) else now.episodes,
+                        episodeDetails = if (updatedDetail != null) SeriesResource.Ready(updatedDetail) else now.episodeDetails,
+                        episodeActionBusy = false,
+                    )
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ensureActive()
+                val now = owned(owner, before.seriesId) ?: return@launch
+                if (!auth(e)) {
+                    publish(now.copy(episodeActionBusy = false))
+                }
+            }
+        }
     }
 
     private fun owned(owner: Long, id: String) =

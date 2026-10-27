@@ -923,4 +923,25 @@ class JellyfinApiTest {
         assertEquals("DELETE", remove.method)
         assertEquals("/jellyfin/UserFavoriteItems/movie-id", remove.requestUrl!!.encodedPath)
     }
+
+    @Test
+    fun setPlayedAndRemoveResumeUseUserContext() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(200))
+        api.setPlayed("item-1", true)
+        val markPlayed = server.takeRequest()
+        assertEquals("POST", markPlayed.method)
+        assertEquals("/jellyfin/Users/user-id/PlayedItems/item-1", markPlayed.requestUrl!!.encodedPath)
+
+        server.enqueue(MockResponse().setResponseCode(200))
+        api.setPlayed("item-1", false)
+        val markUnplayed = server.takeRequest()
+        assertEquals("DELETE", markUnplayed.method)
+        assertEquals("/jellyfin/Users/user-id/PlayedItems/item-1", markUnplayed.requestUrl!!.encodedPath)
+
+        server.enqueue(MockResponse().setResponseCode(204))
+        api.removeResume("item-1")
+        val remove = server.takeRequest()
+        assertEquals("DELETE", remove.method)
+        assertEquals("/jellyfin/Users/user-id/PlayingItems/item-1", remove.requestUrl!!.encodedPath)
+    }
 }

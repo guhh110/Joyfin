@@ -558,4 +558,35 @@ class SeriesDetailControllerTest {
         assertEquals("entry offline", state!!.entryError)
         assertNull(state!!.seasonId)
     }
+
+    @Test
+    fun togglePlayedTogglesStatusAndUpdatesListAndInspection() = runTest {
+        val ep1 = episode("e1").copy(played = false)
+        var state: SeriesDetailState? = SeriesDetailState(
+            "show",
+            seasonId = "s1",
+            episodes = SeriesResource.Ready(listOf(ep1)),
+            inspectedEpisodeId = "e1",
+            episodeDetails = SeriesResource.Ready(ep1),
+        )
+        var recordedTarget: Pair<String, Boolean>? = null
+        val controller = SeriesDetailController(
+            this,
+            { _, _ -> emptyList() },
+            { ep1 },
+            { state },
+            { state = it },
+            {},
+            setPlayed = { id, played -> recordedTarget = id to played },
+        )
+
+        controller.togglePlayed(ep1)
+        assertTrue(state!!.episodeActionBusy)
+        advanceUntilIdle()
+
+        assertEquals("e1" to true, recordedTarget)
+        assertFalse(state!!.episodeActionBusy)
+        assertTrue(state!!.episodes.data!!.single().played)
+        assertTrue(state!!.episodeDetails.data!!.played)
+    }
 }

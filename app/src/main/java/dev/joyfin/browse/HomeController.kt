@@ -6,7 +6,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 
 internal class HomeController(
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     private val api: JellyfinApi,
     private val mutable: MutableStateFlow<UiState>,
     private val requests: PageRequests,
@@ -125,6 +125,34 @@ internal class HomeController(
 
     fun retryLibrary(id: String) {
         mutable.value.home.content?.libraries?.find { it.id == id }?.let(homeLoader::retry)
+    }
+
+    fun removeResumeItem(media: Media) {
+        scope.launch {
+            try {
+                api.removeResume(media.id)
+            } catch (e: Exception) {
+                runCatching { api.setPlayed(media.id, true) }
+            }
+            val content = mutable.value.home.content ?: return@launch
+            mutable.value = mutable.value.copy(
+                home = mutable.value.home.copy(
+                    content = content.copy(resume = content.resume.filter { it.id != media.id })
+                )
+            )
+        }
+    }
+
+    fun markResumeItemPlayed(media: Media) {
+        scope.launch {
+            runCatching { api.setPlayed(media.id, true) }
+            val content = mutable.value.home.content ?: return@launch
+            mutable.value = mutable.value.copy(
+                home = mutable.value.home.copy(
+                    content = content.copy(resume = content.resume.filter { it.id != media.id })
+                )
+            )
+        }
     }
 
     fun cancel() {

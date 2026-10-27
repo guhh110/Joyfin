@@ -47,6 +47,8 @@ fun TvEpisodeDetails(
     playLabel: (Media, String) -> String,
     canPlay: (Media, String) -> Boolean,
     isPreparing: (Media, String) -> Boolean = { _, _ -> false },
+    onTogglePlayed: (Media) -> Unit = {},
+    actionBusy: Boolean = false,
 ) {
     var version by rememberSaveable(episode.id) { mutableIntStateOf(0) }
     val index = version.coerceIn(0, (episode.sources.size - 1).coerceAtLeast(0))
@@ -297,6 +299,18 @@ fun TvEpisodeDetails(
                                             .focusTarget("episode:sheet-media"),
                                         icon = Glyph.Info,
                                         enabled = canPlay(episode, "media:${episode.id}"),
+                                        maxLines = 2,
+                                    )
+                                    val isPlayed = episode.played
+                                    ActionButton(
+                                        if (isPlayed) "标为未看" else "标为已看",
+                                        { onTogglePlayed(episode) },
+                                        Modifier.weight(1f)
+                                            .fillMaxHeight()
+                                            .focusTarget("episode:sheet-played"),
+                                        icon = if (isPlayed) Glyph.Close else Glyph.Check,
+                                        loading = actionBusy,
+                                        enabled = !actionBusy,
                                         maxLines = 2,
                                     )
                                 }

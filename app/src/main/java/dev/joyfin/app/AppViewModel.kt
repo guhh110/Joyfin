@@ -147,6 +147,12 @@ class AppViewModel @JvmOverloads constructor(
 
     fun consumeEpisodePlayback(sequence: Long) = details.consumeEpisodePlayback(sequence)
 
+    fun toggleEpisodePlayed(media: Media) = details.toggleEpisodePlayed(media)
+
+    fun removeResumeItem(media: Media) = homeController.removeResumeItem(media)
+
+    fun markResumeItemPlayed(media: Media) = homeController.markResumeItemPlayed(media)
+
     fun retry() {
         requests.retry?.invoke()
     }

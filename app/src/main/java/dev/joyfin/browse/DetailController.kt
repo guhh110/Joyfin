@@ -27,6 +27,7 @@ internal class DetailController(
             expired,
             api::seasons,
             api::episodeProgress,
+            api::setPlayed,
         )
 
     private val episodePlayback =
@@ -165,6 +166,8 @@ internal class DetailController(
     }
 
     fun season(id: String) = seriesController.season(id)
+
+    fun toggleEpisodePlayed(media: Media) = seriesController.togglePlayed(media)
 
     fun toggleFavorite() {
         val item = mutable.value.detail.item ?: return

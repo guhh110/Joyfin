@@ -29,6 +29,8 @@ fun MobileEpisodeDetails(
     playLabel: (Media, String) -> String,
     canPlay: (Media, String) -> Boolean,
     isPreparing: (Media, String) -> Boolean = { _, _ -> false },
+    onTogglePlayed: (Media) -> Unit = {},
+    actionBusy: Boolean = false,
 ) {
     RememberScreenFocus("sheet:close") {
         Sheet(
@@ -82,6 +84,15 @@ fun MobileEpisodeDetails(
                         Modifier.weight(1f).testTag("episode:sheet-retry"),
                     )
                     if (!mediaInfo) {
+                        val isPlayed = episode.played
+                        IconButton(
+                            if (isPlayed) "标为未看" else "标为已看",
+                            if (isPlayed) Glyph.Close else Glyph.Check,
+                            { onTogglePlayed(episode) },
+                            Modifier.testTag("episode:sheet-played")
+                                .focusTarget("episode:sheet-played"),
+                            enabled = !actionBusy,
+                        )
                         IconButton(
                             "媒体信息",
                             Glyph.Info,

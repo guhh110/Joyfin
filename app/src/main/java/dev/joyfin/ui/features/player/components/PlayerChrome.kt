@@ -45,6 +45,9 @@ fun PlayerHeader(
             QualityBadge(methodText)
         }
         PlayerClock()
+        if (!LocalDeviceLayout.current.television) {
+            PlayerBattery()
+        }
         IconButton(
             "播放设置",
             Glyph.Settings,

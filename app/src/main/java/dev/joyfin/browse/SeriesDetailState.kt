@@ -17,6 +17,7 @@ data class SeriesDetailState(
     val remembered: Map<String, String> = emptyMap(),
     val seasonCache: Map<String, List<Media>> = emptyMap(),
     val playback: EpisodePlaybackState = EpisodePlaybackState.Idle,
+    val episodeActionBusy: Boolean = false,
 ) {
     val inspected: Media?
         get() =

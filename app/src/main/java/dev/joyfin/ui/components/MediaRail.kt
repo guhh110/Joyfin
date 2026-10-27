@@ -28,6 +28,7 @@ fun MediaRail(
     showHeading: Boolean = true,
     cardWidth: Dp? = null,
     preferSeriesTitle: Boolean = true,
+    onLongClick: ((Media) -> Unit)? = null,
     itemFocus: @Composable (Media) -> Modifier = { Modifier.focusTarget("$focusPrefix:${it.id}") },
 ) {
     if (items.isEmpty()) return
@@ -57,6 +58,7 @@ fun MediaRail(
                     cardWidth = cardWidth,
                     focusKey = "$focusPrefix:${item.id}",
                     preferSeriesTitle = preferSeriesTitle,
+                    onLongClick = onLongClick?.let { { it(item) } },
                 )
             }
         }

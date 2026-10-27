@@ -41,6 +41,7 @@ fun FocusSurface(
     focusedScale: Float? = null,
     focusedBackground: Boolean = true,
     borderOnly: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable BoxScope.() -> Unit,
 ) {
@@ -63,7 +64,7 @@ fun FocusSurface(
                 shape = shape,
                 interactionSource = interactionSource,
             )
-            .stableAction(enabled, interactionSource, onClick)
+            .stableAction(enabled, interactionSource, onLongClick, onClick)
             .padding(3.dp),
         contentAlignment = Alignment.Center,
         content = content,

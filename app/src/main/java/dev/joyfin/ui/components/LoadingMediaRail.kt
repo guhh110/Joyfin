@@ -21,11 +21,12 @@ fun LoadingMediaRail(
     retry: () -> Unit = actions.retry,
     focusPrefix: String = title,
     cardWidth: Dp? = null,
+    onLongClick: ((Media) -> Unit)? = null,
 ) {
     Column {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (items.isNotEmpty())
-                MediaRail(title, items, images, actions.open, wide, onMore, focusPrefix, cardWidth = cardWidth)
+                MediaRail(title, items, images, actions.open, wide, onMore, focusPrefix, cardWidth = cardWidth, onLongClick = onLongClick)
             else {
                 Box(Modifier.padding(horizontal = LocalDeviceLayout.current.gutter)) {
                     SectionHeading(
