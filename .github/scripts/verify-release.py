@@ -56,7 +56,12 @@ def main():
     require(package is not None and package.groups() == (
         "dev.joyfin", str(element["versionCode"]), element["versionName"],
     ), "APK package/version does not match Gradle metadata")
-    require("sdkVersion:'28'" in badging, "APK must support Android 9+")
+    minimum_sdks = set(re.findall(
+        r"^(?:minSdkVersion|sdkVersion):[ \t]*'([^']*)'[ \t]*\r?$", badging, re.MULTILINE,
+    ))
+    require(minimum_sdks, "Cannot parse APK minimum SDK from aapt2 output")
+    require(minimum_sdks == {"28"},
+            "APK must declare minSdkVersion 28 (Android 9+); actual=" + ",".join(sorted(minimum_sdks)))
     require("application-debuggable" not in badging, "Release APK must not be debuggable")
     manifest = inspect_tool(tools / "aapt2", "dump", "xmltree", "--file", "AndroidManifest.xml", str(apk))
     require("dev.joyfin.scenario" not in manifest and ":ui_scenario" not in manifest,
