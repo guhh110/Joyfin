@@ -23,9 +23,15 @@ Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客
 
 - JDK 21
 - Python 3
-- Android SDK 37
+- Android SDK 37（平台包名为 `platforms;android-37.0`）
 
 通过 `JAVA_HOME` 指定 JDK，通过 `ANDROID_HOME` 或 `local.properties` 中的 `sdk.dir` 指定 Android SDK。项目包含 Gradle Wrapper，首次构建需要下载 Gradle 和依赖；也可通过 `GRADLE_BIN` 指定 Gradle 可执行文件。
+
+Android 17 的 API 37 平台从次版本号开始命名，SDK 仓库里只有 `platforms;android-37.0`（以及 `37.1`、`37.2`），没有 `platforms;android-37`。安装组件：
+
+```bash
+sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0'
+```
 
 在项目根目录执行：
 
