@@ -78,6 +78,38 @@ jobs:
             fi
           done
           printf '%s' "$JOYFIN_KEYSTORE_BASE64" | base64 --decode > "$JOYFIN_KEYSTORE_PATH"
+          python3 - <<'PY'
+          import hashlib
+          import os
+          import re
+          import subprocess
+
+          def check_keytool(arguments, message):
+              result = subprocess.run(
+                  ["keytool", *arguments, "-keystore", os.environ["JOYFIN_KEYSTORE_PATH"],
+                   "-storepass:env", "JOYFIN_STORE_PASSWORD"],
+                  capture_output=True,
+              )
+              if result.returncode:
+                  raise SystemExit(message)
+              return result.stdout
+
+          check_keytool(["-list"],
+                        "Signing preflight failed: JOYFIN_KEYSTORE_BASE64 and JOYFIN_STORE_PASSWORD do not match, or the keystore is invalid.")
+          certificate = check_keytool(
+              ["-exportcert", "-alias", os.environ["JOYFIN_KEY_ALIAS"]],
+              "Signing preflight failed: JOYFIN_KEY_ALIAS was not found in the keystore.",
+          )
+          expected = os.environ["JOYFIN_SIGNING_CERT_SHA256"].replace(":", "").strip().lower()
+          if not re.fullmatch(r"[0-9a-f]{64}", expected) or hashlib.sha256(certificate).hexdigest() != expected:
+              raise SystemExit("Signing preflight failed: JOYFIN_SIGNING_CERT_SHA256 does not match the keystore certificate.")
+          check_keytool(
+              ["-certreq", "-alias", os.environ["JOYFIN_KEY_ALIAS"],
+               "-keypass:env", "JOYFIN_KEY_PASSWORD"],
+              "Signing preflight failed: JOYFIN_KEY_PASSWORD cannot unlock the selected private key.",
+          )
+          print("Signing keystore, alias, private-key password and certificate verified.")
+          PY
           ./build.sh --release
           python3 .github/scripts/verify-release.py \
             "dist/Joyfin-${JOYFIN_RELEASE_TAG#v}.apk" \
