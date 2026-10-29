@@ -40,6 +40,11 @@ jobs:
           java-version: '21'
           cache: gradle
 
+      - name: Set up Android SDK command-line tools
+        uses: android-actions/setup-android@v4
+        with:
+          log-accepted-android-sdk-licenses: false
+
       - name: Install Android SDK packages
         shell: bash
         run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
