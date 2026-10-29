@@ -33,6 +33,14 @@ jobs:
           ref: refs/tags/${{ inputs.tag || github.ref_name }}
           persist-credentials: false
 
+      - name: Check out release verification tools
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: .release-tools
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - name: Validate release tag
         shell: bash
         run: |
@@ -111,7 +119,7 @@ jobs:
           print("Signing keystore, alias, private-key password and certificate verified.")
           PY
           ./build.sh --release
-          python3 .github/scripts/verify-release.py \
+          python3 .release-tools/.github/scripts/verify-release.py \
             "dist/Joyfin-${JOYFIN_RELEASE_TAG#v}.apk" \
             dist/output-metadata.json \
             "$ANDROID_HOME/build-tools/37.0.0"

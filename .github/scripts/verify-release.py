@@ -35,8 +35,21 @@ def main():
     require(element["versionCode"] > 0, "Invalid versionCode")
 
     certificates = inspect_tool(tools / "apksigner", "verify", "--verbose", "--print-certs", str(apk))
-    digests = re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([0-9a-fA-F]+)$", certificates, re.MULTILINE)
-    require(len(digests) == 1 and digests[0].lower() == expected, "APK signing certificate does not match")
+    # apksigner labels certificates by signer number, SDK range or signature scheme.
+    # Source stamps, public-key digests and historical lineage entries are not APK signers.
+    digests = {
+        digest.lower() for digest in re.findall(
+            r"^(?:V\d+(?:\.\d+)? )?Signer(?: #\d+| \([^\r\n]+\)|:)?"
+            r"(?: \([^\r\n]+\))? certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})[ \t]*\r?$",
+            certificates, re.MULTILINE,
+        )
+    }
+    require(digests, "Cannot parse APK signer certificate SHA-256 from apksigner output")
+    signer_counts = re.findall(r"^Number of signers:[ \t]*(\d+)[ \t]*\r?$", certificates, re.MULTILINE)
+    require(all(count == "1" for count in signer_counts), "Expected exactly one APK signer")
+    require(digests == {expected},
+            "APK signing certificate does not match; expected SHA-256=" + expected +
+            "; actual SHA-256=" + ",".join(sorted(digests)))
 
     badging = inspect_tool(tools / "aapt2", "dump", "badging", str(apk))
     package = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging, re.MULTILINE)
