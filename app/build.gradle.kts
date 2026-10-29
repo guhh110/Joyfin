@@ -3,6 +3,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+val releaseSigning = listOf(
+    "JOYFIN_KEYSTORE_PATH", "JOYFIN_STORE_PASSWORD", "JOYFIN_KEY_ALIAS", "JOYFIN_KEY_PASSWORD",
+).associateWith { providers.environmentVariable(it).orNull }
+if (releaseSigning.values.any { !it.isNullOrBlank() }) {
+    require(releaseSigning.values.all { !it.isNullOrBlank() }) {
+        "Release signing requires all four JOYFIN signing environment variables"
+    }
+}
 android {
     namespace = "dev.joyfin"
     compileSdk = 37
@@ -15,8 +23,19 @@ android {
         versionName = "0.2.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    signingConfigs {
+        if (releaseSigning.values.all { !it.isNullOrBlank() }) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseSigning["JOYFIN_KEYSTORE_PATH"]))
+                storePassword = releaseSigning["JOYFIN_STORE_PASSWORD"]
+                keyAlias = releaseSigning["JOYFIN_KEY_ALIAS"]
+                keyPassword = releaseSigning["JOYFIN_KEY_PASSWORD"]
+            }
+        }
+    }
     buildTypes {
         getByName("release") {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

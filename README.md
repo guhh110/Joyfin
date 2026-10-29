@@ -1,33 +1,64 @@
 # Joyfin
 
-Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客户端，为个人媒体库提供简洁、沉浸的观影体验。
+Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客户端。连接自己的 Jellyfin 服务器，即可浏览媒体库、播放电影与剧集，并延续观看进度。
 
-以电影与故事为中心，Joyfin 将海报、剧照和内容介绍融入深色影院界面，让浏览片库、发现作品和挑选剧集自然衔接。无论使用电视遥控器还是手机触摸，都能舒适地探索自己的收藏。
+应用采用深色界面，分别适配电视遥控器和手机触摸操作。一个 APK 同时支持 Android 9 及以上的手机与 TV，包含 ARM32、ARM64、x86 和 x86_64 架构。
 
-连接你的 Jellyfin 服务器，在大屏与手机上欣赏电影和剧集，延续观看进度，继续未完的故事。
+## 功能
 
-## 代码导航
+- 浏览媒体库、搜索作品、查看电影与剧集详情。
+- 查看剧集、演职人员和相似作品，管理收藏与继续观看。
+- 切换媒体版本、画质、音轨、字幕与播放速度。
+- 搜索、下载和整理字幕，在播放器中选择本地字幕。
 
-页面按功能组织在 `app/src/main/java/dev/joyfin/ui/features/`，TV／手机布局分别放在各功能的 `tv/` 与 `mobile/` 目录；基础组件在 `ui/components/`，数据、会话和播放逻辑分别位于 `data/`、`session/` 和 `playback/`。
+播放器基于 Media3 与 libass，使用系统音频解码／直通，并通过 [Jellyfin FFmpeg 音频扩展](https://github.com/jellyfin/jellyfin-androidx-media)补充 DTS、DTS-HD 和 TrueHD 等格式的解码能力。默认使用不限码率的原画设置，实际播放方式取决于设备能力、音视频格式、网络条件与 Jellyfin 服务端协商结果。
 
-网络接口使用 Retrofit，底层连接由 OkHttp 管理；API 和本地配置统一使用 Kotlin Serialization。接口声明、传输模型与业务转换分别位于 `data/JellyfinService.kt`、`data/JellyfinDtos.kt` 和 `data/JellyfinApi.kt`。
+## 下载与安装
 
-播放器使用 Media3 与 libass，音频优先使用系统解码／直通，并由 [Jellyfin FFmpeg 音频扩展](https://github.com/jellyfin/jellyfin-androidx-media)补充 DTS／DTS-HD、TrueHD 等解码能力；视频能力按 Media3 的格式检查与容器解封装组合上报；内嵌 PGS 等字幕由 Media3 渲染。默认原画不设 80 Mbps 限制，已保存的限速偏好继续生效；具体支持以运行时检测和服务端协商为准。该扩展发布包使用 GPL-3.0 许可证，源码与许可证见其上游仓库。播放协商日志使用 `JoyfinPlayback` 标签，包含播放方式、兼容模式、上报音频格式和服务器返回的转码原因，不记录播放 URL 或令牌。
+安装包见 [GitHub Releases](https://github.com/guhh110/Joyfin/releases)。手机与 TV 使用同一通用 APK。覆盖升级需要与已安装版本使用相同的签名证书。
 
-公开仓库仅包含应用源码、资源、测试及构建工具。设计文档、截图、设备记录、备份和构建产物保留在本地，不纳入版本控制。
+## 从源码构建
 
-## 本地打包
+构建环境：
 
-安装 JDK 21、Python 3 与项目所需的 Android SDK（compileSdk 37），在 `local.properties` 中设置 `sdk.dir`，或配置 `ANDROID_HOME`。脚本优先使用 `JAVA_HOME` 与 `GRADLE_BIN`，也会识别当前机器 `/tmp/tvfin-jdk/`、`/tmp/tvfin-gradle/` 下的开发工具；其他环境默认使用项目 Gradle Wrapper，首次运行需要联网下载 Gradle 和依赖。
+- JDK 21
+- Python 3
+- Android SDK 37
 
-在项目目录执行：
+通过 `JAVA_HOME` 指定 JDK，通过 `ANDROID_HOME` 或 `local.properties` 中的 `sdk.dir` 指定 Android SDK。项目包含 Gradle Wrapper，首次构建需要下载 Gradle 和依赖；也可通过 `GRADLE_BIN` 指定 Gradle 可执行文件。
+
+在项目根目录执行：
 
 ```bash
-./build.sh                   # 手机 / TV 通用包
-./build.sh --offline         # 缓存完整时离线打包
-./build.sh --dry-run         # 只查看配置，不执行打包
+./build.sh                   # 构建使用开发签名的 Preview APK
+./build.sh --offline         # 使用已缓存的依赖构建
+./build.sh --dry-run         # 查看构建命令
 ```
 
-脚本生成启用 R8 与资源优化的 Preview APK，沿用当前机器的 debug 签名。同一个 APK 支持 Android 9+ 手机和 TV，包含 ARM32、ARM64、x86、x86_64；运行时自动选择布局、触摸／遥控器操作与浏览页方向。覆盖安装需要与原安装使用同一签名密钥。
+Preview 构建启用 R8 和资源优化，并包含 UI 场景预览入口。正式 Release 构建不包含该入口。设置以下签名环境变量后，可运行 `./build.sh --release` 构建正式 APK：
 
-每次产物写入独立的 `dist/joyfin-时间-随机后缀/`，包含 `Joyfin-版本号.apk`（当前为 `Joyfin-0.2.4.apk`）、构建日志、Gradle 输出元数据与 `SHA256SUMS.txt`，不会覆盖历史安装包。文件名中的版本由 Python 3 从本次构建元数据读取；脚本不安装 APK、不修改版本号、不发布 Release。源码修改不会自动执行此脚本。
+| 环境变量 | 说明 |
+| --- | --- |
+| `JOYFIN_KEYSTORE_PATH` | 签名密钥库路径 |
+| `JOYFIN_STORE_PASSWORD` | 密钥库密码 |
+| `JOYFIN_KEY_ALIAS` | 签名密钥别名 |
+| `JOYFIN_KEY_PASSWORD` | 签名密钥密码 |
+
+构建产物输出到 `dist/`，包括 `Joyfin-版本号.apk`、`SHA256SUMS.txt`、构建日志和 Gradle 输出元数据。版本号读取自本次构建元数据。
+
+## 自动发布
+
+GitHub Actions 发布工作流位于 `.github/workflows/release.yml`。推送与应用版本一致的 `v主版本.次版本.修订号` 标签时，工作流构建正式通用 APK，校验版本、签名证书和架构后发布 GitHub Release。签名凭据通过仓库的 Actions Secrets 配置。
+
+## 代码结构
+
+- `ui/features/`：按功能组织的页面，TV 与手机布局分别位于各功能的 `tv/`、`mobile/` 目录。
+- `ui/components/`：共享界面组件。
+- `data/`、`session/`：数据访问与会话管理。
+- `playback/`：播放控制、能力检测与播放诊断。
+
+以上路径均相对于 `app/src/main/java/dev/joyfin/`。网络请求使用 Retrofit 与 OkHttp，数据序列化使用 Kotlin Serialization。
+
+## 第三方组件
+
+Jellyfin FFmpeg 音频扩展发布包采用 GPL-3.0 许可证，其源码和许可证见[上游仓库](https://github.com/jellyfin/jellyfin-androidx-media)。

@@ -1,0 +1,93 @@
+name: Publish Android release
+
+'on':
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      JOYFIN_RELEASE_TAG: ${{ github.ref_name }}
+      GRADLE_OPTS: -Dorg.gradle.daemon=false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          if [[ ! "$JOYFIN_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Expected a stable version tag such as v0.2.5' >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0'
+
+      - name: Build and verify signed release
+        shell: bash
+        env:
+          JOYFIN_KEYSTORE_BASE64: ${{ secrets.JOYFIN_KEYSTORE_BASE64 }}
+          JOYFIN_STORE_PASSWORD: ${{ secrets.JOYFIN_STORE_PASSWORD }}
+          JOYFIN_KEY_ALIAS: ${{ secrets.JOYFIN_KEY_ALIAS }}
+          JOYFIN_KEY_PASSWORD: ${{ secrets.JOYFIN_KEY_PASSWORD }}
+          JOYFIN_SIGNING_CERT_SHA256: ${{ secrets.JOYFIN_SIGNING_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          export JOYFIN_KEYSTORE_PATH="$RUNNER_TEMP/joyfin-release.keystore"
+          trap 'rm -f -- "$JOYFIN_KEYSTORE_PATH"' EXIT
+          for name in JOYFIN_KEYSTORE_BASE64 JOYFIN_STORE_PASSWORD JOYFIN_KEY_ALIAS JOYFIN_KEY_PASSWORD JOYFIN_SIGNING_CERT_SHA256; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing repository secret: $name" >&2
+              exit 1
+            fi
+          done
+          printf '%s' "$JOYFIN_KEYSTORE_BASE64" | base64 --decode > "$JOYFIN_KEYSTORE_PATH"
+          ./build.sh --release
+          python3 .github/scripts/verify-release.py \
+            "dist/Joyfin-${JOYFIN_RELEASE_TAG#v}.apk" \
+            dist/output-metadata.json \
+            "$ANDROID_HOME/build-tools/37.0.0"
+
+      - name: Publish release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "$JOYFIN_RELEASE_TAG" >/dev/null 2>&1; then
+            echo 'This release already exists; refusing to overwrite it.' >&2
+            exit 1
+          fi
+          gh release create "$JOYFIN_RELEASE_TAG" \
+            --verify-tag --draft --generate-notes --title "Joyfin $JOYFIN_RELEASE_TAG" \
+            "dist/Joyfin-${JOYFIN_RELEASE_TAG#v}.apk" \
+            dist/SHA256SUMS.txt dist/SIGNING-CERT-SHA256.txt dist/output-metadata.json
+          gh release edit "$JOYFIN_RELEASE_TAG" --draft=false
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f -- "$RUNNER_TEMP/joyfin-release.keystore"

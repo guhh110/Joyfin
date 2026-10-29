@@ -3,12 +3,16 @@ set -euo pipefail
 
 usage() {
     cat <<'HELP'
-Joyfin 本地打包（优化 Preview，使用现有 debug 签名）
+Joyfin 通用 APK 打包（默认优化 Preview，--release 使用正式签名）
 
-用法：./build.sh [--offline] [--dry-run]
+用法：./build.sh [--release] [--offline] [--dry-run]
   Android 9+ 手机 / TV 通用包，包含 ARM32 / ARM64 / x86 / x86_64
   --offline   使用本地 Gradle 依赖缓存
   --dry-run   只显示配置和命令，不打包、不写入产物
+  --release   构建正式 Release，不包含 UI 模拟入口
+
+正式构建需要 JOYFIN_KEYSTORE_PATH、JOYFIN_STORE_PASSWORD、JOYFIN_KEY_ALIAS、JOYFIN_KEY_PASSWORD。
+CI 可通过 JOYFIN_RELEASE_TAG 校验标签与本次 Gradle 产物版本一致。
 
 可用 JAVA_HOME 指定 JDK 21，GRADLE_BIN 指定 Gradle 可执行文件。
 Android SDK 由 local.properties 或 ANDROID_HOME 配置。
@@ -20,10 +24,13 @@ fail() { printf '错误：%s\n' "$*" >&2; exit 1; }
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 offline=false
 dry_run=false
+variant=preview
+gradle_task=assemblePreview
 for arg in "$@"; do
     case "$arg" in
         --offline) offline=true ;;
         --dry-run) dry_run=true ;;
+        --release) variant=release; gradle_task=assembleRelease ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; fail "未知参数：$arg" ;;
     esac
@@ -66,12 +73,18 @@ elif command -v sha256sum >/dev/null 2>&1; then
 else
     fail '需要 shasum 或 sha256sum 来生成校验值'
 fi
-command_args=("$gradle_bin" :app:assemblePreview --console=plain)
+command_args=("$gradle_bin" ":app:$gradle_task" --console=plain)
 if "$offline"; then command_args+=(--offline); fi
 printf '目标：Android 9+ 手机 / TV 通用包（ARM32 / ARM64 / x86 / x86_64）\nJDK：%s\n命令：' "${JAVA_HOME:-PATH 中的 Java}"
 printf '%q ' "${command_args[@]}"
 printf '\n'
 if "$dry_run"; then exit 0; fi
+if [[ "$variant" == release ]]; then
+    for name in JOYFIN_KEYSTORE_PATH JOYFIN_STORE_PASSWORD JOYFIN_KEY_ALIAS JOYFIN_KEY_PASSWORD; do
+        [[ -n "${!name:-}" ]] || fail "正式构建缺少环境变量：$name"
+    done
+    [[ -s "$JOYFIN_KEYSTORE_PATH" ]] || fail '正式签名密钥文件不存在或为空'
+fi
 
 cd -- "$root"
 output_dir="$root/dist"
@@ -80,11 +93,12 @@ printf '构建记录：%s/build.log\n' "$output_dir"
 if ! "${command_args[@]}" 2>&1 | tee "$output_dir/build.log"; then
     fail "打包失败，日志保留在 $output_dir/build.log"
 fi
-source_apk="$root/app/build/outputs/apk/preview/app-preview.apk"
-[[ -s "$source_apk" ]] || fail 'Gradle 已结束，但未找到 Preview APK'
-metadata="$root/app/build/outputs/apk/preview/output-metadata.json"
+source_apk="$root/app/build/outputs/apk/$variant/app-$variant.apk"
+[[ -s "$source_apk" ]] || fail "Gradle 已结束，但未找到 $variant APK"
+metadata="$root/app/build/outputs/apk/$variant/output-metadata.json"
 if ! version_name="$(python3 - "$metadata" <<'PY'
 import json
+import os
 import re
 import sys
 
@@ -95,6 +109,9 @@ if len(elements) != 1:
 version = elements[0]["versionName"]
 if not isinstance(version, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", version):
     raise SystemExit("产物版本为空或包含不支持的文件名字符")
+tag = os.environ.get("JOYFIN_RELEASE_TAG")
+if tag and tag != "v" + version:
+    raise SystemExit("发布标签与本次 Gradle 产物版本不一致")
 print(version)
 PY
 )"; then
