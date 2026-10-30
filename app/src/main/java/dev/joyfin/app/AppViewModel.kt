@@ -73,6 +73,7 @@ class AppViewModel @JvmOverloads constructor(
 
     val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(storageContext, viewModelScope, api, ::expireSession)
     val libraryAudit = dev.joyfin.audit.createLibraryAuditController(storageContext, viewModelScope, api, ::expireSession)
+    val appUpdates = dev.joyfin.update.AppUpdateController(storageContext, viewModelScope)
 
     init {
         session.start()
@@ -81,6 +82,8 @@ class AppViewModel @JvmOverloads constructor(
     fun connect(address: String) = session.connect(address)
 
     fun login(name: String, password: String) = session.login(name, password)
+
+    fun quickLogin() = session.quickLogin()
 
     fun cancelEntry() = session.cancelEntry()
 
@@ -152,6 +155,8 @@ class AppViewModel @JvmOverloads constructor(
     fun removeResumeItem(media: Media) = homeController.removeResumeItem(media)
 
     fun markResumeItemPlayed(media: Media) = homeController.markResumeItemPlayed(media)
+
+    fun cancelResumeAction() = homeController.cancelResumeAction()
 
     fun retry() {
         requests.retry?.invoke()

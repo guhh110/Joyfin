@@ -40,6 +40,7 @@ fun AppContent(
     audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     audit: dev.joyfin.audit.LibraryAuditController? = null,
+    updates: dev.joyfin.update.AppUpdateController? = null,
 ) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
@@ -125,7 +126,7 @@ fun AppContent(
                                     Page.PERSON -> PersonRoute(ui.collection, actions, images)
                                     Page.SEARCH -> SearchRoute(ui.collection, actions, images)
                                     Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings, audioOutputMode,
-                                        homeLayout, ui.home.content?.libraries.orEmpty())
+                                        homeLayout, ui.home.content?.libraries.orEmpty(), updates)
                                     Page.SUBTITLES -> subtitles?.let {
                                         dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, images, actions.back)
                                     }

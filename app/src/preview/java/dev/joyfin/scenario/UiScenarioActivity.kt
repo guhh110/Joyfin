@@ -96,7 +96,7 @@ class UiScenarioActivity : ComponentActivity() {
                         }
                     }
                     Box(Modifier.weight(1f)) {
-                        BrowseHost(vm, artwork) { _, _, _ -> Toast.makeText(this@UiScenarioActivity, "演示入口不启动实际播放", Toast.LENGTH_SHORT).show() }
+                        BrowseHost(vm, artwork, updates = null) { _, _, _ -> Toast.makeText(this@UiScenarioActivity, "演示入口不启动实际播放", Toast.LENGTH_SHORT).show() }
                     }
                 }
             }

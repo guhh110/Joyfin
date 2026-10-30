@@ -12,6 +12,8 @@ internal class HomeController(
     private val requests: PageRequests,
     private val expired: () -> Unit,
 ) {
+    private var resumeActionJob: Job? = null
+    private var resumeActionGeneration = 0L
     private val homeLoader =
         HomeLibraryLoader(
             scope,
@@ -127,35 +129,61 @@ internal class HomeController(
         mutable.value.home.content?.libraries?.find { it.id == id }?.let(homeLoader::retry)
     }
 
-    fun removeResumeItem(media: Media) {
-        scope.launch {
+    fun removeResumeItem(media: Media) = updateResumeItem(media, markPlayed = false)
+
+    fun markResumeItemPlayed(media: Media) = updateResumeItem(media, markPlayed = true)
+
+    private fun updateResumeItem(media: Media, markPlayed: Boolean) {
+        if (mutable.value.page != Page.HOME || resumeActionJob?.isActive == true) return
+        val owner = api.session ?: return
+        val token = ++resumeActionGeneration
+        val action = ResumeActionState(media.id, markPlayed, busy = true)
+        mutable.value = mutable.value.copy(home = mutable.value.home.copy(resumeAction = action))
+        resumeActionJob = scope.launch {
             try {
-                api.removeResume(media.id)
+                if (markPlayed) api.setPlayed(media.id, true) else api.removeResume(media.id)
+                ensureActive()
+                if (token != resumeActionGeneration || api.session != owner || mutable.value.page != Page.HOME) return@launch
+                // Discard an older in-flight resume response before removing the confirmed item.
+                homeContentLoader.cancel(HomeRegion.RESUME)
+                val home = mutable.value.home
+                mutable.value = mutable.value.copy(home = home.copy(
+                    content = home.content?.let { it.copy(resume = it.resume.filterNot { item -> item.id == media.id },
+                        resumeLoad = it.resumeLoad.copy(loading = false)) },
+                    resumeAction = action.copy(busy = false, completed = true)))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                runCatching { api.setPlayed(media.id, true) }
+                ensureActive()
+                if (token != resumeActionGeneration || api.session != owner || mutable.value.page != Page.HOME) return@launch
+                if (e is ApiException && e.status == 401) expired()
+                else {
+                    val message = when {
+                        e is ApiException && e.status in setOf(404, 405) && !markPlayed -> "服务器未能隐藏此条目，接口可能不受支持或作品已不存在；未改为已看"
+                        e is ApiException && e.status == 403 -> "当前账号无权修改观看状态"
+                        markPlayed -> "未能标为已看完，请检查网络后重试"
+                        else -> "未能从继续观看中移除，请检查网络后重试"
+                    }
+                    mutable.value = mutable.value.copy(home = mutable.value.home.copy(
+                        resumeAction = action.copy(busy = false, error = message)))
+                }
             }
-            val content = mutable.value.home.content ?: return@launch
-            mutable.value = mutable.value.copy(
-                home = mutable.value.home.copy(
-                    content = content.copy(resume = content.resume.filter { it.id != media.id })
-                )
-            )
         }
     }
 
-    fun markResumeItemPlayed(media: Media) {
-        scope.launch {
-            runCatching { api.setPlayed(media.id, true) }
-            val content = mutable.value.home.content ?: return@launch
-            mutable.value = mutable.value.copy(
-                home = mutable.value.home.copy(
-                    content = content.copy(resume = content.resume.filter { it.id != media.id })
-                )
-            )
-        }
+    fun cancelResumeAction(reconcile: Boolean = true) {
+        val interrupted = mutable.value.home.resumeAction.busy
+        resumeActionGeneration++
+        resumeActionJob?.cancel()
+        resumeActionJob = null
+        mutable.value = mutable.value.copy(home = mutable.value.home.copy(resumeAction = ResumeActionState()))
+        // Cancelling HTTP cannot undo a write the server has already accepted.
+        if (interrupted && reconcile && mutable.value.page == Page.HOME && api.session != null)
+            homeContentLoader.retry(HomeRegion.RESUME)
     }
 
     fun cancel() {
+        cancelResumeAction(reconcile = false)
         homeLoader.cancel()
         homeContentLoader.cancel()
     }

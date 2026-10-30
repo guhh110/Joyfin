@@ -21,6 +21,7 @@ internal fun MobileSettingsLayout(
     audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
+    updates: dev.joyfin.update.AppUpdateController? = null,
 ) {
     Column(
         Modifier.fillMaxSize()
@@ -28,6 +29,6 @@ internal fun MobileSettingsLayout(
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(28.dp),
     ) {
-        SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries)
+        SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries, updates)
     }
 }

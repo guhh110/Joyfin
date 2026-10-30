@@ -34,14 +34,26 @@ internal fun ColumnScope.SettingsContent(
     audioOutputMode: AudioOutputMode = AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
+    updates: dev.joyfin.update.AppUpdateController? = null,
 ) {
     var diagnostics by remember { mutableStateOf(false) }
     var returnFromDiagnostics by remember { mutableStateOf(false) }
     var editHome by remember { mutableStateOf(false) }
     var returnFromHome by remember { mutableStateOf(false) }
+    var showUpdate by remember { mutableStateOf(false) }
+    var returnFromUpdate by remember { mutableStateOf(false) }
     val pageFocus = LocalScreenFocus.current
     val window = LocalWindowInfo.current
     val tv = LocalDeviceLayout.current.television
+    LaunchedEffect(showUpdate) {
+        if (!showUpdate && returnFromUpdate && tv) {
+            snapshotFlow { window.isWindowFocused }.first { it }
+            withFrameNanos {}
+            pageFocus?.rememberTarget?.invoke("settings:update")
+            pageFocus?.restore()
+            returnFromUpdate = false
+        }
+    }
     LaunchedEffect(diagnostics) {
         if (!diagnostics && returnFromDiagnostics && tv) {
             snapshotFlow { window.isWindowFocused }.first { it }
@@ -137,6 +149,13 @@ internal fun ColumnScope.SettingsContent(
             editHome = true
         }
         ActionButton("退出当前账号", actions.logout, loading = request.busy, icon = Glyph.Close)
+        if (updates != null) ChoiceRow("检查更新", Modifier.focusTarget("settings:update"),
+            subtitle = "当前 v${BuildConfig.VERSION_NAME} · 查看新版说明并下载安装", chevron = true) {
+            returnFromUpdate = true
+            showUpdate = true
+            if (updates.state.value.phase in setOf(dev.joyfin.update.UpdatePhase.IDLE, dev.joyfin.update.UpdatePhase.CURRENT))
+                updates.check()
+        }
 
         // 关于 Joyfin 旗舰独立微展台
         val aboutShape = RoundedCornerShape(16.dp)
@@ -184,4 +203,5 @@ internal fun ColumnScope.SettingsContent(
     }
     if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
     if (editHome) HomeLayoutSheet(homeLayout, homeLibraries, actions.setHomeLayout) { editHome = false }
+    if (showUpdate && updates != null) AppUpdateSheet(updates) { showUpdate = false }
 }

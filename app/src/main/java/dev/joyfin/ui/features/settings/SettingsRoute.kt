@@ -19,7 +19,8 @@ fun SettingsRoute(
     audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
+    updates: dev.joyfin.update.AppUpdateController? = null,
 ) {
-    if (LocalDeviceLayout.current.television) TvSettingsLayout(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries)
-    else MobileSettingsLayout(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries)
+    if (LocalDeviceLayout.current.television) TvSettingsLayout(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries, updates)
+    else MobileSettingsLayout(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries, updates)
 }

@@ -31,6 +31,8 @@ class HomeContentLoader(
         HomeRegion.entries.forEach(::retry)
     }
 
+    fun cancel(region: HomeRegion) { jobs.remove(region)?.cancel() }
+
     fun retry(region: HomeRegion) {
         jobs.remove(region)?.cancel()
         val token = generation

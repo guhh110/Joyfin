@@ -7,4 +7,5 @@ data class EntryActions(
     val changeServer: () -> Unit,
     val cancel: () -> Unit,
     val retry: () -> Unit,
+    val quickLogin: () -> Unit = {},
 )

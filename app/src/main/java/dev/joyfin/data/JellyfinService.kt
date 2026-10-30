@@ -5,6 +5,20 @@ import retrofit2.http.*
 
 /** Retrofit owns HTTP execution, coroutine cancellation and generated JSON conversion. */
 internal interface JellyfinService {
+    @GET("QuickConnect/Enabled")
+    suspend fun quickConnectEnabled(@Header("Authorization") auth: String): Response<Boolean>
+
+    @POST("QuickConnect/Initiate")
+    suspend fun initiateQuickConnect(@Header("Authorization") auth: String): Response<QuickConnectResult>
+
+    @GET("QuickConnect/Connect")
+    suspend fun pollQuickConnect(@Header("Authorization") auth: String,
+        @Query("secret") secret: String): Response<QuickConnectResult>
+
+    @POST("Users/AuthenticateWithQuickConnect")
+    suspend fun authenticateQuickConnect(@Header("Authorization") auth: String,
+        @Body body: QuickConnectRequest): Response<LoginResponse>
+
     @GET("Items")
     suspend fun auditItems(@Header("Authorization") auth: String, @QueryMap query: Map<String, String>): Response<AuditPageDto>
     @GET("Items/{id}")

@@ -182,7 +182,7 @@ internal fun LazyListScope.homeRails(
 @Composable
 internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseActions, cardWidth: Dp? = null) {
     if (home.resume.isEmpty() && !home.resumeLoad.loading && home.resumeLoad.error == null) return
-    var actionItem by remember { mutableStateOf<Media?>(null) }
+    val openActions = LocalResumeQuickAction.current
     LoadingMediaRail(
         "继续观看",
         home.resume,
@@ -192,9 +192,6 @@ internal fun HomeResumeRail(home: Home, images: ArtworkSource, actions: BrowseAc
         wide = true,
         cardWidth = cardWidth,
         retry = { actions.retryHome(HomeRegion.RESUME) },
-        onLongClick = { actionItem = it },
+        onLongClick = openActions,
     )
-    actionItem?.let { item ->
-        ResumeQuickActionSheet(item, actions) { actionItem = null }
-    }
 }

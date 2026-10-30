@@ -44,4 +44,5 @@ data class BrowseActions(
     val toggleEpisodePlayed: (Media) -> Unit = {},
     val removeResumeItem: (Media) -> Unit = {},
     val markResumeItemPlayed: (Media) -> Unit = {},
+    val cancelResumeAction: () -> Unit = {},
 )

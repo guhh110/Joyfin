@@ -21,6 +21,7 @@ internal fun TvSettingsLayout(
     audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
+    updates: dev.joyfin.update.AppUpdateController? = null,
 ) {
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -31,7 +32,7 @@ internal fun TvSettingsLayout(
                 .padding(horizontal = 48.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
-            SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries)
+            SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries, updates)
         }
     }
 }

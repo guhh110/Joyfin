@@ -8,4 +8,6 @@ data class EntryState(
     val sessionExpired: Boolean = false,
     val busy: Boolean = false,
     val error: String? = null,
+    val quickConnect: Boolean = false,
+    val quickConnectCode: String? = null,
 )

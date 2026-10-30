@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
 internal fun BrowseHost(
     vm: AppViewModel,
     imagesOverride: ArtworkSource? = null,
+    updates: dev.joyfin.update.AppUpdateController? = vm.appUpdates,
     onPlayOverride: ((Media, Boolean, String?) -> Unit)? = null,
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
@@ -173,6 +174,7 @@ internal fun BrowseHost(
                 toggleEpisodePlayed = vm::toggleEpisodePlayed,
                 removeResumeItem = vm::removeResumeItem,
                 markResumeItemPlayed = vm::markResumeItemPlayed,
+                cancelResumeAction = vm::cancelResumeAction,
             )
         }
     val images =
@@ -189,9 +191,9 @@ internal fun BrowseHost(
         }
     val entryActions =
         remember(vm) {
-            EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry)
+            EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry, vm::quickLogin)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit, updates)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
             confirmInitiallyFocused = true)

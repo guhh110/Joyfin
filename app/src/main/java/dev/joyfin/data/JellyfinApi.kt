@@ -23,7 +23,7 @@ class JellyfinApi(
             .followRedirects(false)
             .followSslRedirects(false)
             .build(),
-) : SessionConnection {
+) : SessionConnection, QuickConnectConnection {
     @Volatile override var session: Session? = null
     private val browseFields =
         "Overview,People,Genres,MediaSources,ProductionLocations,ChildCount,SeasonUserData,OriginalTitle,ProviderIds,Path"
@@ -198,6 +198,27 @@ class JellyfinApi(
 
     override suspend fun validateSession() {
         service().validate(authorization(), requireSession().userId).value()
+    }
+
+    override suspend fun initiateQuickConnect(server: String): QuickConnectResult {
+        val endpoint = service(server)
+        if (!endpoint.quickConnectEnabled(authorization(null)).value())
+            throw QuickConnectException("此服务器未开启快速连接，请使用账号密码登录，或联系管理员开启 Quick Connect")
+        return endpoint.initiateQuickConnect(authorization(null)).value().also {
+            if (it.secret.isBlank() || !it.code.matches(Regex("[0-9]{6}")))
+                throw QuickConnectException("服务器返回的快速登录码无效，请重新获取")
+        }
+    }
+
+    override suspend fun pollQuickConnect(server: String, secret: String): QuickConnectResult =
+        service(server).pollQuickConnect(authorization(null), secret).value()
+
+    override suspend fun authenticateQuickConnect(server: String, secret: String): Session {
+        val normalized = normalizeServer(server)
+        val response = service(normalized).authenticateQuickConnect(authorization(null), QuickConnectRequest(secret)).value()
+        if (response.accessToken.isBlank() || response.user.id.isBlank())
+            throw QuickConnectException("服务器未返回有效登录信息")
+        return Session(normalized, response.accessToken, response.user.id, response.user.name)
     }
 
     override suspend fun logout() {
