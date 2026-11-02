@@ -248,9 +248,11 @@ class PlaybackController(
                 if (mutable.value.navigation.chapters.any { it.positionMs == position }) seek(position)
             },
             setSkipPreferences = navigation::preferences,
+            markIntroEnd = { markPlaybackPosition(intro = true) },
+            markOutroStart = { markPlaybackPosition(intro = false) },
             skipSegment = {
                 if (mutable.value.canSeek && !mutable.value.loading && !mutable.value.subtitleApplying)
-                    navigation.skip(player.currentPosition, android.os.SystemClock.elapsedRealtime())?.let(::seek)
+                    navigation.skip(player.currentPosition, android.os.SystemClock.elapsedRealtime())?.let(::skipSegment)
             },
             dismissSkip = navigation::dismiss,
             undoSkip = {
@@ -798,11 +800,37 @@ class PlaybackController(
         else if (player.isPlaying) player.pause() else player.play()
     }
 
-    private fun seek(target: Long) {
+    private fun markPlaybackPosition(intro: Boolean) {
+        val ui = mutable.value
+        if (released || !started || plan == null || !ui.navigation.canConfigure || !ui.canSeek ||
+            ui.loading || ui.error != null || ui.subtitleApplying || ui.subtitleSearchOpen ||
+            ui.seekPreview?.active == true || ui.nextSeconds > 0) return
+        val position = player.currentPosition.coerceAtLeast(0)
+        val duration = player.duration.takeIf { it > 0 } ?: ui.durationMs
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (intro) navigation.markIntroEnd(position, duration, now)
+        else navigation.markOutroStart(position, duration, now)
+    }
+
+    private fun skipSegment(target: Long) {
+        val ui = mutable.value
+        if (released || !started || plan == null || !ui.canSeek || ui.loading || ui.error != null ||
+            ui.subtitleApplying || ui.subtitleSearchOpen) return
+        if (ui.durationMs > 0 && target >= ui.durationMs) {
+            // End-of-file seeks can request an empty HTTP range/HLS segment. Complete deliberately
+            // through the same generation gate and countdown as natural playback completion.
+            if (completion.skipToEnd(player.currentMediaItem?.localConfiguration?.tag as? Long))
+                ended(ui.durationMs)
+        } else seek(target, dismissCountdown = false)
+    }
+
+    private fun seek(target: Long) = seek(target, dismissCountdown = true)
+
+    private fun seek(target: Long, dismissCountdown: Boolean) {
         if (!mutable.value.canSeek || mutable.value.loading || mutable.value.error != null ||
             mutable.value.subtitleApplying || mutable.value.subtitleSearchOpen) return
         val safe = target.coerceIn(0, mutable.value.durationMs.coerceAtLeast(0))
-        cancelCountdown()
+        cancelCountdown(dismiss = dismissCountdown)
         player.seekTo(safe)
         mutable.update { it.copy(positionMs = safe) }
     }
@@ -1123,12 +1151,12 @@ class PlaybackController(
             load(positionTicks(), reason = environment.reloadReason)
     }
 
-    private fun stopCurrentStream() {
+    private fun stopCurrentStream(completedPositionMs: Long? = null) {
         speedController.cancel()
         navigation.clear()
         if (plan != null) diagnosticObserver.sample()
         PlaybackDiagnostics.canceled(diagnosticToken)
-        initialTicks = positionTicks()
+        initialTicks = completedPositionMs?.coerceAtLeast(0)?.times(10_000) ?: positionTicks()
         plan?.let { reporter.send(it, "Stopped", initialTicks, true) }
         plan = null
         started = false
@@ -1144,10 +1172,12 @@ class PlaybackController(
         mutable.update { it.copy(loading = false, playing = false, canSeek = false, error = message) }
     }
 
-    private fun ended() {
+    private fun ended(completedPositionMs: Long? = null) {
         seekPreview.cancel()
-        stopCurrentStream()
-        mutable.update { it.copy(playing = false, canSeek = false) }
+        stopCurrentStream(completedPositionMs)
+        mutable.update {
+            it.copy(playing = false, canSeek = false, loading = false, positionMs = initialTicks / 10_000)
+        }
         if (!store.autoNext || countdownDismissed) {
             onClose(false)
             return
@@ -1237,7 +1267,7 @@ class PlaybackController(
                     navigation.tick(ui.positionMs, ui.durationMs,
                         !navigationBlocked && player.isPlaying && ui.canSeek && !ui.loading && ui.error == null && !ui.subtitleApplying &&
                             !ui.subtitleSearchOpen && ui.seekPreview?.active != true,
-                        android.os.SystemClock.elapsedRealtime())?.let(::seek)
+                        android.os.SystemClock.elapsedRealtime())?.let(::skipSegment)
                     checkUpcomingCountdown(ui.positionMs, ui.durationMs, player.isPlaying && !ui.loading && ui.error == null)
                 }
                 if (plan != null && diagnosticSecond != second) {

@@ -45,7 +45,6 @@ enum class PlayerPanel(val title: String) {
     Versions("媒体版本"),
     Diagnostics("播放诊断"),
     Chapters("章节"),
-    Skip("片头与片尾"),
 }
 
 @Composable
@@ -115,8 +114,6 @@ fun PlayerSettingsSheet(
                         ChoiceRow("媒体版本") { onPanel(PlayerPanel.Versions) }
                         ChoiceRow("章节", Modifier.focusTarget("player:settings-chapters"),
                             subtitle = "${ui.navigation.chapters.size} 个章节") { onPanel(PlayerPanel.Chapters) }
-                        ChoiceRow("片头与片尾", Modifier.focusTarget("player:settings-skip"),
-                            subtitle = if (ui.navigation.preferences.automatic) "自动跳过已开启" else "提示跳过，可按剧设置时长") { onPanel(PlayerPanel.Skip) }
                         ChoiceRow(
                             "播放方式",
                             subtitle = if (ui.compatible) "兼容转码 · 点击恢复自动" else "自动 · 点击使用兼容转码",
@@ -126,6 +123,7 @@ fun PlayerSettingsSheet(
                         }
                         ChoiceRow("播放诊断", Modifier.focusTarget("player:settings-diagnostics"),
                             subtitle = "实际播放格式、转码原因与错误记录") { onPanel(PlayerPanel.Diagnostics) }
+                        PlaybackSkipSettings(ui, actions)
                     }
                     PlayerPanel.Quality -> {
                         Caption("选择码率上限，实际画质由媒体与服务器决定。")
@@ -345,7 +343,6 @@ fun PlayerSettingsSheet(
                             }
                         }
                     }
-                    PlayerPanel.Skip -> SkipSettings(ui, actions)
                 }
             }
         }

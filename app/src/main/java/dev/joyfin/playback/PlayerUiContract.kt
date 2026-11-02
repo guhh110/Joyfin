@@ -82,6 +82,8 @@ data class PlayerActions(
     val setAudioOutputMode: (dev.joyfin.data.AudioOutputMode) -> Unit = {},
     val selectChapter: (Long) -> Unit = {},
     val setSkipPreferences: (dev.joyfin.data.SkipPreferences) -> Unit = {},
+    val markIntroEnd: () -> Unit = {},
+    val markOutroStart: () -> Unit = {},
     val skipSegment: () -> Unit = {},
     val dismissSkip: () -> Unit = {},
     val undoSkip: () -> Unit = {},

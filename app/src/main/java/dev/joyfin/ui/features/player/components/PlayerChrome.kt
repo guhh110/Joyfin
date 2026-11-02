@@ -90,6 +90,7 @@ fun PlayerBottomBar(
     actions: PlayerActions,
     onPanel: (PlayerPanel) -> Unit,
     modifier: Modifier = Modifier,
+    onInteraction: () -> Unit = {},
 ) {
     val tv = LocalDeviceLayout.current.television
     val subtitleLabel = ui.localSubtitle?.label
@@ -121,6 +122,20 @@ fun PlayerBottomBar(
                         icon = Glyph.Clock,
                         quiet = true,
                     )
+                }
+                if (tv || ui.navigation.canConfigure) {
+                    item(key = "mark-intro") {
+                        SkipMarkButton(ui, intro = true) {
+                            onInteraction()
+                            actions.markIntroEnd()
+                        }
+                    }
+                    item(key = "mark-outro") {
+                        SkipMarkButton(ui, intro = false) {
+                            onInteraction()
+                            actions.markOutroStart()
+                        }
+                    }
                 }
                 item {
                     ActionButton(
@@ -183,4 +198,23 @@ fun PlayerBottomBar(
             }
         }
     }
+}
+
+@Composable
+private fun SkipMarkButton(ui: PlayerUiState, intro: Boolean, onClick: () -> Unit) {
+    val label = if (intro) "片头结束" else "片尾开始"
+    val marked = if (intro) ui.navigation.preferences.introEndMs != null
+        else ui.navigation.preferences.outroDurationMs != null
+    ActionButton(
+        label, onClick,
+        Modifier.focusTarget(if (intro) "player:mark-intro" else "player:mark-outro")
+            .semantics { contentDescription = "将当前播放位置标记为$label" },
+        icon = Glyph.Clock,
+        selected = marked,
+        enabled = ui.navigation.canConfigure && ui.canSeek && !ui.loading && ui.error == null &&
+            !ui.subtitleApplying && !ui.subtitleSearchOpen && ui.seekPreview?.active != true &&
+            ui.nextSeconds == 0 && ui.durationMs > 0,
+        quiet = true,
+        maxLines = 1,
+    )
 }

@@ -44,7 +44,7 @@ internal fun PlayerControlsFrame(
                     TransportControls(ui, actions, onInteraction)
                 }
             extra()
-            PlayerBottomBar(ui, actions, onPanel, Modifier.align(Alignment.BottomCenter))
+            PlayerBottomBar(ui, actions, onPanel, Modifier.align(Alignment.BottomCenter), onInteraction)
         }
     }
 }

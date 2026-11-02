@@ -3,7 +3,7 @@ package dev.joyfin.data
 import android.content.Context
 import kotlinx.serialization.encodeToString
 
-/** Separate from audio/subtitle preferences; manual timings follow the series on this account. */
+/** Account-local marks follow the series, or an individual movie, separately from track preferences. */
 internal class SkipPreferenceStore(context: Context) {
     private val prefs = context.getSharedPreferences("playback-skip", Context.MODE_PRIVATE)
     fun load(session: Session, media: Media): SkipPreferences = runCatching {

@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,6 +20,8 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -30,6 +33,7 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.player.components.*
 import dev.joyfin.ui.features.player.mobile.MobilePlayerLayout
+import dev.joyfin.ui.features.player.mobile.MobilePlayerLockedInfo
 import dev.joyfin.ui.features.player.mobile.PlayerDeviceGestureFeedback
 import dev.joyfin.ui.features.player.mobile.PlayerSpeedBoostFeedback
 import dev.joyfin.ui.features.player.mobile.rememberPlayerDeviceGestures
@@ -39,6 +43,7 @@ import dev.joyfin.ui.features.player.mobile.MobileSkipOffer
 import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.RememberScreenFocus
 import dev.joyfin.ui.interaction.RememberSelectionFocus
+import dev.joyfin.ui.theme.Palette
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
@@ -54,6 +59,7 @@ fun PlayerRoute(
     var visible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
     var lockControlsVisible by remember { mutableStateOf(false) }
+    var lockInteraction by remember { mutableIntStateOf(0) }
     var focusReturn by remember { mutableIntStateOf(0) }
     var panel by remember { mutableStateOf<PlayerPanel?>(null) }
     var interaction by remember { mutableIntStateOf(0) }
@@ -91,7 +97,11 @@ fun PlayerRoute(
         interaction++
         visible = true
     }
-    LaunchedEffect(locked, lockControlsVisible) {
+    fun wakeLockControls() {
+        lockControlsVisible = true
+        lockInteraction++
+    }
+    LaunchedEffect(locked, lockControlsVisible, lockInteraction) {
         if (locked && lockControlsVisible) {
             delay(3000)
             lockControlsVisible = false
@@ -123,7 +133,7 @@ fun PlayerRoute(
         enabled = locked || panel != null || ui.nextSeconds > 0 || visible || ui.seekPreview?.active == true
     ) {
         when {
-            locked -> lockControlsVisible = true
+            locked -> wakeLockControls()
             ui.seekPreview?.active == true -> actions.preview.cancel()
             panel != null -> {
                 panel = null
@@ -208,9 +218,7 @@ fun PlayerRoute(
                     if (!ui.loading && ui.error == null && ui.nextSeconds == 0) actions.toggle()
                 },
                 locked = locked,
-                onLockedTap = {
-                    lockControlsVisible = true
-                },
+                onLockedTap = ::wakeLockControls,
                 verticalActions = verticalActions.takeIf { deviceGesturesEnabled },
                 speedBoost = actions.speedBoost.takeIf { speedBoostEnabled },
                 gestureKey = ui.itemId to ui.sourceId,
@@ -233,6 +241,13 @@ fun PlayerRoute(
                     else MobileSkipOffer(ui.navigation, actions, skipModifier)
                 }
             }
+            AnimatedVisibility(
+                visible = !tv && locked && lockControlsVisible,
+                enter = fadeIn(animationSpec = tween(180)),
+                exit = fadeOut(animationSpec = tween(140)),
+            ) {
+                MobilePlayerLockedInfo(ui)
+            }
             val showLockButton = !tv && ((!locked && showControls && panel == null && ui.nextSeconds == 0) || (locked && lockControlsVisible))
             AnimatedVisibility(
                 visible = showLockButton,
@@ -251,7 +266,7 @@ fun PlayerRoute(
                         } else {
                             locked = true
                             visible = false
-                            lockControlsVisible = true
+                            wakeLockControls()
                         }
                     },
                 )
@@ -264,6 +279,17 @@ fun PlayerRoute(
             }
             if (ui.speedBoosting && speedBoostEnabled)
                 PlayerSpeedBoostFeedback(ui.speed, Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 72.dp))
+            ui.navigation.markFeedback?.takeIf { !locked && showControls && panel == null }?.let { message ->
+                Caption(
+                    message,
+                    Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 76.dp)
+                        .background(Palette.Background.copy(alpha = .94f), RoundedCornerShape(12.dp))
+                        .border(.5.dp, Palette.Line, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
+                    color = Palette.Text,
+                    maxLines = 2,
+                )
+            }
             if (ui.nextSeconds > 0 && ui.nextItem != null && !locked)
                 Popup(
                     alignment = Alignment.BottomEnd,
@@ -332,6 +358,7 @@ private fun LockFloatingButton(
     Box(
         modifier = modifier
             .testTag("player:lock-button")
+            .semantics { contentDescription = if (locked) "解锁屏幕" else "锁定屏幕" }
             .size(44.dp)
             .clip(CircleShape)
             .background(Color.Black.copy(alpha = 0.65f))

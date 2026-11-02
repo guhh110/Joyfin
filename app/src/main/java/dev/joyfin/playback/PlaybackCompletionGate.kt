@@ -23,6 +23,13 @@ class PlaybackCompletionGate {
         if (token == generation) ready = true
     }
 
+    /** An explicit skip through the end completes once, without seeking past the last sample. */
+    fun skipToEnd(token: Long?): Boolean {
+        if (token != generation || !ready || consumed) return false
+        consumed = true
+        return true
+    }
+
     fun ended(token: Long?, positionMs: Long, durationMs: Long, hasMediaTrack: Boolean): Result {
         if (token != generation || !ready || consumed || !hasMediaTrack || durationMs <= 0)
             return Result.Ignore
