@@ -49,7 +49,8 @@ class UiScenarioActivity : ComponentActivity() {
         val factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                AppViewModel(application, runtime.store, runtime.api, runtime.context) as T
+                AppViewModel(application, runtime.store, runtime.api, runtime.context,
+                    discoverLocalServers = { kotlinx.coroutines.flow.emptyFlow() }) as T
         }
         val vm = ViewModelProvider(this, factory)[AppViewModel::class.java]
         val tv = resources.configuration.isTelevision()

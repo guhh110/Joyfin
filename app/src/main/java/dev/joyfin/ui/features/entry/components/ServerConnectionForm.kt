@@ -14,12 +14,13 @@ internal fun ColumnScope.ServerConnectionForm(
     error: String?,
     onConnect: () -> Unit,
     onCancel: () -> Unit,
+    onDiscover: (() -> Unit)? = null,
 ) {
     val tv = LocalDeviceLayout.current.television
     if (!tv) {
         EntryStep("01", "连接服务器")
         EntryTitle("连接媒体库")
-        EntryText("输入你的 Jellyfin 服务器地址，开启专属私享视听。")
+        EntryText("输入 Jellyfin 服务器地址，或查找同一局域网中的服务器。")
     }
     EntryTextField(
         "服务器地址",
@@ -41,5 +42,7 @@ internal fun ColumnScope.ServerConnectionForm(
         busy = busy,
         enabledWhileBusy = true,
     )
+    if (onDiscover != null) EntryButton("查找局域网服务器", onDiscover,
+        Modifier.focusTarget("auth:discover"), quiet = true, enabled = !busy)
     EntryText("端到端直连你的私有 Jellyfin 服务器，凭据仅安全保存在本地", subdued = true)
 }

@@ -191,7 +191,8 @@ internal fun BrowseHost(
         }
     val entryActions =
         remember(vm) {
-            EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry, vm::quickLogin)
+            EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry, vm::quickLogin,
+                vm::discoverServers, vm::cancelDiscovery)
         }
     AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit, updates)
     if (exit)

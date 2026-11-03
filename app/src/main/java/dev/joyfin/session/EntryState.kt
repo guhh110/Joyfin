@@ -10,4 +10,5 @@ data class EntryState(
     val error: String? = null,
     val quickConnect: Boolean = false,
     val quickConnectCode: String? = null,
+    val discovery: ServerDiscoveryState = ServerDiscoveryState(),
 )

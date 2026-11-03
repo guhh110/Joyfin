@@ -8,4 +8,6 @@ data class EntryActions(
     val cancel: () -> Unit,
     val retry: () -> Unit,
     val quickLogin: () -> Unit = {},
+    val discoverServers: () -> Unit = {},
+    val cancelDiscovery: () -> Unit = {},
 )

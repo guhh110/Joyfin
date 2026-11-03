@@ -21,6 +21,7 @@ class AppViewModel @JvmOverloads constructor(
     val store: SessionStore = SessionStore(application),
     val api: JellyfinApi = JellyfinApi(store.deviceId),
     storageContext: Context = application,
+    discoverLocalServers: () -> kotlinx.coroutines.flow.Flow<DiscoveredServer> = { JellyfinServerDiscovery(storageContext).discover() },
 ) : AndroidViewModel(application) {
     private val outputPreferences = AudioOutputPreferences(storageContext)
     val audioOutputMode = outputPreferences.changes.stateIn(viewModelScope, SharingStarted.Eagerly, outputPreferences.mode)
@@ -29,6 +30,11 @@ class AppViewModel @JvmOverloads constructor(
             UiState(entry = EntryState(server = store.server, serverName = store.serverName))
         )
     val state = mutable.asStateFlow()
+    private val serverDiscovery = dev.joyfin.session.ServerDiscoveryController(
+        viewModelScope, discoverLocalServers,
+        { mutable.value.page == Page.CONNECT && !mutable.value.entry.busy },
+        { discovery -> mutable.value = mutable.value.copy(entry = mutable.value.entry.copy(discovery = discovery)) },
+    )
     private val homeLayoutStore = HomeLayoutStore(storageContext)
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val homeLayout = state.map { api.session }.distinctUntilChanged()
@@ -79,7 +85,14 @@ class AppViewModel @JvmOverloads constructor(
         session.start()
     }
 
-    fun connect(address: String) = session.connect(address)
+    fun connect(address: String) {
+        serverDiscovery.clear()
+        session.connect(address)
+    }
+
+    fun discoverServers() = serverDiscovery.start()
+
+    fun cancelDiscovery() = serverDiscovery.stop()
 
     fun login(name: String, password: String) = session.login(name, password)
 
@@ -90,6 +103,7 @@ class AppViewModel @JvmOverloads constructor(
     fun setAudioOutputMode(mode: AudioOutputMode) { outputPreferences.mode = mode }
 
     fun changeServer() {
+        serverDiscovery.clear()
         dev.joyfin.playback.PlaybackDiagnostics.clear()
         session.changeServer()
     }
