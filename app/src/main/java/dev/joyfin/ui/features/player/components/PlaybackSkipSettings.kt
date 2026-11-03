@@ -14,6 +14,7 @@ internal fun PlaybackSkipSettings(ui: PlayerUiState, actions: PlayerActions) {
     val prefs = nav.preferences
     SectionTitle("片头与片尾")
     if (nav.canConfigure) {
+        Caption("保存范围：${nav.preferenceScope}", maxLines = 2)
         ChoiceRow(
             "自动跳过", Modifier.focusTarget("player:skip-auto"),
             subtitle = if (prefs.automatic) "已开启 · 播放时自动跳过" else "已关闭 · 仅提示跳过",
@@ -31,7 +32,16 @@ internal fun PlaybackSkipSettings(ui: PlayerUiState, actions: PlayerActions) {
                 "距结尾 ${timeLabel(prefs.effectiveOutroDurationMs)} · 点击清除本地设置" else "未设置 · 使用服务器或章节标记",
             enabled = prefs.effectiveOutroDurationMs > 0,
         ) { actions.setSkipPreferences(prefs.copy(outroSeconds = 0, outroDurationMs = null)) }
-        Caption("定位到目标画面后，点击控制栏的「片头结束」或「片尾开始」。手动标记优先使用；片尾按剩余时长保存，剧集按整剧沿用，电影单独保存。")
+        ActionButton("撤销上次标记", actions.undoMark, Modifier.focusTarget("player:settings-undo-mark"),
+            icon = Glyph.Back, enabled = nav.canUndoMark && !ui.loading && !ui.subtitleApplying)
+        nav.legacyPreferences?.let { legacy ->
+            val intro = if (legacy.introDurationMs > 0) timeLabel(legacy.introDurationMs) else "未设置"
+            val outro = if (legacy.effectiveOutroDurationMs > 0) timeLabel(legacy.effectiveOutroDurationMs) else "未设置"
+            Caption("旧设置仍保留：片头 $intro，片尾 $outro，自动跳过${if (legacy.automatic) "开启" else "关闭"}。")
+            ActionButton("沿用旧设置到当前范围", actions.useLegacySkipPreferences,
+                Modifier.focusTarget("player:skip-use-legacy"), icon = Glyph.Clock)
+        }
+        Caption("定位到目标画面后，点击控制栏的「片头结束」或「片尾开始」。同季同名版本可沿用，无法明确识别的版本仅用于当前集；电影按版本单独保存。片尾按剩余时长计算。")
     } else Caption("当前视频使用服务器或章节标记。")
     if (!nav.timelineAvailable) Caption(if (nav.canConfigure)
         "当前版本不使用服务器时间轴，可在控制栏手动标记。" else "当前版本没有独立的服务器时间轴。")

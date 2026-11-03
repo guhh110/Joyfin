@@ -104,6 +104,7 @@ fun PlayerBottomBar(
             ui.seekPreview,
             actions.preview,
             ui.canSeek && !ui.loading && ui.error == null,
+            skipRanges = ui.navigation.ranges,
         )
         Row(
             Modifier.fillMaxWidth(),
@@ -135,6 +136,18 @@ fun PlayerBottomBar(
                             onInteraction()
                             actions.markOutroStart()
                         }
+                    }
+                    item(key = "undo-mark") {
+                        ActionButton(
+                            "撤销标记",
+                            { onInteraction(); actions.undoMark() },
+                            Modifier.focusTarget("player:undo-mark"),
+                            icon = Glyph.Back,
+                            enabled = ui.navigation.canUndoMark && !ui.loading && ui.error == null &&
+                                !ui.subtitleApplying && !ui.subtitleSearchOpen && ui.nextSeconds == 0,
+                            quiet = true,
+                            maxLines = 1,
+                        )
                     }
                 }
                 item {

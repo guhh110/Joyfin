@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import dev.joyfin.playback.SeekPreviewActions
 import dev.joyfin.playback.SeekPreviewState
+import dev.joyfin.playback.SkipRange
 import dev.joyfin.ui.components.Caption
 import dev.joyfin.ui.components.timeLabel
 import dev.joyfin.ui.device.LocalDeviceLayout
@@ -32,6 +33,7 @@ fun SeekBar(
     actions: SeekPreviewActions,
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    skipRanges: List<SkipRange> = emptyList(),
 ) {
     val tv = LocalDeviceLayout.current.television
     var width by remember { mutableIntStateOf(1) }
@@ -41,9 +43,11 @@ fun SeekBar(
     val draft =
         if (knownDuration) preview?.targetMs?.toFloat()?.div(durationMs)?.coerceIn(0f, 1f) else null
     val fraction = if (knownDuration) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
+    val rangeDescription = if (knownDuration) skipTimelineDescription(skipRanges) else ""
     Column(modifier) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Caption(timeLabel(preview?.targetMs ?: positionMs), color = Palette.Text)
+            Caption(rangeDescription, Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 1)
             Caption(if (knownDuration) timeLabel(durationMs) else "--:--")
         }
         Canvas(
@@ -52,7 +56,7 @@ fun SeekBar(
                 .focusTarget("player:progress", tv || (enabled && durationMs > 0))
                 .onSizeChanged { width = it.width.coerceAtLeast(1) }
                 .semantics {
-                    contentDescription = "播放进度"
+                    contentDescription = listOf("播放进度", rangeDescription).filter { it.isNotBlank() }.joinToString("，")
                     if (!enabled || !knownDuration) disabled()
                     progressBarRangeInfo =
                         if (knownDuration) ProgressBarRangeInfo(fraction, 0f..1f)
@@ -122,6 +126,8 @@ fun SeekBar(
             )
 
             if (!knownDuration) return@Canvas
+
+            drawSkipTimeline(skipRanges, durationMs, preview?.targetMs ?: positionMs, y + 12.dp.toPx())
 
             // 缓冲进度
             val bufferedEnd = (end * (bufferedMs.toFloat() / durationMs.coerceAtLeast(1))).coerceIn(radius, end - radius)

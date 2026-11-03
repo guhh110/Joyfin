@@ -1,14 +1,15 @@
 package dev.joyfin.ui.features.player.mobile
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -22,6 +23,8 @@ import dev.joyfin.ui.components.Glyph
 import dev.joyfin.ui.components.timeLabel
 import dev.joyfin.ui.features.player.components.PlayerBattery
 import dev.joyfin.ui.features.player.components.PlayerClock
+import dev.joyfin.ui.features.player.components.drawSkipTimeline
+import dev.joyfin.ui.features.player.components.skipTimelineDescription
 import dev.joyfin.ui.theme.Palette
 
 /** Read-only information; taps pass through to the locked video surface. */
@@ -71,17 +74,21 @@ internal fun MobilePlayerLockedInfo(ui: PlayerUiState, modifier: Modifier = Modi
                     maxLines = 1,
                 )
             }
-            Box(
-                Modifier.fillMaxWidth().height(3.dp).clip(CircleShape)
-                    .background(Palette.Text.copy(alpha = .2f))
+            Canvas(
+                Modifier.fillMaxWidth().height(16.dp)
                     .semantics {
-                        contentDescription = "播放进度"
+                        contentDescription = listOf("播放进度", skipTimelineDescription(ui.navigation.ranges))
+                            .filter { it.isNotBlank() }.joinToString("，")
                         progressBarRangeInfo = if (ui.durationMs > 0) ProgressBarRangeInfo(fraction, 0f..1f)
                             else ProgressBarRangeInfo.Indeterminate
                     },
             ) {
-                if (fraction > 0f)
-                    Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(Palette.Text))
+                val y = 3.dp.toPx()
+                drawLine(Palette.Text.copy(alpha = .2f), Offset(0f, y), Offset(size.width, y),
+                    3.dp.toPx(), StrokeCap.Round)
+                if (fraction > 0f) drawLine(Palette.Text, Offset(0f, y), Offset(size.width * fraction, y),
+                    3.dp.toPx(), StrokeCap.Round)
+                drawSkipTimeline(ui.navigation.ranges, ui.durationMs, ui.positionMs, 11.dp.toPx())
             }
         }
     }

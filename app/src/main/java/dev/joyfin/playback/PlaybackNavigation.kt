@@ -23,6 +23,10 @@ data class PlaybackNavigationState(
     val timelineAvailable: Boolean = true,
     val serverMarks: Int = 0,
     val markFeedback: String? = null,
+    val ranges: List<SkipRange> = emptyList(),
+    val preferenceScope: String = "",
+    val legacyPreferences: SkipPreferences? = null,
+    val canUndoMark: Boolean = false,
 )
 
 /** Player marks override automatic ranges; chapter fallback only recognizes explicit intro/outro names. */
@@ -99,16 +103,19 @@ internal object PlaybackNavigationPolicy {
 /** Request ownership, persistence and skip gating; it cannot call or recreate the player. */
 internal class PlaybackNavigation(
     private val scope: CoroutineScope,
-    private val loadPreferences: (Media) -> SkipPreferences,
-    private val savePreferences: (Media, SkipPreferences) -> Unit,
+    private val loadPreferences: (SkipPreferenceTarget) -> SkipPreferences,
+    private val savePreferences: (SkipPreferenceTarget, SkipPreferences) -> Unit,
     private val segments: suspend (String) -> List<MediaSegment>,
     private val publish: (PlaybackNavigationState) -> Unit,
     private val expired: () -> Unit,
     private val chapterImage: (Media, Int, String) -> String? = { _, _, _ -> null },
+    private val loadLegacyPreferences: (SkipPreferenceTarget) -> SkipPreferences? = { null },
 ) {
     private var ticket = 0L
     private var job: Job? = null
     private var media: Media? = null
+    private var preferenceTarget: SkipPreferenceTarget? = null
+    private var markUndo: SkipPreferences? = null
     private var current = PlaybackNavigationState()
     private var server = emptyList<MediaSegment>()
     private val suppressed = mutableSetOf<String>()
@@ -117,21 +124,29 @@ internal class PlaybackNavigation(
     private var undoUntil = 0L
     private var undoRange: SkipRange? = null
     private var chapterDuration = -1L
+    private var timelineDuration = 0L
     private fun update(value: PlaybackNavigationState) { current = value; publish(value) }
 
     fun clear() {
         ticket++; job?.cancel(); media = null; server = emptyList(); suppressed.clear(); undoRange = null
         automaticSuppressed.clear()
+        preferenceTarget = null
+        markUndo = null
         feedbackUntil = 0
         chapterDuration = -1
+        timelineDuration = 0
         update(PlaybackNavigationState())
     }
     fun open(value: Media, sourceId: String) {
         clear()
         media = value
+        val target = SkipPreferenceTarget(value, sourceId)
+        preferenceTarget = target
         val available = value.sources.size <= 1 || value.sources.firstOrNull()?.id == sourceId
-        update(current.copy(preferences = loadPreferences(value),
-            canConfigure = value.type == "Episode" || value.type == "Movie", timelineAvailable = available))
+        update(current.copy(preferences = loadPreferences(target), preferenceScope = target.label,
+            legacyPreferences = loadLegacyPreferences(target),
+            canConfigure = (value.type == "Episode" || value.type == "Movie") && sourceId.isNotBlank(),
+            timelineAvailable = available))
         if (available) retry()
     }
     fun retry() {
@@ -158,25 +173,51 @@ internal class PlaybackNavigation(
         }
     }
     fun preferences(value: SkipPreferences) {
-        val item = media ?: return
+        val target = preferenceTarget ?: return
         if (!current.canConfigure) return
-        savePreferences(item, value.validated())
+        val preferences = value.validated()
+        savePreferences(target, preferences)
         suppressed.clear()
         automaticSuppressed.clear()
         undoRange = null
-        update(current.copy(preferences = value.validated(), offer = null, undoPositionMs = null, markFeedback = null))
+        markUndo = null
+        update(current.copy(preferences = preferences, offer = null, undoPositionMs = null,
+            markFeedback = null, ranges = resolveRanges(preferences), canUndoMark = false, legacyPreferences = null))
+    }
+
+    private fun resolveRanges(value: SkipPreferences = current.preferences): List<SkipRange> {
+        val item = media ?: return emptyList()
+        // Explicit marks work immediately; old duration fallbacks still wait for server metadata.
+        val preferences = if (current.loading) value.copy(introSeconds = 0, outroSeconds = 0) else value
+        return PlaybackNavigationPolicy.ranges(server, timelineDuration, preferences,
+            current.canConfigure, item.chapters.takeIf { current.timelineAvailable }.orEmpty())
+    }
+    private fun feedback(text: String, now: Long) {
+        feedbackUntil = now + 2500
+        update(current.copy(markFeedback = text))
+    }
+
+    fun undoMark(now: Long) {
+        val previous = markUndo ?: return
+        preferences(previous)
+        // Restoring a mark is an edit, not a request to seek or finish playback.
+        automaticSuppressed += listOf("片头", "片尾")
+        feedback("已撤销上次标记", now)
+    }
+
+    fun useLegacyPreferences(now: Long) {
+        val previous = current.legacyPreferences ?: return
+        preferences(previous)
+        automaticSuppressed += listOf("片头", "片尾")
+        feedback("旧设置已沿用到当前范围", now)
     }
     fun markIntroEnd(position: Long, duration: Long, now: Long) = mark(position, duration, now, intro = true)
     fun markOutroStart(position: Long, duration: Long, now: Long) = mark(position, duration, now, intro = false)
 
     private fun mark(position: Long, duration: Long, now: Long, intro: Boolean) {
         if (!current.canConfigure) return
-        fun feedback(text: String) {
-            feedbackUntil = now + 2500
-            update(current.copy(markFeedback = text))
-        }
         if (duration <= 0 || position <= 0 || position >= duration) {
-            feedback("请先定位到视频开头与结尾之间的有效播放位置")
+            feedback("请先定位到视频开头与结尾之间的有效播放位置", now)
             return
         }
         val prefs = current.preferences
@@ -185,29 +226,29 @@ internal class PlaybackNavigation(
         // A saved intro and outro must leave some main content between them.
         if (next.introDurationMs >= duration - next.effectiveOutroDurationMs) {
             feedback(if (intro) "片头结束不能晚于片尾开始，请先清除原片尾标记"
-                else "片尾开始不能早于片头结束，请先清除原片头标记")
+                else "片尾开始不能早于片头结束，请先清除原片头标记", now)
             return
         }
+        timelineDuration = duration
         preferences(next)
+        markUndo = prefs
+        update(current.copy(canUndoMark = true))
         // Marking only records the point. Keep the skip offer, but do not auto-skip this new range.
         automaticSuppressed += if (intro) "片头" else "片尾"
-        feedback(if (intro) "已保存片头结束点" else "已保存片尾开始点")
+        feedback(if (intro) "已保存片头结束点" else "已保存片尾开始点", now)
     }
     fun tick(position: Long, duration: Long, automaticAllowed: Boolean, now: Long): Long? {
         val item = media ?: return null
+        timelineDuration = duration
         val chapters = if (!current.timelineAvailable) emptyList() else if (chapterDuration == duration) current.chapters
         else PlaybackNavigationPolicy.chapters(item, duration).map { chapter ->
             val tag = item.chapters.getOrNull(chapter.index)?.imageTag.orEmpty()
             chapter.copy(imageUrl = tag.takeIf { it.isNotBlank() }?.let { chapterImage(item, chapter.index, it) })
         }.also { chapterDuration = duration }
-        // Explicit marks work immediately; old duration fallbacks still wait for server metadata.
-        val preferences = if (current.loading) current.preferences.copy(introSeconds = 0, outroSeconds = 0)
-            else current.preferences
-        val ranges = PlaybackNavigationPolicy.ranges(server, duration, preferences,
-            current.canConfigure, item.chapters.takeIf { current.timelineAvailable }.orEmpty())
+        val ranges = resolveRanges()
         val range = ranges.firstOrNull { position >= it.startMs && position < it.endMs && it.key !in suppressed }
         val undo = current.undoPositionMs?.takeIf { now <= undoUntil }
-        update(current.copy(chapters = chapters, offer = range, undoPositionMs = undo,
+        update(current.copy(chapters = chapters, ranges = ranges, offer = range, undoPositionMs = undo,
             markFeedback = current.markFeedback?.takeIf { now <= feedbackUntil },
             serverMarks = PlaybackNavigationPolicy.ranges(server, duration, SkipPreferences(), false).size))
         if (range != null && current.preferences.automatic && automaticAllowed && range.label !in automaticSuppressed)

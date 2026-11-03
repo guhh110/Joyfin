@@ -84,6 +84,8 @@ data class PlayerActions(
     val setSkipPreferences: (dev.joyfin.data.SkipPreferences) -> Unit = {},
     val markIntroEnd: () -> Unit = {},
     val markOutroStart: () -> Unit = {},
+    val undoMark: () -> Unit = {},
+    val useLegacySkipPreferences: () -> Unit = {},
     val skipSegment: () -> Unit = {},
     val dismissSkip: () -> Unit = {},
     val undoSkip: () -> Unit = {},

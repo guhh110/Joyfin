@@ -97,9 +97,10 @@ class PlaybackController(
     private val subtitleRendering = SubtitleRendering()
     private val skipPreferences = SkipPreferenceStore(context)
     private val navigation = PlaybackNavigation(scope,
-        { media -> api.session?.let { skipPreferences.load(it, media) } ?: SkipPreferences() },
-        { media, value -> api.session?.let { skipPreferences.save(it, media, value) } }, api::mediaSegments,
-        { value -> mutable.update { it.copy(navigation = value) } }, { onClose(true) }, api::chapterImage)
+        { target -> api.session?.let { skipPreferences.load(it, target) } ?: SkipPreferences() },
+        { target, value -> api.session?.let { skipPreferences.save(it, target, value) } }, api::mediaSegments,
+        { value -> mutable.update { it.copy(navigation = value) } }, { onClose(true) }, api::chapterImage,
+        loadLegacyPreferences = { target -> api.session?.let { skipPreferences.legacy(it, target) } })
     private val http =
         DefaultHttpDataSource.Factory()
             .setUserAgent("Joyfin/${BuildConfig.VERSION_NAME}")
@@ -250,6 +251,8 @@ class PlaybackController(
             setSkipPreferences = navigation::preferences,
             markIntroEnd = { markPlaybackPosition(intro = true) },
             markOutroStart = { markPlaybackPosition(intro = false) },
+            undoMark = { navigation.undoMark(android.os.SystemClock.elapsedRealtime()) },
+            useLegacySkipPreferences = { navigation.useLegacyPreferences(android.os.SystemClock.elapsedRealtime()) },
             skipSegment = {
                 if (mutable.value.canSeek && !mutable.value.loading && !mutable.value.subtitleApplying)
                     navigation.skip(player.currentPosition, android.os.SystemClock.elapsedRealtime())?.let(::skipSegment)
