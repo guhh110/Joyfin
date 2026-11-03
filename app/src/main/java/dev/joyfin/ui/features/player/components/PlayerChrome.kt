@@ -5,10 +5,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.ui.components.*
@@ -92,10 +89,6 @@ fun PlayerBottomBar(
     modifier: Modifier = Modifier,
     onInteraction: () -> Unit = {},
 ) {
-    val tv = LocalDeviceLayout.current.television
-    val subtitleLabel = ui.localSubtitle?.label
-        ?: ui.subtitles.firstOrNull { it.index == ui.subtitleIndex }?.title ?: "字幕关闭"
-    val audioLabel = ui.audio.firstOrNull { it.index == ui.audioIndex }?.title ?: "音轨"
     Column(modifier.fillMaxWidth()) {
         SeekBar(
             ui.positionMs,
@@ -115,119 +108,17 @@ fun PlayerBottomBar(
                 Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                item {
-                    ActionButton(
-                        "${ui.speed}×",
-                        { onPanel(PlayerPanel.Speed) },
-                        modifier = Modifier.focusTarget("player:speed"),
-                        icon = Glyph.Clock,
-                        quiet = true,
-                    )
-                }
-                if (tv || ui.navigation.canConfigure) {
-                    item(key = "mark-intro") {
-                        SkipMarkButton(ui, intro = true) {
-                            onInteraction()
-                            actions.markIntroEnd()
-                        }
+                ui.toolbar.pinned.forEach { action ->
+                    item(key = action.name) {
+                        PlayerToolbarButton(action, ui, actions, onPanel, onInteraction)
                     }
-                    item(key = "mark-outro") {
-                        SkipMarkButton(ui, intro = false) {
-                            onInteraction()
-                            actions.markOutroStart()
-                        }
-                    }
-                    item(key = "undo-mark") {
-                        ActionButton(
-                            "撤销标记",
-                            { onInteraction(); actions.undoMark() },
-                            Modifier.focusTarget("player:undo-mark"),
-                            icon = Glyph.Back,
-                            enabled = ui.navigation.canUndoMark && !ui.loading && ui.error == null &&
-                                !ui.subtitleApplying && !ui.subtitleSearchOpen && ui.nextSeconds == 0,
-                            quiet = true,
-                            maxLines = 1,
-                        )
-                    }
-                }
-                item {
-                    ActionButton(
-                        if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL) "原画"
-                        else "${ui.bitrate/1_000_000f} Mbps",
-                        { onPanel(PlayerPanel.Quality) },
-                        modifier = Modifier.focusTarget("player:quality"),
-                        quiet = true,
-                    )
-                }
-                item {
-                    ActionButton(
-                        subtitleLabel,
-                        { onPanel(PlayerPanel.Subtitle) },
-                        modifier = Modifier.widthIn(max = if (tv) 220.dp else 180.dp)
-                            .focusTarget("player:subtitle")
-                            .semantics { contentDescription = "字幕：$subtitleLabel" },
-                        enabled = !tv || ui.subtitles.isNotEmpty() || ui.localSubtitle != null || ui.localSubtitles.isNotEmpty(),
-                        icon = Glyph.Subtitle,
-                        quiet = true,
-                        maxLines = 1,
-                    )
-                }
-                item {
-                    ActionButton(
-                        audioLabel,
-                        { onPanel(PlayerPanel.Audio) },
-                        modifier = Modifier.widthIn(max = if (tv) 220.dp else 180.dp)
-                            .focusTarget("player:audio")
-                            .semantics { contentDescription = "音轨：$audioLabel" },
-                        enabled = !tv || ui.audio.isNotEmpty(),
-                        icon = Glyph.Audio,
-                        quiet = true,
-                        maxLines = 1,
-                    )
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (tv || ui.nextItem != null)
-                    ActionButton(
-                        "下一集",
-                        actions.nextNow,
-                        modifier = Modifier.focusTarget("player:next"),
-                        enabled = ui.nextItem != null && !ui.loading && ui.error == null &&
-                            ui.nextSeconds == 0 && !ui.subtitleApplying && !ui.subtitleSearchOpen,
-                        icon = Glyph.Next,
-                        quiet = true,
-                        maxLines = 1,
-                    )
-                if (tv || ui.episodes.isNotEmpty() || ui.seasons.isNotEmpty())
-                    ActionButton(
-                        "选集",
-                        { onPanel(PlayerPanel.Episodes) },
-                        modifier = Modifier.focusTarget("player:episodes"),
-                        enabled = ui.episodes.isNotEmpty() || ui.seasons.isNotEmpty(),
-                        icon = Glyph.List,
-                        quiet = true,
-                        maxLines = 1,
-                    )
-            }
+            ActionButton("更多", {
+                onInteraction()
+                onPanel(PlayerPanel.More)
+            },
+                Modifier.focusTarget("player:more"), icon = Glyph.List, quiet = true, maxLines = 1)
         }
     }
-}
-
-@Composable
-private fun SkipMarkButton(ui: PlayerUiState, intro: Boolean, onClick: () -> Unit) {
-    val label = if (intro) "片头结束" else "片尾开始"
-    val marked = if (intro) ui.navigation.preferences.introEndMs != null
-        else ui.navigation.preferences.outroDurationMs != null
-    ActionButton(
-        label, onClick,
-        Modifier.focusTarget(if (intro) "player:mark-intro" else "player:mark-outro")
-            .semantics { contentDescription = "将当前播放位置标记为$label" },
-        icon = Glyph.Clock,
-        selected = marked,
-        enabled = ui.navigation.canConfigure && ui.canSeek && !ui.loading && ui.error == null &&
-            !ui.subtitleApplying && !ui.subtitleSearchOpen && ui.seekPreview?.active != true &&
-            ui.nextSeconds == 0 && ui.durationMs > 0,
-        quiet = true,
-        maxLines = 1,
-    )
 }

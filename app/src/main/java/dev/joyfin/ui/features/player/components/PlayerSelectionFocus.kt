@@ -18,6 +18,9 @@ internal fun PlayerPanel.choiceKey(value: Any) = "player-choice:$name:$value"
 /** Only resolve to a row that exists; a missing selection falls back to the first choice. */
 internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
     when (this) {
+        PlayerPanel.More -> ui.toolbar.moreActions().firstOrNull { it.enabled(ui) }?.moreFocusKey
+            ?: "player:more-customize"
+        PlayerPanel.Toolbar -> (ui.toolbar.pinned.firstOrNull() ?: dev.joyfin.data.PlayerToolbarAction.entries.first()).toggleFocusKey
         PlayerPanel.Settings -> "sheet:close"
         PlayerPanel.Diagnostics -> "diagnostics:copy"
         PlayerPanel.Chapters -> (ui.navigation.chapters.lastOrNull { it.positionMs <= ui.positionMs }

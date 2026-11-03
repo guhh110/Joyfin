@@ -31,6 +31,8 @@ import dev.joyfin.ui.theme.Palette
 import kotlinx.coroutines.flow.first
 
 enum class PlayerPanel(val title: String) {
+    More("更多操作"),
+    Toolbar("自定义控制栏"),
     Settings("播放设置"),
     Quality("画质"),
     VideoScale("画面缩放"),
@@ -77,7 +79,12 @@ fun PlayerSettingsSheet(
                     }
                 }
                 when (panel) {
+                    PlayerPanel.More -> PlayerMoreContent(ui, actions, onPanel, onDismiss)
+                    PlayerPanel.Toolbar -> PlayerToolbarSettings(ui, actions)
                     PlayerPanel.Settings -> {
+                        ChoiceRow("自定义控制栏", Modifier.focusTarget("player:settings-toolbar"),
+                            subtitle = ui.toolbar.pinned.joinToString(" · ") { it.label }.ifBlank { "所有操作收进更多" },
+                            chevron = true) { onPanel(PlayerPanel.Toolbar) }
                         ChoiceRow(
                             "画质",
                             subtitle =

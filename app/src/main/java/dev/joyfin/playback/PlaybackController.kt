@@ -38,11 +38,13 @@ class PlaybackController(
     private val reporter = PlaybackReporter(api, store)
     private val preferenceStore = PlaybackPreferenceStore(context)
     private val videoScalePreferences = VideoScalePreferences(context)
+    private val toolbarPreferences = PlayerToolbarPreferenceStore(context)
     private val subtitleStylePreferences = dev.joyfin.data.SubtitleStylePreferences(context)
     private var pendingPreference: Pair<String, PlaybackTrackPreferences>? = null
     private val mutable = MutableStateFlow(
         PlayerUiState(
             videoScaleMode = videoScalePreferences.mode,
+            toolbar = toolbarPreferences.load(),
             subtitleSize = subtitleStylePreferences.size,
             subtitleBackground = subtitleStylePreferences.hasBackground,
         )
@@ -269,6 +271,13 @@ class PlaybackController(
                 if (!released && mutable.value.videoScaleMode != mode) {
                     videoScalePreferences.mode = mode
                     mutable.update { it.copy(videoScaleMode = mode) }
+                }
+            },
+            setToolbarPreferences = { value ->
+                if (!released) {
+                    val preferences = value.validated()
+                    toolbarPreferences.save(preferences)
+                    mutable.update { it.copy(toolbar = preferences) }
                 }
             },
             speedBoost = SpeedBoostActions(

@@ -62,18 +62,19 @@ fun PlayerRoute(
     var lockInteraction by remember { mutableIntStateOf(0) }
     var focusReturn by remember { mutableIntStateOf(0) }
     var panel by remember { mutableStateOf<PlayerPanel?>(null) }
+    var panelHistory by remember { mutableStateOf(emptyList<Pair<PlayerPanel, String>>()) }
+    var panelReturnFocus by remember { mutableStateOf<String?>(null) }
     var interaction by remember { mutableIntStateOf(0) }
     var subtitleSearchReturn by remember { mutableStateOf(false) }
     var lastSubtitleApplication by remember { mutableIntStateOf(ui.subtitleSearchApplied) }
-    var diagnosticsParent by remember { mutableStateOf<PlayerPanel?>(null) }
-    var settingsDiagnosticsReturn by remember { mutableStateOf(false) }
-    var subtitleStyleReturn by remember { mutableStateOf(false) }
     LaunchedEffect(ui.subtitleSearchOpen) {
         if (ui.subtitleSearchOpen) subtitleSearchReturn = true
     }
     LaunchedEffect(ui.subtitleSearchApplied) {
         if (ui.subtitleSearchApplied > 0) {
             panel = null
+            panelHistory = emptyList()
+            panelReturnFocus = null
             subtitleSearchReturn = false
             focusReturn++
             lastSubtitleApplication = ui.subtitleSearchApplied
@@ -96,6 +97,43 @@ fun PlayerRoute(
     fun touch() {
         interaction++
         visible = true
+    }
+    fun openPanel(next: PlayerPanel) {
+        actions.preview.cancel()
+        panelHistory = emptyList()
+        panelReturnFocus = null
+        subtitleSearchReturn = false
+        panel = next
+        touch()
+    }
+    fun navigatePanel(next: PlayerPanel) {
+        val current = panel
+        val parent = panelHistory.lastOrNull()
+        if (parent?.first == next) {
+            panelHistory = panelHistory.dropLast(1)
+            panelReturnFocus = parent.second
+        } else {
+            val returnFocus = current?.returnFocusFor(next)
+            if (current != null && returnFocus != null) panelHistory = panelHistory + (current to returnFocus)
+            panelReturnFocus = null
+        }
+        subtitleSearchReturn = false
+        panel = next
+        touch()
+    }
+    fun dismissPanel() {
+        val parent = panelHistory.lastOrNull()
+        if (parent != null) {
+            panelHistory = panelHistory.dropLast(1)
+            panel = parent.first
+            panelReturnFocus = parent.second
+        } else {
+            panel = null
+            panelReturnFocus = null
+            focusReturn++
+        }
+        subtitleSearchReturn = false
+        touch()
     }
     fun wakeLockControls() {
         lockControlsVisible = true
@@ -135,10 +173,7 @@ fun PlayerRoute(
         when {
             locked -> wakeLockControls()
             ui.seekPreview?.active == true -> actions.preview.cancel()
-            panel != null -> {
-                panel = null
-                focusReturn++
-            }
+            panel != null -> dismissPanel()
             ui.nextSeconds > 0 -> actions.cancelNext()
             else -> visible = false
         }
@@ -225,14 +260,8 @@ fun PlayerRoute(
             )
             val showControls = !locked && (visible || panel != null || ui.error != null || (ui.nextSeconds > 0 && !ui.playing))
             PlayerControlsExitHost(visible = showControls) {
-                val onPanel: (PlayerPanel) -> Unit = {
-                    touch()
-                    actions.preview.cancel()
-                    if (it == PlayerPanel.Diagnostics) diagnosticsParent = panel
-                    panel = it
-                }
-                if (tv) TvPlayerLayout(ui, actions, panel, onPanel, ::touch)
-                else MobilePlayerLayout(ui, actions, panel, onPanel, ::touch)
+                if (tv) TvPlayerLayout(ui, actions, panel, ::openPanel, ::touch)
+                else MobilePlayerLayout(ui, actions, panel, ::openPanel, ::touch)
                 if (skipVisible && panel == null && ui.error == null && !ui.loading && !ui.subtitleApplying &&
                     ui.canSeek && ui.nextSeconds == 0) {
                     val skipModifier = Modifier.align(Alignment.BottomEnd).safeDrawingPadding()
@@ -311,35 +340,11 @@ fun PlayerRoute(
                     current,
                     ui,
                     actions,
-                    {
-                        if (it == PlayerPanel.Diagnostics) diagnosticsParent = current
-                        settingsDiagnosticsReturn = false
-                        subtitleStyleReturn = false
-                        panel = it
-                        subtitleSearchReturn = false
-                        touch()
-                    },
-                    {
-                        if (current == PlayerPanel.Diagnostics && diagnosticsParent == PlayerPanel.Settings) {
-                            panel = PlayerPanel.Settings
-                            settingsDiagnosticsReturn = true
-                        } else if (current == PlayerPanel.SubtitleStyle) {
-                            panel = PlayerPanel.Subtitle
-                            subtitleStyleReturn = true
-                        } else {
-                            panel = null
-                            settingsDiagnosticsReturn = false
-                            subtitleStyleReturn = false
-                            focusReturn++
-                        }
-                        subtitleSearchReturn = false
-                        touch()
-                    },
+                    ::navigatePanel,
+                    ::dismissPanel,
                     initialFocus = when {
                         current == PlayerPanel.Subtitle && subtitleSearchReturn -> "player:subtitle-search"
-                        current == PlayerPanel.Subtitle && subtitleStyleReturn -> "player:subtitle-style"
-                        current == PlayerPanel.Settings && settingsDiagnosticsReturn -> "player:settings-diagnostics"
-                        else -> current.initialFocus(ui)
+                        else -> panelReturnFocus ?: current.initialFocus(ui)
                     },
                     imageAuthorization = imageAuthorization,
                     imageCacheNamespace = imageCacheNamespace,

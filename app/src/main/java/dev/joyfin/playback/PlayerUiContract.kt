@@ -55,6 +55,7 @@ data class PlayerUiState(
     val audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     val playbackNotice: String? = null,
     val navigation: PlaybackNavigationState = PlaybackNavigationState(),
+    val toolbar: dev.joyfin.data.PlayerToolbarPreferences = dev.joyfin.data.PlayerToolbarPreferences(),
 )
 
 data class PlayerActions(
@@ -94,6 +95,7 @@ data class PlayerActions(
     val retryNext: () -> Unit = {},
     val speedBoost: SpeedBoostActions = SpeedBoostActions(),
     val setVideoScaleMode: (dev.joyfin.data.VideoScaleMode) -> Unit = {},
+    val setToolbarPreferences: (dev.joyfin.data.PlayerToolbarPreferences) -> Unit = {},
 )
 
 fun PlaybackPlan.trackChoices(type: String): List<TrackChoice> =
