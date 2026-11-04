@@ -1,9 +1,13 @@
 package dev.joyfin.ui.features.player.components
 
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import dev.joyfin.data.PlaybackQuality
 import dev.joyfin.data.PlayerToolbarAction
 import dev.joyfin.playback.PlayerActions
@@ -139,11 +143,15 @@ internal fun PlayerToolbarButton(
             onInteraction()
             action.perform(actions, onPanel, {})
         },
-        Modifier.focusTarget(action.focusKey).semantics { contentDescription = "${action.label}：${action.detail(ui)}" },
+        Modifier.focusTarget(action.focusKey)
+            .background(dev.joyfin.ui.theme.Palette.Text.copy(alpha = .045f), RoundedCornerShape(8.dp))
+            .border(.5.dp, dev.joyfin.ui.theme.Palette.Text.copy(alpha = .06f), RoundedCornerShape(8.dp))
+            .semantics { contentDescription = "${action.label}：${action.detail(ui)}" },
         icon = action.glyph,
         enabled = action.enabled(ui),
         selected = selected,
         quiet = true,
         maxLines = 1,
+        focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
     )
 }

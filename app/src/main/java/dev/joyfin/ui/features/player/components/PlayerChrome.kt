@@ -1,7 +1,12 @@
 package dev.joyfin.ui.features.player.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,25 +105,30 @@ fun PlayerBottomBar(
             skipRanges = ui.navigation.ranges,
         )
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier.fillMaxWidth()
+                .background(Palette.Background.copy(alpha = .55f), RoundedCornerShape(12.dp))
+                .border(.5.dp, Palette.Text.copy(alpha = .1f), RoundedCornerShape(12.dp))
+                .padding(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LazyRow(
-                Modifier.weight(1f),
+            Row(
+                Modifier.weight(1f).horizontalScroll(rememberScrollState()).focusGroup(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 ui.toolbar.pinned.forEach { action ->
-                    item(key = action.name) {
+                    key(action) {
                         PlayerToolbarButton(action, ui, actions, onPanel, onInteraction)
                     }
                 }
             }
+            Box(Modifier.width(.5.dp).height(24.dp).background(Palette.Text.copy(alpha = .15f)))
             ActionButton("更多", {
                 onInteraction()
                 onPanel(PlayerPanel.More)
             },
-                Modifier.focusTarget("player:more"), icon = Glyph.List, quiet = true, maxLines = 1)
+                Modifier.focusTarget("player:more"), icon = Glyph.List, quiet = true, maxLines = 1,
+                focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale)
         }
     }
 }

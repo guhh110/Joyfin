@@ -102,7 +102,11 @@ class PlaybackController(
         { target -> api.session?.let { skipPreferences.load(it, target) } ?: SkipPreferences() },
         { target, value -> api.session?.let { skipPreferences.save(it, target, value) } }, api::mediaSegments,
         { value -> mutable.update { it.copy(navigation = value) } }, { onClose(true) }, api::chapterImage,
-        loadLegacyPreferences = { target -> api.session?.let { skipPreferences.legacy(it, target) } })
+        loadLegacyPreferences = { target -> api.session?.let { skipPreferences.legacy(it, target) } },
+        loadSeparateVersions = { media -> api.session?.let { skipPreferences.separateVersions(it, media) } ?: false },
+        saveSeparateVersions = { target ->
+            api.session?.let { skipPreferences.setSeparateVersions(it, target) }
+        })
     private val http =
         DefaultHttpDataSource.Factory()
             .setUserAgent("Joyfin/${BuildConfig.VERSION_NAME}")
@@ -255,6 +259,7 @@ class PlaybackController(
             markOutroStart = { markPlaybackPosition(intro = false) },
             undoMark = { navigation.undoMark(android.os.SystemClock.elapsedRealtime()) },
             useLegacySkipPreferences = { navigation.useLegacyPreferences(android.os.SystemClock.elapsedRealtime()) },
+            separateSkipVersions = navigation::separateVersions,
             skipSegment = {
                 if (mutable.value.canSeek && !mutable.value.loading && !mutable.value.subtitleApplying)
                     navigation.skip(player.currentPosition, android.os.SystemClock.elapsedRealtime())?.let(::skipSegment)

@@ -27,6 +27,8 @@ data class PlaybackNavigationState(
     val preferenceScope: String = "",
     val legacyPreferences: SkipPreferences? = null,
     val canUndoMark: Boolean = false,
+    val canSharePreferences: Boolean = false,
+    val separateVersions: Boolean = false,
 )
 
 /** Player marks override automatic ranges; chapter fallback only recognizes explicit intro/outro names. */
@@ -110,6 +112,8 @@ internal class PlaybackNavigation(
     private val expired: () -> Unit,
     private val chapterImage: (Media, Int, String) -> String? = { _, _, _ -> null },
     private val loadLegacyPreferences: (SkipPreferenceTarget) -> SkipPreferences? = { null },
+    private val loadSeparateVersions: (Media) -> Boolean = { false },
+    private val saveSeparateVersions: (SkipPreferenceTarget) -> Unit = {},
 ) {
     private var ticket = 0L
     private var job: Job? = null
@@ -140,14 +144,31 @@ internal class PlaybackNavigation(
     fun open(value: Media, sourceId: String) {
         clear()
         media = value
-        val target = SkipPreferenceTarget(value, sourceId)
+        val target = SkipPreferenceTarget(value, sourceId, loadSeparateVersions(value))
         preferenceTarget = target
         val available = value.sources.size <= 1 || value.sources.firstOrNull()?.id == sourceId
         update(current.copy(preferences = loadPreferences(target), preferenceScope = target.label,
+            canSharePreferences = target.canShare, separateVersions = target.separateVersions,
             legacyPreferences = loadLegacyPreferences(target),
             canConfigure = (value.type == "Episode" || value.type == "Movie") && sourceId.isNotBlank(),
             timelineAvailable = available))
         if (available) retry()
+    }
+    fun separateVersions(enabled: Boolean) {
+        val previous = preferenceTarget ?: return
+        if (!current.canConfigure || !previous.canShare || previous.separateVersions == enabled) return
+        val target = previous.copy(separateVersions = enabled)
+        saveSeparateVersions(target)
+        preferenceTarget = target
+        val preferences = loadPreferences(target)
+        markUndo = null
+        suppressed.clear()
+        automaticSuppressed += listOf("片头", "片尾")
+        undoRange = null
+        update(current.copy(preferences = preferences, preferenceScope = target.label,
+            separateVersions = enabled, legacyPreferences = loadLegacyPreferences(target),
+            ranges = resolveRanges(preferences), offer = null, undoPositionMs = null,
+            markFeedback = null, canUndoMark = false))
     }
     fun retry() {
         val value = media ?: return
@@ -235,7 +256,9 @@ internal class PlaybackNavigation(
         update(current.copy(canUndoMark = true))
         // Marking only records the point. Keep the skip offer, but do not auto-skip this new range.
         automaticSuppressed += if (intro) "片头" else "片尾"
-        feedback(if (intro) "已保存片头结束点" else "已保存片尾开始点", now)
+        val point = if (intro) "已保存片头结束点" else "已保存片尾开始点"
+        val shared = preferenceTarget?.let { it.canShare && !it.separateVersions } == true
+        feedback(if (shared) "$point · 本季通用" else point, now)
     }
     fun tick(position: Long, duration: Long, automaticAllowed: Boolean, now: Long): Long? {
         val item = media ?: return null

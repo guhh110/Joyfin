@@ -15,6 +15,12 @@ internal fun PlaybackSkipSettings(ui: PlayerUiState, actions: PlayerActions) {
     SectionTitle("片头与片尾")
     if (nav.canConfigure) {
         Caption("保存范围：${nav.preferenceScope}", maxLines = 2)
+        if (nav.canSharePreferences) ChoiceRow(
+            "按版本分别记忆", Modifier.focusTarget("player:skip-version-scope"),
+            subtitle = if (nav.separateVersions) "已开启 · 同季同名版本沿用，不同版本分别设置"
+                else "已关闭 · 本季全部集数共享片头片尾设置",
+            selected = nav.separateVersions,
+        ) { actions.separateSkipVersions(!nav.separateVersions) }
         ChoiceRow(
             "自动跳过", Modifier.focusTarget("player:skip-auto"),
             subtitle = if (prefs.automatic) "已开启 · 播放时自动跳过" else "已关闭 · 仅提示跳过",
@@ -41,7 +47,8 @@ internal fun PlaybackSkipSettings(ui: PlayerUiState, actions: PlayerActions) {
             ActionButton("沿用旧设置到当前范围", actions.useLegacySkipPreferences,
                 Modifier.focusTarget("player:skip-use-legacy"), icon = Glyph.Clock)
         }
-        Caption("定位到目标画面后，点击控制栏的「片头结束」或「片尾开始」。同季同名版本可沿用，无法明确识别的版本仅用于当前集；电影按版本单独保存。片尾按剩余时长计算。")
+        Caption("定位到目标画面后，点击控制栏的「片头结束」或「片尾开始」。剧集默认按季共享，片尾按剩余时长计算；电影按版本保存。只有不同时长的版本需要单独设置时，再开启按版本记忆。")
+        if (nav.separateVersions) Caption("版本按服务器提供的名称区分；名称含每集文件名或无法识别时，请关闭按版本记忆以跨集共享。")
     } else Caption("当前视频使用服务器或章节标记。")
     if (!nav.timelineAvailable) Caption(if (nav.canConfigure)
         "当前版本不使用服务器时间轴，可在控制栏手动标记。" else "当前版本没有独立的服务器时间轴。")

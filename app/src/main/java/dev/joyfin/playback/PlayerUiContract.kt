@@ -87,6 +87,7 @@ data class PlayerActions(
     val markOutroStart: () -> Unit = {},
     val undoMark: () -> Unit = {},
     val useLegacySkipPreferences: () -> Unit = {},
+    val separateSkipVersions: (Boolean) -> Unit = {},
     val skipSegment: () -> Unit = {},
     val dismissSkip: () -> Unit = {},
     val undoSkip: () -> Unit = {},

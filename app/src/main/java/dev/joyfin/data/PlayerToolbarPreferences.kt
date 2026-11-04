@@ -43,7 +43,7 @@ data class PlayerToolbarPreferences(
     }
     fun moreActions() = PlayerToolbarAction.entries.filterNot { it in pinned }
 
-    companion object { const val MAX_PINNED = 4 }
+    companion object { val MAX_PINNED: Int get() = PlayerToolbarAction.entries.size }
 }
 
 /** Toolbar layout is local to this device and saved separately for mobile and television. */
