@@ -94,8 +94,8 @@ fun MediaCardSkeleton(
         ) {
             SkeletonBlock(Modifier.fillMaxWidth().aspectRatio(MediaCardLayout.ratio(wide)))
             Spacer(Modifier.height(MediaCardLayout.TextGap))
-            SkeletonTextLine(15.sp, 20.sp)
-            if (showSubtitle) SkeletonTextLine(12.sp, 18.sp, .5f)
+            RailTextSlot(MediaCardLayout.TitleSlot) { SkeletonTextLine(15.sp, 20.sp) }
+            if (showSubtitle) RailTextSlot(MediaCardLayout.SubtitleSlot) { SkeletonTextLine(12.sp, 18.sp, .5f) }
         }
     }
 }
@@ -148,15 +148,15 @@ fun PeopleRailSkeleton() {
                         Column(
                             Modifier.width(104.dp)
                                 .padding(vertical = dev.joyfin.ui.theme.MotionTokens.PeopleCardVerticalReserve)
-                                .padding(5.dp),
+                                .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             SkeletonBlock(
                                 Modifier.size(88.dp)
                                     .clip(androidx.compose.foundation.shape.CircleShape)
                             )
-                            SkeletonTextLine(16.sp, 24.sp)
-                            SkeletonTextLine(12.sp, 18.sp, .5f)
+                            RailTextSlot(MediaCardLayout.TitleSlot) { SkeletonTextLine(15.sp, 22.sp) }
+                            RailTextSlot(MediaCardLayout.SubtitleSlot) { SkeletonTextLine(12.5.sp, 18.sp, .5f) }
                         }
                     }
                 }

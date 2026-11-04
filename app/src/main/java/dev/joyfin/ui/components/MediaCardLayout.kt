@@ -2,6 +2,7 @@ package dev.joyfin.ui.components
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.joyfin.data.Media
 
 internal val Media.libraryDirectory: Boolean
@@ -13,6 +14,8 @@ internal object MediaCardLayout {
     val ContentInset = 3.dp
     val RailGap = 16.dp
     val TextGap = 10.dp
+    val TitleSlot = 24.sp
+    val SubtitleSlot = 20.sp
     fun width(television: Boolean, wide: Boolean): Dp =
         if (wide) if (television) 244.dp else 234.dp else if (television) 164.dp else 124.dp
     fun ratio(wide: Boolean): Float = if (wide) 16f / 9f else 2f / 3f

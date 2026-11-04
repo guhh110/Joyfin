@@ -35,6 +35,7 @@ fun PeopleRail(
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SectionTitle("演员与主创", Modifier.padding(horizontal = LocalDeviceLayout.current.gutter))
         LazyRow(
+            modifier = Modifier.stableRailViewport(),
             state = state,
             contentPadding = PaddingValues(horizontal = LocalDeviceLayout.current.gutter),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -60,26 +61,30 @@ fun PeopleRail(
                                 .clip(CircleShape),
                             person.name.take(1),
                         )
-                        Text(
-                            person.name,
-                            color = Palette.Text,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            lineHeight = 22.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Caption(
-                            if (person.role.isNotBlank()) "饰 ${person.role}"
-                            else
-                                when (person.type) {
-                                    "Director" -> "导演"
-                                    "Actor" -> "演员"
-                                    "Writer" -> "编剧"
-                                    else -> person.type
-                                },
-                            maxLines = 1,
-                        )
+                        RailTextSlot(MediaCardLayout.TitleSlot) {
+                            Text(
+                                person.name,
+                                color = Palette.Text,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                lineHeight = 22.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        RailTextSlot(MediaCardLayout.SubtitleSlot) {
+                            Caption(
+                                if (person.role.isNotBlank()) "饰 ${person.role}"
+                                else
+                                    when (person.type) {
+                                        "Director" -> "导演"
+                                        "Actor" -> "演员"
+                                        "Writer" -> "编剧"
+                                        else -> person.type
+                                    },
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }

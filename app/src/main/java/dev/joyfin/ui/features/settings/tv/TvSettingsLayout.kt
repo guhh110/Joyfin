@@ -26,7 +26,7 @@ internal fun TvSettingsLayout(
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier.fillMaxHeight()
-                .widthIn(max = 820.dp)
+                .widthIn(max = 1200.dp)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 48.dp, vertical = 24.dp),

@@ -2,7 +2,6 @@ package dev.joyfin.scenario
 
 import android.content.pm.ActivityInfo
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +22,7 @@ import dev.joyfin.ui.components.*
 import dev.joyfin.ui.device.isTelevision
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.theme.BoundlessTheme
+import dev.joyfin.ui.features.player.components.PlayerPanel
 import okhttp3.OkHttpClient
 
 private class ScenarioRuntime(application: android.app.Application, mode: Scenario, delay: Long) : ViewModel() {
@@ -54,7 +54,8 @@ class UiScenarioActivity : ComponentActivity() {
         }
         val vm = ViewModelProvider(this, factory)[AppViewModel::class.java]
         val tv = resources.configuration.isTelevision()
-        requestedOrientation = if (tv) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        val playerPage = intent.getStringExtra("page") in setOf("player", "player-sidebar")
+        requestedOrientation = if (tv || playerPage) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         enableEdgeToEdge()
         val image = "android.resource://$packageName/drawable/entry_harbor"
         val artwork = ArtworkSource({ image }, { image }, { null }, { null }, "")
@@ -63,6 +64,14 @@ class UiScenarioActivity : ComponentActivity() {
                 val state by vm.state.collectAsState()
                 var scenario by remember { mutableStateOf(transport.scenario) }
                 var entered by rememberSaveable { mutableStateOf(false) }
+                var showPlayer by rememberSaveable { mutableStateOf(playerPage) }
+                val initialPanel = remember {
+                    PlayerPanel.entries.firstOrNull { it.name.equals(intent.getStringExtra("panel"), true) }
+                        ?: if (intent.getStringExtra("page") == "player-sidebar") PlayerPanel.Settings else null
+                }
+                LaunchedEffect(showPlayer) {
+                    if (!tv) requestedOrientation = if (showPlayer) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
                 LaunchedEffect(state.page) {
                     if (!entered && state.page == Page.HOME) {
                         entered = true
@@ -72,12 +81,16 @@ class UiScenarioActivity : ComponentActivity() {
                             "library" -> vm.library()
                             "search" -> { vm.search(); vm.submitSearch("群山") }
                             "subtitles" -> vm.openSubtitleManager()
+                            "settings" -> vm.settings()
+                            "audit" -> vm.openLibraryAudit(null, "全部电影与剧集")
                             "person" -> vm.openPerson(Media.from(ScenarioMedia.series).people.first())
                         }
                     }
                 }
-                Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                if (showPlayer) {
+                    ScenarioPlayer(scenario, initialPanel) { showPlayer = false }
+                } else Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    if (intent.getStringExtra("page") != "audit") Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                         Caption("UI 演示 · 本地模拟")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Scenario.entries.forEach { value ->
@@ -97,7 +110,7 @@ class UiScenarioActivity : ComponentActivity() {
                         }
                     }
                     Box(Modifier.weight(1f)) {
-                        BrowseHost(vm, artwork, updates = null) { _, _, _ -> Toast.makeText(this@UiScenarioActivity, "演示入口不启动实际播放", Toast.LENGTH_SHORT).show() }
+                        BrowseHost(vm, artwork, updates = null) { _, _, _ -> showPlayer = true }
                     }
                 }
             }

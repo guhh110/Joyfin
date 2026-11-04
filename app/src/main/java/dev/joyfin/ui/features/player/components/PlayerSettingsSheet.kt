@@ -34,12 +34,15 @@ enum class PlayerPanel(val title: String) {
     More("更多操作"),
     Toolbar("自定义控制栏"),
     Settings("播放设置"),
+    Advanced("高级设置"),
+    Skip("片头与片尾"),
+    PlaybackMode("播放方式"),
     Quality("画质"),
     VideoScale("画面缩放"),
     Audio("音轨"),
     AudioOutput("音频输出"),
     Subtitle("字幕"),
-    SubtitleStyle("字幕排版与底槽"),
+    SubtitleStyle("字幕样式"),
     SubtitleOffset("字幕时间偏移"),
     Speed("播放速度"),
     Episodes("选集"),
@@ -66,7 +69,7 @@ fun PlayerSettingsSheet(
     }
     key(panel) {
         RememberScreenFocus(initialFocus) {
-            Sheet(panel.title, onDismiss, side = true) {
+            Sheet(panel.title, onDismiss, side = true, preferredWidth = 420.dp) {
                 val window = LocalWindowInfo.current
                 val focus = LocalScreenFocus.current
                 val tv = LocalDeviceLayout.current.television
@@ -81,59 +84,16 @@ fun PlayerSettingsSheet(
                 when (panel) {
                     PlayerPanel.More -> PlayerMoreContent(ui, actions, onPanel, onDismiss)
                     PlayerPanel.Toolbar -> PlayerToolbarSettings(ui, actions)
-                    PlayerPanel.Settings -> {
-                        ChoiceRow("自定义控制栏", Modifier.focusTarget("player:settings-toolbar"),
-                            subtitle = ui.toolbar.pinned.joinToString(" · ") { it.label }.ifBlank { "所有操作收进更多" },
-                            chevron = true) { onPanel(PlayerPanel.Toolbar) }
-                        ChoiceRow(
-                            "画质",
-                            subtitle =
-                                if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL)
-                                    "原画 · 不限码率"
-                                else "${ui.bitrate/1_000_000} Mbps 上限",
-                        ) {
-                            onPanel(PlayerPanel.Quality)
-                        }
-                        ChoiceRow(
-                            "字幕",
-                            subtitle =
-                                if (ui.localSubtitle != null) ui.localSubtitle.label
-                                else if (ui.subtitleIndex < 0) "关闭"
-                                else
-                                    ui.subtitles
-                                        .firstOrNull { it.index == ui.subtitleIndex }
-                                        ?.title
-                                        .orEmpty(),
-                        ) {
-                            onPanel(PlayerPanel.Subtitle)
-                        }
-                        ChoiceRow("画面缩放", Modifier.focusTarget("player:settings-video-scale"),
-                            subtitle = ui.videoScaleMode.label) { onPanel(PlayerPanel.VideoScale) }
-                        ChoiceRow(
-                            "音轨",
-                            subtitle =
-                                ui.audio.firstOrNull { it.index == ui.audioIndex }?.title ?: "默认",
-                        ) {
-                            onPanel(PlayerPanel.Audio)
-                        }
-                        ChoiceRow("播放速度", subtitle = "${ui.speed}×") { onPanel(PlayerPanel.Speed) }
-                        ChoiceRow("音频输出", subtitle = ui.audioOutputMode.label) { onPanel(PlayerPanel.AudioOutput) }
-                        ChoiceRow("媒体版本") { onPanel(PlayerPanel.Versions) }
-                        ChoiceRow("章节", Modifier.focusTarget("player:settings-chapters"),
-                            subtitle = "${ui.navigation.chapters.size} 个章节") { onPanel(PlayerPanel.Chapters) }
-                        ChoiceRow(
-                            "播放方式",
-                            subtitle = if (ui.compatible) "兼容转码 · 点击恢复自动" else "自动 · 点击使用兼容转码",
-                        ) {
+                    PlayerPanel.Settings -> PlayerSettingsContent(ui, onPanel)
+                    PlayerPanel.Advanced -> PlayerAdvancedSettings(ui, onPanel)
+                    PlayerPanel.Skip -> PlaybackSkipSettings(ui, actions)
+                    PlayerPanel.PlaybackMode -> listOf(false to "自动", true to "兼容转码").forEach { (compatible, label) ->
+                        ChoiceRow(label, Modifier.focusTarget(panel.choiceKey(compatible)), selected = ui.compatible == compatible) {
                             onDismiss()
-                            actions.selectCompatibility(!ui.compatible)
+                            if (ui.compatible != compatible) actions.selectCompatibility(compatible)
                         }
-                        ChoiceRow("播放诊断", Modifier.focusTarget("player:settings-diagnostics"),
-                            subtitle = "实际播放格式、转码原因与错误记录") { onPanel(PlayerPanel.Diagnostics) }
-                        PlaybackSkipSettings(ui, actions)
                     }
                     PlayerPanel.Quality -> {
-                        Caption("选择码率上限，实际画质由媒体与服务器决定。")
                         qualityChoices.forEach { (rate, name) ->
                             ChoiceRow(
                                 name,
@@ -155,6 +115,7 @@ fun PlayerSettingsSheet(
                                 track.title,
                                 subtitle = track.detail,
                                 selected = track.index == ui.audioIndex,
+                                leading = { PlayerPanelIcon(Glyph.Audio) },
                                 modifier = Modifier.focusTarget(panel.choiceKey(track.index)),
                             ) {
                                 onDismiss()
@@ -163,7 +124,6 @@ fun PlayerSettingsSheet(
                         }
                     }
                     PlayerPanel.VideoScale -> {
-                        Caption("此设备记住选择，切换立即生效。")
                         VideoScaleMode.entries.forEach { mode ->
                             ChoiceRow(mode.label, Modifier.focusTarget(panel.choiceKey(mode.name)),
                                 subtitle = mode.description, selected = mode == ui.videoScaleMode) {
@@ -183,74 +143,8 @@ fun PlayerSettingsSheet(
                         }
                     }
                     PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.subtitles.SubtitleOffsetContent(ui, actions)
-                    PlayerPanel.SubtitleStyle -> {
-                        Caption("纯文本字幕字号大小")
-                        dev.joyfin.data.SubtitleSize.entries.forEach { size ->
-                            ChoiceRow(
-                                size.label,
-                                Modifier.focusTarget(panel.choiceKey(size.name)),
-                                subtitle = size.description,
-                                selected = size == ui.subtitleSize,
-                            ) {
-                                actions.setSubtitleSize(size)
-                            }
-                        }
-                        Caption("抗强光高亮画面底槽")
-                        ChoiceRow(
-                            "抗强光底槽",
-                            Modifier.focusTarget("player:subtitle-background"),
-                            subtitle = if (ui.subtitleBackground) "已开启 · 柔和半透明暗黑底槽，强光画面不丢字" else "已关闭 · 透明背景",
-                            selected = ui.subtitleBackground,
-                        ) {
-                            actions.setSubtitleBackground(!ui.subtitleBackground)
-                        }
-                    }
-                    PlayerPanel.Subtitle -> {
-                        ActionButton("搜索字幕", actions.searchSubtitles,
-                            Modifier.focusTarget("player:subtitle-search"), icon = Glyph.Search,
-                            enabled = !ui.loading && ui.error == null && !ui.subtitleApplying,
-                            focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale)
-                        ChoiceRow(
-                            "字幕排版与底槽",
-                            Modifier.focusTarget("player:subtitle-style"),
-                            subtitle = "${ui.subtitleSize.label} · ${if (ui.subtitleBackground) "底槽已开启" else "底槽关闭"}",
-                        ) {
-                            onPanel(PlayerPanel.SubtitleStyle)
-                        }
-                        ui.localSubtitle?.let { local ->
-                            ChoiceRow(local.label, Modifier.focusTarget("player:local-subtitle"),
-                                subtitle = "本地字幕 · ${local.offsetMs / 1000.0} 秒偏移", selected = true) {
-                                onPanel(PlayerPanel.SubtitleOffset)
-                            }
-                        }
-                        ui.localSubtitles.filter { it.id != ui.localSubtitle?.id }.forEach { file ->
-                            ChoiceRow(file.label, Modifier.focusTarget("player:local-file:${file.id}"), subtitle = "本地字幕") {
-                                onDismiss()
-                                actions.selectLocalFile(file.id)
-                            }
-                        }
-                        ui.localSubtitleError?.let { Caption(it) }
-                        ChoiceRow(
-                            "关闭",
-                            subtitle = "不显示字幕",
-                            selected = ui.subtitleIndex < 0 && ui.localSubtitle == null,
-                            modifier = Modifier.focusTarget(panel.choiceKey(-1)),
-                        ) {
-                            onDismiss()
-                            actions.selectSubtitle(-1)
-                        }
-                        ui.subtitles.forEach { track ->
-                            ChoiceRow(
-                                track.title,
-                                subtitle = track.detail,
-                                selected = track.index == ui.subtitleIndex && ui.localSubtitle == null,
-                                modifier = Modifier.focusTarget(panel.choiceKey(track.index)),
-                            ) {
-                                onDismiss()
-                                actions.selectSubtitle(track.index)
-                            }
-                        }
-                    }
+                    PlayerPanel.SubtitleStyle -> PlayerSubtitleStyleContent(ui, actions)
+                    PlayerPanel.Subtitle -> PlayerSubtitleContent(ui, actions, onPanel, onDismiss)
                     PlayerPanel.Speed ->
                         speedChoices.forEach { speed ->
                             ChoiceRow(
@@ -284,18 +178,14 @@ fun PlayerSettingsSheet(
                                     if (isPlaying) "正在播放"
                                     else if (episode.played) "已看" else "",
                                 selected = isPlaying,
-                                leading = if (isPlaying) {
-                                    {
-                                        Box(
-                                            Modifier
-                                                .size(8.dp)
-                                                .background(
-                                                    androidx.compose.ui.graphics.Color(0xFF22C55E),
-                                                    androidx.compose.foundation.shape.CircleShape,
-                                                )
-                                        )
+                                leading = {
+                                    Box(Modifier.size(36.dp)
+                                        .background(if (isPlaying) Palette.Text else Palette.Elevated,
+                                            RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+                                        if (isPlaying) AppIcon(Glyph.Play, Modifier.size(18.dp), color = Palette.Background)
+                                        else Caption(episode.episode.toString(), color = Palette.Text)
                                     }
-                                } else null,
+                                },
                                 modifier = Modifier.focusTarget(panel.choiceKey(episode.id)),
                             ) {
                                 onDismiss()

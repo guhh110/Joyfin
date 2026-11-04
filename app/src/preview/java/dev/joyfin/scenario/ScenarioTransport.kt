@@ -69,7 +69,16 @@ internal object ScenarioMedia {
     val series = ItemDto("series", "群山之间：漫长旅途与归来的故事（演示）", "Series",
         overview = "这是一部用于界面检查的演示作品。旅人穿越群山与海港，在漫长旅途中寻找回家的方向。长标题、完整简介与多季剧集用于检查布局和遥控焦点。",
         year = 2025, genres = listOf("剧情", "冒险"), rating = 8.6, childCount = 2,
-        people = listOf(PersonDto("person", "演示演员", "旅人", "Actor")))
+        people = listOf(
+            PersonDto("person", "演示演员", "旅人", "Actor"),
+            PersonDto("person-2", "Alex Morgan", "", "Director"),
+            PersonDto("person-3", "陈旅", "旅途中的同行者", "Actor"),
+            PersonDto("person-4", "山海之间的长名字演员", "年轻时的旅人", "Actor"),
+            PersonDto("person-5", "J. Lee", "", "Writer"),
+            PersonDto("person-6", "林海", "归来的朋友", "Actor"),
+            PersonDto("person-7", "Taylor", "", "Actor"),
+            PersonDto("person-8", "江岚", "港湾的守望者", "Actor"),
+        ))
     val library = ItemDto("library", "影片与剧集（演示）", "CollectionFolder", collectionType = "tvshows")
     val seasons = (1..2).map { ItemDto("season-$it", "第 $it 季", "Season", seriesId = series.id, season = it, episode = it, childCount = 12) }
     val episodes = (1..2).flatMap { season -> (1..12).map { episode ->

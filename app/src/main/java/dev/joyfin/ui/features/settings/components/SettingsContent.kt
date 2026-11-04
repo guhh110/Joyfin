@@ -8,6 +8,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.*
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
@@ -78,20 +81,21 @@ internal fun ColumnScope.SettingsContent(
         FilmTitle("设置", Modifier.weight(1f), maxLines = 1)
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Caption("当前账号")
         val accountShape = RoundedCornerShape(14.dp)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(androidx.compose.ui.graphics.Color(0xFF0F121A), accountShape)
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(
+                    Palette.Elevated, Palette.Surface.copy(alpha = .6f),
+                )), accountShape)
                 .border(0.5.dp, Palette.Line, accountShape)
-                .padding(14.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Box(
-                Modifier.size(44.dp)
-                    .background(Palette.Elevated, RoundedCornerShape(12.dp)),
+                Modifier.size(52.dp)
+                    .background(Palette.Text.copy(alpha = .08f), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center,
             ) {
                 AppIcon(Glyph.Account, Modifier.size(22.dp), color = Palette.Text)
@@ -110,98 +114,128 @@ internal fun ColumnScope.SettingsContent(
                         color = Palette.Text,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Caption(ui.server.ifBlank { "服务器已连接" }, color = Palette.Muted)
+                Caption(ui.server.ifBlank { "服务器已连接" }, color = Palette.Muted, maxLines = 1)
             }
+            QualityBadge("当前账号")
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionTitle("播放偏好")
-        ChoiceRow("音频输出", Modifier.focusTarget("settings:audio-output"),
-            subtitle = if (audioOutputMode == AudioOutputMode.AUTO) "自动 · 优先编码输出，不可用时兼容播放"
-                else "PCM 兼容 · 本机解码，必要时由服务器转换",
-            chevron = true) {
-            actions.setAudioOutputMode(if (audioOutputMode == AudioOutputMode.AUTO) AudioOutputMode.PCM else AudioOutputMode.AUTO)
-        }
-        ChoiceRow(
-            "自动连播下一集",
-            subtitle = if (autoNext) "播放结束后倒计时，可随时取消" else "每集结束后停止",
-            selected = autoNext,
-        ) {
-            actions.setAutoNext(!autoNext)
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ChoiceRow("最近一次播放诊断", Modifier.focusTarget("settings:diagnostics"),
-            subtitle = "查看格式、播放阶段与错误，复制脱敏报告",
-            chevron = true) {
-            returnFromDiagnostics = true
-            diagnostics = true
-        }
-        ChoiceRow("片库体检", Modifier.focusTarget("settings:audit"), subtitle = "检查缺集、版本、字幕与媒体信息，查看判断依据",
-            chevron = true) {
-            actions.libraryAudit(null, "全部电影与剧集")
-        }
-        ChoiceRow("首页栏目", Modifier.focusTarget("settings:home-layout"), subtitle = "调整栏目顺序与显示，按账号保存在此设备",
-            chevron = true) {
-            returnFromHome = true
-            editHome = true
-        }
-        ActionButton("退出当前账号", actions.logout, loading = request.busy, icon = Glyph.Close)
-        if (updates != null) ChoiceRow("检查更新", Modifier.focusTarget("settings:update"),
-            subtitle = "当前 v${BuildConfig.VERSION_NAME} · 查看新版说明并下载安装", chevron = true) {
-            returnFromUpdate = true
-            showUpdate = true
-            if (updates.state.value.phase in setOf(dev.joyfin.update.UpdatePhase.IDLE, dev.joyfin.update.UpdatePhase.CURRENT))
-                updates.check()
-        }
-
-        // 关于 Joyfin 旗舰独立微展台
-        val aboutShape = RoundedCornerShape(16.dp)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(androidx.compose.ui.graphics.Color(0xFF0B0D13), aboutShape)
-                .border(0.5.dp, Palette.Line, aboutShape)
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            dev.joyfin.ui.features.entry.components.JoyfinLogo(
-                Modifier.size(42.dp),
-                glow = true,
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        "Joyfin",
-                        color = Palette.Text,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                    )
-                    MediaPill("v${BuildConfig.VERSION_NAME}")
-                }
-                Text(
-                    "无界影院 · 私享视听客户端",
-                    color = Palette.Muted,
-                    fontSize = 12.sp,
-                )
-                Row(
-                    modifier = Modifier.padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    QualityBadge("Android 9+ 通用")
-                    QualityBadge("全架构支持")
+    val playback: @Composable () -> Unit = {
+        SettingsGroup("播放偏好", Glyph.Play) {
+            ChoiceRow("音频输出", Modifier.focusTarget("settings:audio-output"),
+                subtitle = if (audioOutputMode == AudioOutputMode.AUTO) "自动 · 优先编码输出，不可用时兼容播放"
+                    else "PCM 兼容 · 本机解码，必要时由服务器转换",
+                chevron = true) {
+                actions.setAudioOutputMode(if (audioOutputMode == AudioOutputMode.AUTO) AudioOutputMode.PCM else AudioOutputMode.AUTO)
+            }
+            FocusSurface({ actions.setAutoNext(!autoNext) }, Modifier.fillMaxWidth()
+                .focusTarget("settings:auto-next").semantics {
+                    role = Role.Switch
+                    toggleableState = ToggleableState(autoNext)
+                    stateDescription = if (autoNext) "已开启" else "已关闭"
+                }, transparent = true,
+                focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale) {
+                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("自动连播下一集", color = Palette.Text)
+                        Caption(if (autoNext) "播放结束后倒计时，可随时取消" else "每集结束后停止")
+                    }
+                    SettingsSwitch(autoNext)
                 }
             }
         }
     }
+    val library: @Composable () -> Unit = {
+        SettingsGroup("媒体库与首页", Glyph.Library) {
+            ChoiceRow("首页栏目", Modifier.focusTarget("settings:home-layout"), subtitle = "排列你喜欢的内容，按账号保存",
+                chevron = true) {
+                returnFromHome = true
+                editHome = true
+            }
+            ChoiceRow("片库体检", Modifier.focusTarget("settings:audit"), subtitle = "检查缺集、版本、字幕与媒体信息",
+                chevron = true) {
+                actions.libraryAudit(null, "全部电影与剧集")
+            }
+        }
+    }
+    val tools: @Composable () -> Unit = {
+        SettingsGroup("应用与支持", Glyph.Settings) {
+            ChoiceRow("最近一次播放诊断", Modifier.focusTarget("settings:diagnostics"),
+                subtitle = "查看播放信息与错误，复制诊断报告",
+                chevron = true) {
+                returnFromDiagnostics = true
+                diagnostics = true
+            }
+            if (updates != null) ChoiceRow("检查更新", Modifier.focusTarget("settings:update"),
+                subtitle = "当前 v${BuildConfig.VERSION_NAME} · 查看新版说明并下载安装", chevron = true) {
+                returnFromUpdate = true
+                showUpdate = true
+                if (updates.state.value.phase in setOf(dev.joyfin.update.UpdatePhase.IDLE, dev.joyfin.update.UpdatePhase.CURRENT))
+                    updates.check()
+            }
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= 760.dp) {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    playback()
+                    library()
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                    tools()
+                    AboutJoyfin()
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+                playback()
+                library()
+                tools()
+                AboutJoyfin()
+            }
+        }
+    }
+    ActionButton("退出当前账号", actions.logout, Modifier.focusTarget("settings:logout"),
+        loading = request.busy, icon = Glyph.Account, quiet = true)
     if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
     if (editHome) HomeLayoutSheet(homeLayout, homeLibraries, actions.setHomeLayout) { editHome = false }
     if (showUpdate && updates != null) AppUpdateSheet(updates) { showUpdate = false }
+}
+
+@Composable
+private fun AboutJoyfin() {
+    val aboutShape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Palette.Background, aboutShape)
+            .border(0.5.dp, Palette.Line, aboutShape)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        dev.joyfin.ui.features.entry.components.JoyfinLogo(Modifier.size(42.dp), glow = true)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text("Joyfin", color = Palette.Text, fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                MediaPill("v${BuildConfig.VERSION_NAME}")
+            }
+            Row(
+                modifier = Modifier.padding(top = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                QualityBadge("Android 9+ 通用")
+                QualityBadge("全架构支持")
+            }
+        }
+    }
 }

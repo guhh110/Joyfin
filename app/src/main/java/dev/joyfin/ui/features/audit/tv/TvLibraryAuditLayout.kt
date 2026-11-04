@@ -10,10 +10,10 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 
 @Composable
 internal fun TvLibraryAuditLayout(header: @Composable () -> Unit, content: @Composable () -> Unit) {
-    Row(Modifier.fillMaxSize().padding(horizontal = LocalDeviceLayout.current.gutter, vertical = 24.dp),
+    Row(Modifier.fillMaxSize().padding(horizontal = LocalDeviceLayout.current.gutter, vertical = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-        Column(Modifier.width(270.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)) { header() }
+        Column(Modifier.width(236.dp).fillMaxHeight().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) { header() }
         Box(Modifier.weight(1f).fillMaxHeight()) { content() }
     }
 }

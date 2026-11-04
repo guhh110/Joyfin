@@ -21,7 +21,11 @@ internal fun PlayerPanel.initialFocus(ui: PlayerUiState): String =
         PlayerPanel.More -> ui.toolbar.moreActions().firstOrNull { it.enabled(ui) }?.moreFocusKey
             ?: "player:more-customize"
         PlayerPanel.Toolbar -> (ui.toolbar.pinned.firstOrNull() ?: dev.joyfin.data.PlayerToolbarAction.entries.first()).toggleFocusKey
-        PlayerPanel.Settings -> "sheet:close"
+        PlayerPanel.Settings -> "player:settings-quality"
+        PlayerPanel.Advanced -> "player:settings-versions"
+        PlayerPanel.Skip -> if (ui.navigation.canConfigure) "player:skip-auto"
+            else if (ui.navigation.timelineAvailable) "player:skip-retry" else "sheet:close"
+        PlayerPanel.PlaybackMode -> choiceKey(ui.compatible)
         PlayerPanel.Diagnostics -> "diagnostics:copy"
         PlayerPanel.Chapters -> (ui.navigation.chapters.lastOrNull { it.positionMs <= ui.positionMs }
             ?: ui.navigation.chapters.firstOrNull())?.let { choiceKey(it.positionMs) } ?: "sheet:close"

@@ -55,13 +55,14 @@ fun PlayerRoute(
     deviceControls: PlayerDeviceControls? = null,
     imageAuthorization: String = "",
     imageCacheNamespace: String = "",
+    initialPanel: PlayerPanel? = null,
 ) {
     var visible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
     var lockControlsVisible by remember { mutableStateOf(false) }
     var lockInteraction by remember { mutableIntStateOf(0) }
     var focusReturn by remember { mutableIntStateOf(0) }
-    var panel by remember { mutableStateOf<PlayerPanel?>(null) }
+    var panel by remember { mutableStateOf(initialPanel) }
     var panelHistory by remember { mutableStateOf(emptyList<Pair<PlayerPanel, String>>()) }
     var panelReturnFocus by remember { mutableStateOf<String?>(null) }
     var interaction by remember { mutableIntStateOf(0) }

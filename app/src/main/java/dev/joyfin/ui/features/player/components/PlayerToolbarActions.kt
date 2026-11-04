@@ -30,6 +30,20 @@ internal fun PlayerPanel.returnFocusFor(destination: PlayerPanel): String? = whe
         else -> PlayerToolbarAction.entries.firstOrNull { it.panel == destination }?.moreFocusKey
     }
     PlayerPanel.Settings -> when (destination) {
+        PlayerPanel.Quality -> "player:settings-quality"
+        PlayerPanel.Subtitle -> "player:settings-subtitle"
+        PlayerPanel.VideoScale -> "player:settings-video-scale"
+        PlayerPanel.Audio -> "player:settings-audio"
+        PlayerPanel.AudioOutput -> "player:settings-audio-output"
+        PlayerPanel.Speed -> "player:settings-speed"
+        PlayerPanel.Chapters -> "player:settings-chapters"
+        PlayerPanel.Skip -> "player:settings-skip"
+        PlayerPanel.Advanced -> "player:settings-advanced"
+        else -> null
+    }
+    PlayerPanel.Advanced -> when (destination) {
+        PlayerPanel.Versions -> "player:settings-versions"
+        PlayerPanel.PlaybackMode -> "player:settings-playback-mode"
         PlayerPanel.Toolbar -> "player:settings-toolbar"
         PlayerPanel.Diagnostics -> "player:settings-diagnostics"
         else -> null

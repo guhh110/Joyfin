@@ -11,6 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.tv.material3.Text
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.ui.components.*
@@ -32,19 +36,12 @@ fun PlayerHeader(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         IconButton("退出播放器", Glyph.Back, actions.close, Modifier.focusTarget("player:back"))
-        Column(Modifier.weight(1f)) {
-            SectionTitle(ui.title)
-            Caption(ui.subtitle)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(ui.title, color = Palette.Text,
+                fontSize = if (LocalDeviceLayout.current.television) 24.sp else 20.sp,
+                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (ui.subtitle.isNotBlank()) Caption(ui.subtitle, maxLines = 1)
             ui.playbackNotice?.let { Caption(it, maxLines = 1) }
-        }
-        val methodText = when (ui.method) {
-            "DirectPlay" -> "直接播放"
-            "DirectStream" -> "直接串流"
-            "Transcode" -> "转码播放"
-            else -> ""
-        }
-        if (methodText.isNotBlank()) {
-            QualityBadge(methodText)
         }
         PlayerClock()
         if (!LocalDeviceLayout.current.television) {
@@ -94,7 +91,17 @@ fun PlayerBottomBar(
     modifier: Modifier = Modifier,
     onInteraction: () -> Unit = {},
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val method = playerMethodLabel(ui.method)
+            if (method.isNotBlank()) QualityBadge(method)
+            QualityBadge(if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL) "原画" else "${ui.bitrate / 1_000_000f} Mbps")
+            Spacer(Modifier.weight(1f))
+            if (ui.durationMs > 0) {
+                Caption("剩余 ${timeLabel((ui.durationMs - ui.positionMs).coerceAtLeast(0))}", maxLines = 1)
+            }
+        }
         SeekBar(
             ui.positionMs,
             ui.durationMs,
@@ -106,9 +113,9 @@ fun PlayerBottomBar(
         )
         Row(
             Modifier.fillMaxWidth()
-                .background(Palette.Background.copy(alpha = .55f), RoundedCornerShape(12.dp))
-                .border(.5.dp, Palette.Text.copy(alpha = .1f), RoundedCornerShape(12.dp))
-                .padding(5.dp),
+                .background(Palette.Background.copy(alpha = .65f), RoundedCornerShape(16.dp))
+                .border(.5.dp, Palette.Line, RoundedCornerShape(16.dp))
+                .padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -131,4 +138,11 @@ fun PlayerBottomBar(
                 focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale)
         }
     }
+}
+
+internal fun playerMethodLabel(method: String): String = when (method) {
+    "DirectPlay" -> "直接播放"
+    "DirectStream" -> "直接串流"
+    "Transcode" -> "转码播放"
+    else -> ""
 }

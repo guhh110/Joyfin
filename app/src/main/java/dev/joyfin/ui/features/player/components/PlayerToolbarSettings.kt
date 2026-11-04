@@ -7,7 +7,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
@@ -22,6 +28,8 @@ import dev.joyfin.data.PlayerToolbarPreferences
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
 import dev.joyfin.ui.components.*
+import dev.joyfin.ui.device.LocalDeviceLayout
+import dev.joyfin.ui.interaction.LocalScreenFocus
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.theme.MotionTokens
 import dev.joyfin.ui.theme.Palette
@@ -34,7 +42,7 @@ internal fun PlayerMoreContent(
     onDismiss: () -> Unit,
 ) {
     ChoiceRow("自定义控制栏", Modifier.focusTarget("player:more-customize"),
-        subtitle = "选择常用操作并调整顺序", chevron = true,
+        chevron = true,
         leading = { AppIcon(Glyph.List, Modifier.size(20.dp)) }) { onPanel(PlayerPanel.Toolbar) }
     ui.toolbar.moreActions().forEach { action -> key(action) {
         ChoiceRow(
@@ -51,17 +59,47 @@ internal fun PlayerMoreContent(
 internal fun PlayerToolbarSettings(ui: PlayerUiState, actions: PlayerActions) {
     val value = ui.toolbar
     val pinned = value.pinned
+    val television = LocalDeviceLayout.current.television
+    val focus = LocalScreenFocus.current
+    var focusRequest by remember { mutableStateOf<ToolbarToggleFocus?>(null) }
+    fun toggle(action: PlayerToolbarAction) {
+        val next = value.toggle(action)
+        if (next == value) return
+        if (television && focus?.target?.invoke() == action.toggleFocusKey) {
+            val removing = action in pinned
+            val previousGroup = if (removing) pinned else value.moreActions()
+            val remainingGroup = if (removing) next.pinned else next.moreActions()
+            val index = previousGroup.indexOf(action)
+            // Stay in the edited section: next item, previous item, then a nearby fallback.
+            val neighbor = remainingGroup.getOrNull(index) ?: remainingGroup.lastOrNull()
+                ?: if (removing) next.moreActions().firstOrNull() else null
+            focusRequest = ToolbarToggleFocus(next.pinned, action.toggleFocusKey,
+                neighbor?.toggleFocusKey ?: "player:toolbar-reset")
+        }
+        actions.setToolbarPreferences(next)
+    }
+    LaunchedEffect(pinned, focusRequest) {
+        val request = focusRequest ?: return@LaunchedEffect
+        if (pinned != request.pinned) return@LaunchedEffect
+        withFrameNanos {}
+        // Do not overwrite navigation entered while the preference update was pending.
+        if (focus?.target?.invoke() == request.from) {
+            focus.requesters[request.to]?.let { requester ->
+                focus.rememberTarget(request.to)
+                requester.requestFocus()
+            }
+        }
+        focusRequest = null
+    }
     ToolbarPreview(pinned)
-    Caption("全部 ${PlayerToolbarPreferences.MAX_PINNED} 项都可固定，超出屏幕可横向浏览。调整立即保存，手机与 TV 分别记忆。")
     val ordered = (pinned + PlayerToolbarAction.entries).distinct()
     if (pinned.isEmpty()) {
         ToolbarSectionTitle("已固定", "0 项")
-        Caption("还没有固定操作，从下方添加常用项。")
     }
-    // One keyed collection keeps the launching control attached when pinning or reordering.
+    // Keep row identities stable while their section or order changes.
     ordered.forEachIndexed { position, action -> key(action) {
         val index = pinned.indexOf(action)
-        if (position == 0 && index >= 0) ToolbarSectionTitle("已固定", "${pinned.size} 项 · 左右箭头排序")
+        if (position == 0 && index >= 0) ToolbarSectionTitle("已固定", "${pinned.size} 项")
         if (position == pinned.size) ToolbarSectionTitle("更多操作", "${ordered.size - pinned.size} 项")
         val shape = RoundedCornerShape(12.dp)
         Row(
@@ -72,7 +110,7 @@ internal fun PlayerToolbarSettings(ui: PlayerUiState, actions: PlayerActions) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             FocusSurface(
-                { actions.setToolbarPreferences(value.toggle(action)) },
+                { toggle(action) },
                 Modifier.weight(1f).heightIn(min = 64.dp).focusTarget(action.toggleFocusKey)
                     .semantics { contentDescription = "${action.label}，${if (index >= 0) "第 ${index + 1} 项，点击移入更多" else "点击固定到控制栏"}" },
                 transparent = true, focusedScale = MotionTokens.FixedScale,
@@ -87,7 +125,7 @@ internal fun PlayerToolbarSettings(ui: PlayerUiState, actions: PlayerActions) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(action.label, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Caption(if (index >= 0) "${index + 1} · 点击移除" else "点击固定", maxLines = 1)
+                        Caption(if (index >= 0) "第 ${index + 1} 项" else "未固定", maxLines = 1)
                     }
                     if (index < 0) AppIcon(Glyph.Plus, Modifier.size(18.dp), color = Palette.Muted)
                 }
@@ -104,12 +142,17 @@ internal fun PlayerToolbarSettings(ui: PlayerUiState, actions: PlayerActions) {
     } }
     if (pinned.size == ordered.size) {
         ToolbarSectionTitle("更多操作", "0 项")
-        Caption("全部操作已固定，「更多」仍保留自定义和播放设置入口。")
     }
     ActionButton("恢复默认控制栏", { actions.setToolbarPreferences(PlayerToolbarPreferences()) },
         Modifier.fillMaxWidth().focusTarget("player:toolbar-reset"), icon = Glyph.Refresh,
         quiet = true, focusedScale = MotionTokens.FixedScale)
 }
+
+private data class ToolbarToggleFocus(
+    val pinned: List<PlayerToolbarAction>,
+    val from: String,
+    val to: String,
+)
 
 @Composable
 private fun ToolbarSectionTitle(title: String, detail: String) {

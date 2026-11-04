@@ -123,31 +123,34 @@ fun MediaCard(
                     )
                 }
             }
-            Text(
-                if (preferSeriesTitle && wide && item.seriesName.isNotBlank()) item.seriesName else item.name,
-                modifier = Modifier.padding(top = MediaCardLayout.TextGap),
-                fontSize = 15.sp,
-                lineHeight = 20.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                color = Palette.Text,
-                minLines = 1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (showSubtitle && !item.libraryDirectory) Text(
-                if (item.type == "Episode") "第 ${item.season} 季 · 第 ${item.episode} 集"
-                else
-                    listOf(item.year.takeIf { it > 0 }?.toString(), item.genres.firstOrNull())
-                        .filterNotNull()
-                        .joinToString(" · "),
-                color = Palette.Muted,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                letterSpacing = 0.2.sp,
-                minLines = 1,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            RailTextSlot(MediaCardLayout.TitleSlot, Modifier.padding(top = MediaCardLayout.TextGap)) {
+                Text(
+                    if (preferSeriesTitle && wide && item.seriesName.isNotBlank()) item.seriesName else item.name,
+                    fontSize = 15.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    color = Palette.Text,
+                    minLines = 1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (showSubtitle) RailTextSlot(MediaCardLayout.SubtitleSlot) {
+                if (!item.libraryDirectory) Text(
+                    if (item.type == "Episode") "第 ${item.season} 季 · 第 ${item.episode} 集"
+                    else
+                        listOf(item.year.takeIf { it > 0 }?.toString(), item.genres.firstOrNull())
+                            .filterNotNull()
+                            .joinToString(" · "),
+                    color = Palette.Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    letterSpacing = 0.2.sp,
+                    minLines = 1,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

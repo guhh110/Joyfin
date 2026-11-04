@@ -31,7 +31,10 @@ internal fun MobileSheetLayout(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
-    val width = if (side) (config.screenWidthDp.dp * .48f).coerceAtMost(380.dp) else 518.dp
+    val width = if (side) {
+        val fraction = if (config.screenWidthDp < config.screenHeightDp) .92f else .48f
+        (config.screenWidthDp.dp * fraction).coerceAtMost(400.dp)
+    } else 518.dp
     val height =
         if (side) Modifier.fillMaxHeight()
         else Modifier.heightIn(max = config.screenHeightDp.dp * .85f)

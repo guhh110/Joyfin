@@ -28,11 +28,10 @@ internal fun PlayerControlsFrame(
             Modifier.fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = .7f),
-                            Color.Transparent,
-                            Color.Black.copy(alpha = .8f),
-                        )
+                        0f to Color.Black.copy(alpha = .82f),
+                        .28f to Color.Black.copy(alpha = .08f),
+                        .52f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = .94f),
                     )
                 )
                 .safeDrawingPadding()

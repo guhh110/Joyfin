@@ -44,7 +44,7 @@ fun MediaRail(
             }
         LazyRow(
             state = state,
-            modifier = Modifier.testTag("rail:$focusPrefix"),
+            modifier = Modifier.testTag("rail:$focusPrefix").stableRailViewport(),
             contentPadding = PaddingValues(horizontal = LocalDeviceLayout.current.gutter),
             horizontalArrangement = Arrangement.spacedBy(MediaCardLayout.RailGap),
         ) {
