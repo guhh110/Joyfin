@@ -41,6 +41,29 @@ adb shell dumpsys meminfo dev.joyfin:ui_scenario
 
 正式图片请求统一为两档：整屏背景上限 `1920×1080`；海报、列表宽封面、剧照、人物、章节及 Logo 的宽度上限为 `320px`，保持原图比例。图片服务保留 `640px` 仅用于复核先前的性能基线。
 
+### 骨架屏与同进程加载对照
+
+`--es skeleton Detailed` 使用正常骨架，`Plain` 使用等高纯色占位，`Drawn` 使用同外观的单绘制节点候选实现。默认仍为 `Detailed`；这些参数只供 Preview 对照，正式界面没有此设置。
+
+```sh
+adb shell am start -S -W -n dev.joyfin/.scenario.UiScenarioActivity --es page library-grid --ez stress true --es skeleton Detailed --es profileRun detailed-1 --ei profileReloads 2 --es artworkBase http://127.0.0.1:18766/detailed-1 --el delayMs 1500
+adb logcat -d -v raw -s JoyfinUiProfile:I
+adb shell dumpsys gfxinfo dev.joyfin:ui_scenario framestats
+```
+
+`profileReloads` 在同一 Activity / 进程内自动重新加载作品网格，最多 5 次；每次数据到达后等待 1800ms 再开始下一轮。`profileRun` 启用阶段标记，记录轮次、`startup/loading/content` 和单调时钟纳秒时间，便于与帧记录对齐。更换 run 路径可比较图片冷缓存；同轮重新加载则保留图片内存缓存。每种骨架至少采集三轮，并将冷启动、首次数据到达和同进程后续加载分别比较。
+
+### 列表字段与图片并发复核
+
+`--ez payloadStress true` 在压力作品中加入长简介、24 位演员和视频版本信息，列表响应按实际请求的 `Fields` 投影；单个详情响应仍返回完整信息。`--ez payloadProfile true` 在首屏稳定后于后台执行预热及三轮 JSON 解析 / 模型转换采样，在 `JoyfinPayloadProfile` 输出样本字节数、中位数及 P95，不代表真实服务器、压缩传输或端到端加载耗时。
+
+```sh
+adb shell am start -S -W -n dev.joyfin/.scenario.UiScenarioActivity --es page library-grid --ez stress true --ez payloadStress true --ez payloadProfile true --el delayMs 80
+adb logcat -d -v raw -s JoyfinPayloadProfile:I
+```
+
+在本地图片场景中加 `--ei decodeParallelism 2` 或 `4` 可比较 BitmapFactory 解码并发，并启用 `JoyfinImageProfile` 中不含 URL 的解码和图片完成耗时记录。正式应用仍使用 Coil 默认并发；未传入该参数的普通图片预览不记录这些耗时。
+
 ## 播放器、设置与侧边栏
 
 ```sh

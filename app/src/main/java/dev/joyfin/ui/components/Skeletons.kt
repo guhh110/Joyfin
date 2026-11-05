@@ -23,6 +23,9 @@ import kotlinx.coroutines.delay
 
 private val LocalSkeletonVisibility = staticCompositionLocalOf<Boolean?> { null }
 
+/** Optional preview renderer; production always uses the normal skeleton. */
+internal val LocalCardSkeletonOverride = staticCompositionLocalOf<(@Composable (Modifier, Boolean, Boolean, Boolean) -> Unit)?> { null }
+
 /** The timer is keyed to the request, rather than to individual placeholder cells. */
 @Composable
 fun rememberSkeletonVisible(loading: Boolean, requestKey: Any? = Unit): Boolean {
@@ -86,6 +89,11 @@ fun MediaCardSkeleton(
     visible: Boolean = rememberSkeletonVisible(true),
     showSubtitle: Boolean = true,
 ) {
+    val override = LocalCardSkeletonOverride.current
+    if (override != null) {
+        override(modifier, wide, visible, showSubtitle)
+        return
+    }
     CompositionLocalProvider(LocalSkeletonVisibility provides true) {
         Column(
             modifier

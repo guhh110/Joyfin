@@ -26,6 +26,10 @@ class JellyfinApi(
 ) : SessionConnection, QuickConnectConnection {
     @Volatile override var session: Session? = null
     private val browseFields =
+        "Genres,MediaSources,ChildCount,SeasonUserData"
+    private val homeFields = "$browseFields,Overview,OriginalTitle"
+    // Episode and subtitle workflows also consume version paths and complete metadata.
+    private val detailListFields =
         "Overview,People,Genres,MediaSources,ProductionLocations,ChildCount,SeasonUserData,OriginalTitle,ProviderIds,Path"
     private var serviceBase: String? = null
     private var cachedService: JellyfinService? = null
@@ -153,7 +157,7 @@ class JellyfinApi(
         service().items(authorization(), params(
             "UserId" to requireSession().userId, "SearchTerm" to search,
             "Recursive" to true, "IncludeItemTypes" to "Movie,Series",
-            "Fields" to browseFields, "StartIndex" to start, "Limit" to 40,
+            "Fields" to detailListFields, "StartIndex" to start, "Limit" to 40,
             "SortBy" to "SortName", "SortOrder" to "Ascending",
         )).value().toMediaPage()
 
@@ -237,7 +241,7 @@ class JellyfinApi(
                         "UserId" to requireSession().userId,
                         "Limit" to 20,
                         "MediaTypes" to "Video",
-                        "Fields" to browseFields,
+                        "Fields" to homeFields,
                     ),
                 )
                 .value()
@@ -291,7 +295,7 @@ class JellyfinApi(
                             "Limit" to 20,
                             "GroupItems" to true,
                             "IncludeItemTypes" to "Movie,Episode,Video,MusicVideo",
-                            "Fields" to browseFields,
+                            "Fields" to homeFields,
                         ),
                     )
                     .value()
@@ -362,7 +366,7 @@ class JellyfinApi(
                     params(
                         "UserId" to requireSession().userId,
                         "SeasonId" to seasonId,
-                        "Fields" to browseFields,
+                        "Fields" to detailListFields,
                     ),
                 )
                 .value()

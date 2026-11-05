@@ -7,6 +7,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.joyfin.browse.CollectionUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.collection.MediaCollection
@@ -54,8 +55,10 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
                     quiet = true,
                 )
             }
-            Caption(if ((ui.busy || ui.error != null) && ui.media.isEmpty()) " "
-                else if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品")
+            RailTextSlot(20.sp) {
+                Caption(if ((ui.busy || ui.error != null) && ui.media.isEmpty()) " "
+                    else if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品")
+            }
             if (ui.canArrangeLibrary) {
                 val sort = { restoreTarget = "library:sort"; panel = LibraryOptionsPanel.SORT }
                 val watched = { restoreTarget = "library:watched"; panel = LibraryOptionsPanel.WATCHED }

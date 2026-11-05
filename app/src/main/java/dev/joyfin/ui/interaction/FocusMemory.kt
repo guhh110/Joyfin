@@ -56,11 +56,13 @@ fun Modifier.focusTarget(key: String, enabled: Boolean = true): Modifier {
         onDispose { if (memory?.requesters?.get(key) === requester) memory.requesters.remove(key) }
     }
     LaunchedEffect(enabled) {
-        if (television && enabled) {
+        // Only the remembered target needs a frame callback. New off-target cards must not
+        // enqueue restoration work while an entire row is entering composition.
+        if (television && enabled && memory?.target?.invoke() == key) {
             withFrameNanos {}
             // Re-check after attachment: the user may have moved focus while this target was
             // disabled.
-            if (memory?.target?.invoke() == key) requester.requestFocus()
+            if (memory.target() == key) requester.requestFocus()
         }
     }
     return this.testTag(key).focusRequester(requester).onFocusChanged {

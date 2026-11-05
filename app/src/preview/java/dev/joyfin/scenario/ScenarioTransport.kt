@@ -16,6 +16,7 @@ internal class ScenarioTransport(
     @Volatile var scenario: Scenario,
     private val delayMs: Long,
     private val stress: Boolean = false,
+    private val payloadStress: Boolean = false,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -29,7 +30,8 @@ internal class ScenarioTransport(
             remaining -= step
         }
         val path = request.url.encodedPath
-        val media = if (stress) ScenarioMedia.all + ScenarioMedia.stressMovies + ScenarioMedia.stressLibraries else ScenarioMedia.all
+        val stressRows = if (payloadStress) ScenarioPayloadProfile.fullRows else ScenarioMedia.stressMovies
+        val media = if (stress) ScenarioMedia.all + stressRows + ScenarioMedia.stressLibraries else ScenarioMedia.all
         val infrastructure = path == "/System/Info/Public" || path == "/Users/preview" ||
             path == "/Users/AuthenticateByName" || path == "/Sessions/Logout"
         val failed = !infrastructure && scenario == Scenario.ERROR
@@ -66,7 +68,11 @@ internal class ScenarioTransport(
                 if (stress && scenario != Scenario.EMPTY && path == "/Items" && request.url.queryParameter("ParentId") == ScenarioMedia.library.id) {
                     val start = request.url.queryParameter("StartIndex")?.toIntOrNull() ?: 0
                     val limit = request.url.queryParameter("Limit")?.toIntOrNull() ?: 40
-                    AppJson.encodeToString(ItemsResponse(ScenarioMedia.stressMovies.drop(start).take(limit), ScenarioMedia.stressMovies.size))
+                    val fields = request.url.queryParameter("Fields").orEmpty().split(',').toSet()
+                    val page = stressRows.drop(start).take(limit).map { ScenarioPayloadProfile.project(it, fields) }
+                    val result = AppJson.encodeToString(ItemsResponse(page, stressRows.size))
+                    if (payloadStress) android.util.Log.i("JoyfinPayloadProfile", "request=browse fields=${fields.sorted().joinToString(",")} bytes=${result.toByteArray().size}")
+                    result
                 } else if (path == "/Items/Latest") AppJson.encodeToString(rows)
                 else AppJson.encodeToString(ItemsResponse(rows, rows.size))
             }

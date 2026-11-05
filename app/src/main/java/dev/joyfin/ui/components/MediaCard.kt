@@ -75,8 +75,7 @@ fun MediaCard(
                         imageUrl,
                         images,
                         Modifier.fillMaxWidth()
-                            .aspectRatio(imageRatio)
-                            .clip(RoundedCornerShape(MediaCardLayout.Corner)),
+                            .aspectRatio(imageRatio),
                         item.name,
                     )
                 if (item.resumeTicks > 0 && item.ticks > 0) {

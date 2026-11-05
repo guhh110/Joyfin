@@ -2,6 +2,7 @@ package dev.joyfin.scenario
 
 import android.content.pm.ActivityInfo
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,13 +29,17 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import coil.Coil
 import coil.ImageLoader
 import java.net.Proxy
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-private class ScenarioRuntime(application: android.app.Application, mode: Scenario, delay: Long, stress: Boolean) : ViewModel() {
+private class ScenarioRuntime(application: android.app.Application, mode: Scenario, delay: Long, stress: Boolean, payloadStress: Boolean) : ViewModel() {
     val context = ScenarioContext(application)
     val store = SessionStore(context).apply {
         save(Session("http://ui-scenario.invalid", "demo-token", "preview", "演示账号"))
     }
-    val transport = ScenarioTransport(mode, delay, stress)
+    val transport = ScenarioTransport(mode, delay, stress, payloadStress)
     val api = JellyfinApi(store.deviceId, OkHttpClient.Builder().addInterceptor(transport).build())
 }
 
@@ -46,7 +51,7 @@ class UiScenarioActivity : ComponentActivity() {
         val runtimeFactory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ScenarioRuntime(application, mode, intent.getLongExtra("delayMs", 450), intent.getBooleanExtra("stress", false)) as T
+                ScenarioRuntime(application, mode, intent.getLongExtra("delayMs", 450), intent.getBooleanExtra("stress", false), intent.getBooleanExtra("payloadStress", false)) as T
         }
         val runtime = ViewModelProvider(this, runtimeFactory)[ScenarioRuntime::class.java]
         val transport = runtime.transport
@@ -69,6 +74,10 @@ class UiScenarioActivity : ComponentActivity() {
         if (imageBase != null) Coil.setImageLoader {
             ImageLoader.Builder(applicationContext)
                 .okHttpClient { OkHttpClient.Builder().proxy(Proxy.NO_PROXY).build() }
+                .bitmapFactoryMaxParallelism(intent.getIntExtra("decodeParallelism", 4).coerceIn(1, 4))
+                .apply {
+                    if (intent.hasExtra("decodeParallelism")) eventListenerFactory { ScenarioImageProfile() }
+                }
                 .build()
         }
         fun fixture(url: String): String = url.replace("http://ui-scenario.invalid", imageBase.orEmpty())
@@ -76,12 +85,46 @@ class UiScenarioActivity : ComponentActivity() {
         else ArtworkSource({ fixture(runtime.api.image(it)) }, { fixture(runtime.api.backdrop(it)) },
             { runtime.api.episodeImage(it)?.let(::fixture) }, { runtime.api.personImage(it)?.let(::fixture) }, "",
             thumbnail = { fixture(runtime.api.thumbnail(it)) })
+        val skeletonStyle = CardSkeletonStyle.entries.firstOrNull { it.name.equals(intent.getStringExtra("skeleton"), true) }
+        val profileRun = intent.getStringExtra("profileRun")
         setContent {
+          CompositionLocalProvider(LocalCardSkeletonOverride provides
+              if (skeletonStyle == CardSkeletonStyle.Plain || skeletonStyle == CardSkeletonStyle.Drawn) {
+                  { modifier, wide, visible, showSubtitle ->
+                      ScenarioSkeleton(modifier, wide, visible, showSubtitle, skeletonStyle == CardSkeletonStyle.Plain)
+                  }
+              } else null) {
             BoundlessTheme {
                 val state by vm.state.collectAsState()
                 var scenario by remember { mutableStateOf(transport.scenario) }
                 var entered by rememberSaveable { mutableStateOf(false) }
                 var showPlayer by rememberSaveable { mutableStateOf(playerPage) }
+                var reloadIndex by remember { mutableIntStateOf(0) }
+                LaunchedEffect(Unit) {
+                    if (intent.getBooleanExtra("payloadProfile", false)) {
+                        vm.state.first { it.page == Page.LIBRARY && !it.collection.busy && it.collection.media.isNotEmpty() }
+                        delay(1800)
+                        withContext(Dispatchers.Default) { ScenarioPayloadProfile.run() }
+                    }
+                }
+                LaunchedEffect(state.page, state.collection.busy, state.collection.media.size, reloadIndex) {
+                    if (profileRun != null) {
+                        val phase = if (state.page != Page.LIBRARY) "startup"
+                            else if (state.collection.media.isNotEmpty()) "content"
+                            else if (state.collection.busy) "loading" else "idle"
+                        Log.i("JoyfinUiProfile", "run=$profileRun round=$reloadIndex phase=$phase ns=${System.nanoTime()}")
+                    }
+                }
+                LaunchedEffect(profileRun) {
+                    if (profileRun != null && intent.getStringExtra("page") == "library-grid") {
+                        repeat(intent.getIntExtra("profileReloads", 0).coerceIn(0, 5)) {
+                            vm.state.first { it.page == Page.LIBRARY && !it.collection.busy && it.collection.media.isNotEmpty() }
+                            delay(1800)
+                            reloadIndex++
+                            vm.library(ScenarioMedia.library.id, ScenarioMedia.library.name)
+                        }
+                    }
+                }
                 val initialPanel = remember {
                     PlayerPanel.entries.firstOrNull { it.name.equals(intent.getStringExtra("panel"), true) }
                         ?: if (intent.getStringExtra("page") == "player-sidebar") PlayerPanel.Settings else null
@@ -132,6 +175,7 @@ class UiScenarioActivity : ComponentActivity() {
                     }
                 }
             }
+          }
         }
         if (tv) window.decorView.post { WindowCompat.getInsetsController(window, window.decorView).hide(WindowInsetsCompat.Type.systemBars()) }
     }
