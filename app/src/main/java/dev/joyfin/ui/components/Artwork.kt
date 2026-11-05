@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -26,8 +29,11 @@ fun Artwork(
     alignment: Alignment = Alignment.Center,
 ) {
     val request = rememberArtworkRequest(url, images)
+    var failed by remember(request) { mutableStateOf(url.isNullOrBlank()) }
     Box(modifier.background(Palette.Surface), contentAlignment = Alignment.Center) {
-        if (fallback.isNotBlank()) Caption(fallback.take(16))
+        // The real title is already outside the image. Avoid measuring hidden text for every
+        // successful image; keep the label for missing images and actual request failures.
+        if (failed && fallback.isNotBlank()) Caption(fallback.take(16))
         if (!url.isNullOrBlank())
             AsyncImage(
                 model = request,
@@ -35,6 +41,8 @@ fun Artwork(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale,
                 alignment = alignment,
+                onError = { failed = true },
+                onSuccess = { if (failed) failed = false },
             )
     }
 }

@@ -40,7 +40,10 @@ fun MediaCard(
 ) {
     val tv = LocalDeviceLayout.current.television
     val imageUrl =
-        remember(item, images, wide) { if (wide) images.backdrop(item) else images.poster(item) }
+        remember(item, images, wide) {
+            if (item.type == "Episode") null
+            else if (wide) images.thumbnail(item) else images.poster(item)
+        }
     val imageRatio = MediaCardLayout.ratio(wide)
     var focused by remember { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }

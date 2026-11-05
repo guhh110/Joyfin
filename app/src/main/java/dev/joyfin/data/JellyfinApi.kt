@@ -72,6 +72,9 @@ class JellyfinApi(
 
     companion object {
         private const val AUDIT_FIELDS = "Overview,ProviderIds,MediaSources,MediaStreams"
+        private const val GRID_IMAGE_WIDTH = 320
+        private const val BACKGROUND_IMAGE_WIDTH = 1920
+        private const val BACKGROUND_IMAGE_HEIGHT = 1080
         fun normalizeServer(value: String): String {
             val raw = value.trim()
             require(raw.isNotBlank()) { "请填写服务器地址" }
@@ -468,11 +471,14 @@ class JellyfinApi(
         }
     }
 
-    fun image(media: Media): String =
+    fun image(media: Media): String = primaryImage(media, GRID_IMAGE_WIDTH)
+
+    private fun primaryImage(media: Media, maxWidth: Int, maxHeight: Int? = null): String =
         url(
                 "Items/${media.imageId}/Images/Primary",
                 mapOf(
-                    "MaxWidth" to 320,
+                    "MaxWidth" to maxWidth,
+                    "MaxHeight" to maxHeight,
                     "Quality" to 85,
                     "Tag" to media.imageTag.takeIf { it.isNotBlank() },
                 ),
@@ -486,25 +492,30 @@ class JellyfinApi(
             ?.let { tag ->
                 url(
                         "Items/${media.id}/Images/Primary",
-                        mapOf("MaxWidth" to 640, "Quality" to 85, "Tag" to tag),
+                        mapOf("MaxWidth" to GRID_IMAGE_WIDTH, "Quality" to 85, "Tag" to tag),
                     )
                     .toString()
             }
 
-    fun backdrop(media: Media): String =
+    fun backdrop(media: Media): String = backdrop(media, BACKGROUND_IMAGE_WIDTH, BACKGROUND_IMAGE_HEIGHT)
+
+    /** Rails and directory cards do not need a full-screen background download. */
+    fun thumbnail(media: Media): String = backdrop(media, GRID_IMAGE_WIDTH)
+
+    private fun backdrop(media: Media, maxWidth: Int, maxHeight: Int? = null): String =
         if (media.backdropTag.isNotBlank())
             url(
                     "Items/${media.backdropId}/Images/Backdrop/0",
-                    mapOf("MaxWidth" to 1920, "Quality" to 85, "Tag" to media.backdropTag),
+                    mapOf("MaxWidth" to maxWidth, "MaxHeight" to maxHeight, "Quality" to 85, "Tag" to media.backdropTag),
                 )
                 .toString()
-        else image(media)
+        else primaryImage(media, maxWidth, maxHeight)
 
     fun logo(media: Media): String? =
         media.logoTag
             .takeIf { it.isNotBlank() }
             ?.let {
-                url("Items/${media.logoId}/Images/Logo", mapOf("MaxWidth" to 700, "Tag" to it))
+                url("Items/${media.logoId}/Images/Logo", mapOf("MaxWidth" to GRID_IMAGE_WIDTH, "Tag" to it))
                     .toString()
             }
 
@@ -512,7 +523,7 @@ class JellyfinApi(
         person.id
             .takeIf { it.isNotBlank() && person.imageTag.isNotBlank() }
             ?.let {
-                url("Items/$it/Images/Primary", mapOf("MaxWidth" to 240, "Tag" to person.imageTag))
+                url("Items/$it/Images/Primary", mapOf("MaxWidth" to GRID_IMAGE_WIDTH, "Tag" to person.imageTag))
                     .toString()
             }
 
@@ -520,7 +531,7 @@ class JellyfinApi(
         tag.takeIf { it.isNotBlank() }
             ?.let {
                 url("Items/${media.id}/Images/Chapter/$index",
-                    mapOf("MaxWidth" to 320, "Quality" to 85, "Tag" to it)).toString()
+                    mapOf("MaxWidth" to GRID_IMAGE_WIDTH, "Quality" to 85, "Tag" to it)).toString()
             }
 
     suspend fun playback(

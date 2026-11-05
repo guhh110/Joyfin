@@ -12,4 +12,5 @@ data class ArtworkSource(
     val authorization: String,
     val logo: (Media) -> String? = { null },
     val cacheNamespace: String = "",
+    val thumbnail: (Media) -> String = backdrop,
 )

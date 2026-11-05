@@ -15,6 +15,7 @@ internal enum class Scenario { NORMAL, EMPTY, ERROR }
 internal class ScenarioTransport(
     @Volatile var scenario: Scenario,
     private val delayMs: Long,
+    private val stress: Boolean = false,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -28,6 +29,7 @@ internal class ScenarioTransport(
             remaining -= step
         }
         val path = request.url.encodedPath
+        val media = if (stress) ScenarioMedia.all + ScenarioMedia.stressMovies + ScenarioMedia.stressLibraries else ScenarioMedia.all
         val infrastructure = path == "/System/Info/Public" || path == "/Users/preview" ||
             path == "/Users/AuthenticateByName" || path == "/Sessions/Logout"
         val failed = !infrastructure && scenario == Scenario.ERROR
@@ -36,14 +38,14 @@ internal class ScenarioTransport(
             path == "/Users/preview" -> AppJson.encodeToString(UserDto("preview", "演示账号"))
             path == "/Users/AuthenticateByName" -> AppJson.encodeToString(LoginResponse("demo-token", UserDto("preview", "演示账号")))
             request.method != "GET" -> "{}"
-            ScenarioMedia.all.any { path == "/Items/${it.id}" } -> {
+            media.any { path == "/Items/${it.id}" } -> {
                 val id = path.substringAfterLast('/')
-                AppJson.encodeToString(ScenarioMedia.all.firstOrNull { it.id == id } ?: ScenarioMedia.series)
+                AppJson.encodeToString(media.first { it.id == id })
             }
             path.startsWith("/Persons/") -> AppJson.encodeToString(ItemDto("person", "演示演员", "Person"))
             else -> {
                 val rows = if (scenario == Scenario.EMPTY) emptyList() else when {
-                    path == "/UserViews" -> listOf(ScenarioMedia.library)
+                    path == "/UserViews" -> if (stress) ScenarioMedia.stressLibraries else listOf(ScenarioMedia.library)
                     path == "/UserItems/Resume" -> ScenarioMedia.episodes.take(4)
                     path == "/Items/Latest" -> listOf(ScenarioMedia.series) + ScenarioMedia.movies
                     path.endsWith("/Seasons") -> ScenarioMedia.seasons
@@ -54,13 +56,18 @@ internal class ScenarioTransport(
                     path.endsWith("/Similar") -> ScenarioMedia.movies
                     path == "/Items" && request.url.queryParameter("ParentId") == null &&
                         request.url.queryParameter("Recursive") == null &&
-                        request.url.queryParameter("SearchTerm") == null -> listOf(ScenarioMedia.library)
+                        request.url.queryParameter("SearchTerm") == null ->
+                        if (stress) ScenarioMedia.stressLibraries else listOf(ScenarioMedia.library)
                     path == "/Items" && request.url.queryParameter("ParentId") == ScenarioMedia.library.id ->
                         listOf(ScenarioMedia.series) + ScenarioMedia.gridMovies
                     path == "/Items" -> listOf(ScenarioMedia.series) + ScenarioMedia.movies
                     else -> emptyList()
                 }
-                if (path == "/Items/Latest") AppJson.encodeToString(rows)
+                if (stress && scenario != Scenario.EMPTY && path == "/Items" && request.url.queryParameter("ParentId") == ScenarioMedia.library.id) {
+                    val start = request.url.queryParameter("StartIndex")?.toIntOrNull() ?: 0
+                    val limit = request.url.queryParameter("Limit")?.toIntOrNull() ?: 40
+                    AppJson.encodeToString(ItemsResponse(ScenarioMedia.stressMovies.drop(start).take(limit), ScenarioMedia.stressMovies.size))
+                } else if (path == "/Items/Latest") AppJson.encodeToString(rows)
                 else AppJson.encodeToString(ItemsResponse(rows, rows.size))
             }
         }
@@ -99,4 +106,12 @@ internal object ScenarioMedia {
             genres = if (it % 3 == 0) listOf("剧情") else emptyList(), ticks = 54_000_000_000)
     }
     val all = listOf(series, library) + seasons + episodes + gridMovies
+    val stressMovies = (1..160).map {
+        ItemDto("stress-$it", "海港来信 $it · 加载演示", "Movie", year = 2024,
+            imageTags = mapOf("Primary" to "demo-$it"), backdropTags = listOf("demo-$it"))
+    }
+    val stressLibraries = (1..20).map {
+        library.copy(id = "library-$it", name = "媒体库 $it · 加载演示",
+            imageTags = mapOf("Primary" to "demo-$it"), backdropTags = listOf("demo-$it"))
+    }
 }

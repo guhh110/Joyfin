@@ -24,13 +24,17 @@ import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.theme.BoundlessTheme
 import dev.joyfin.ui.features.player.components.PlayerPanel
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import coil.Coil
+import coil.ImageLoader
+import java.net.Proxy
 
-private class ScenarioRuntime(application: android.app.Application, mode: Scenario, delay: Long) : ViewModel() {
+private class ScenarioRuntime(application: android.app.Application, mode: Scenario, delay: Long, stress: Boolean) : ViewModel() {
     val context = ScenarioContext(application)
     val store = SessionStore(context).apply {
         save(Session("http://ui-scenario.invalid", "demo-token", "preview", "演示账号"))
     }
-    val transport = ScenarioTransport(mode, delay)
+    val transport = ScenarioTransport(mode, delay, stress)
     val api = JellyfinApi(store.deviceId, OkHttpClient.Builder().addInterceptor(transport).build())
 }
 
@@ -42,7 +46,7 @@ class UiScenarioActivity : ComponentActivity() {
         val runtimeFactory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                ScenarioRuntime(application, mode, intent.getLongExtra("delayMs", 450)) as T
+                ScenarioRuntime(application, mode, intent.getLongExtra("delayMs", 450), intent.getBooleanExtra("stress", false)) as T
         }
         val runtime = ViewModelProvider(this, runtimeFactory)[ScenarioRuntime::class.java]
         val transport = runtime.transport
@@ -58,7 +62,20 @@ class UiScenarioActivity : ComponentActivity() {
         requestedOrientation = if (tv || playerPage) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         enableEdgeToEdge()
         val image = "android.resource://$packageName/drawable/entry_harbor"
-        val artwork = ArtworkSource({ image }, { image }, { null }, { null }, "")
+        // Optional host-side image fixture, reachable through adb reverse. Never use real accounts.
+        val imageBase = intent.getStringExtra("artworkBase")?.trimEnd('/')?.takeIf {
+            it.toHttpUrlOrNull()?.host in setOf("127.0.0.1", "localhost", "10.0.2.2")
+        }
+        if (imageBase != null) Coil.setImageLoader {
+            ImageLoader.Builder(applicationContext)
+                .okHttpClient { OkHttpClient.Builder().proxy(Proxy.NO_PROXY).build() }
+                .build()
+        }
+        fun fixture(url: String): String = url.replace("http://ui-scenario.invalid", imageBase.orEmpty())
+        val artwork = if (imageBase == null) ArtworkSource({ image }, { image }, { null }, { null }, "")
+        else ArtworkSource({ fixture(runtime.api.image(it)) }, { fixture(runtime.api.backdrop(it)) },
+            { runtime.api.episodeImage(it)?.let(::fixture) }, { runtime.api.personImage(it)?.let(::fixture) }, "",
+            thumbnail = { fixture(runtime.api.thumbnail(it)) })
         setContent {
             BoundlessTheme {
                 val state by vm.state.collectAsState()
@@ -79,6 +96,7 @@ class UiScenarioActivity : ComponentActivity() {
                             "detail" -> vm.open(Media.from(ScenarioMedia.series))
                             "movie" -> vm.open(Media.from(ScenarioMedia.movies.first()))
                             "library" -> vm.library()
+                            "library-grid" -> vm.library(ScenarioMedia.library.id, ScenarioMedia.library.name)
                             "search" -> { vm.search(); vm.submitSearch("群山") }
                             "subtitles" -> vm.openSubtitleManager()
                             "settings" -> vm.settings()

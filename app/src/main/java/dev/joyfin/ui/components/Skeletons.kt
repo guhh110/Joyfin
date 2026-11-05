@@ -9,12 +9,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Text
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.loading.LoadingPolicy
 import dev.joyfin.ui.theme.Palette
@@ -60,10 +60,12 @@ fun SkeletonBlock(modifier: Modifier = Modifier) {
 
 @Composable
 fun SkeletonTextLine(fontSize: TextUnit, lineHeight: TextUnit, fraction: Float = .8f) {
-    Box(Modifier.fillMaxWidth().clearAndSetSemantics {}) {
-        Text("\u00a0", fontSize = fontSize, lineHeight = lineHeight, minLines = 1, maxLines = 1)
+    val density = LocalDensity.current
+    val height = with(density) { lineHeight.toDp() }
+    val blockHeight = with(density) { fontSize.toDp() }
+    Box(Modifier.fillMaxWidth().height(height).clearAndSetSemantics {}) {
         SkeletonBlock(
-            Modifier.fillMaxWidth(fraction).height(fontSize.value.dp).align(Alignment.CenterStart)
+            Modifier.fillMaxWidth(fraction).height(blockHeight).align(Alignment.CenterStart)
         )
     }
 }

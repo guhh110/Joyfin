@@ -187,6 +187,7 @@ internal fun BrowseHost(
                 authorization = if (vm.api.session != null) vm.api.authorization() else "",
                 logo = vm.api::logo,
                 cacheNamespace = dev.joyfin.artwork.ArtworkCacheIdentity.namespace(vm.api.session),
+                thumbnail = vm.api::thumbnail,
             )
         }
     val entryActions =
