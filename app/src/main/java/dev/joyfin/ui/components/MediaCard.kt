@@ -3,10 +3,14 @@ package dev.joyfin.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -17,6 +21,8 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.theme.Palette
+import dev.joyfin.ui.theme.MotionTokens
+import dev.joyfin.ui.theme.rememberMotionSpec
 
 @Composable
 fun MediaCard(
@@ -36,24 +42,28 @@ fun MediaCard(
     val imageUrl =
         remember(item, images, wide) { if (wide) images.backdrop(item) else images.poster(item) }
     val imageRatio = MediaCardLayout.ratio(wide)
-    FocusSurface(
-        onClick,
+    var focused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val titleColor by animateColorAsState(
+        if (tv && focused) Color.White else Palette.Text,
+        animationSpec = rememberMotionSpec(MotionTokens.FocusDurationMs),
+        label = "posterTitleColor",
+    )
+    Box(
         modifier
             .padding(vertical = dev.joyfin.ui.theme.MotionTokens.MediaCardVerticalReserve)
             .width(
                 cardWidth ?: MediaCardLayout.width(tv, wide)
             )
-            .then(focusModifier ?: Modifier.focusTarget(focusKey)),
-        transparent = true,
-        focusedScale = if (tv) dev.joyfin.ui.theme.MotionTokens.CardFocusedScale
-            else dev.joyfin.ui.theme.MotionTokens.FixedScale,
-        focusedBackground = false,
-        borderOnly = true,
-        onLongClick = onLongClick,
+            .then(focusModifier ?: Modifier.focusTarget(focusKey))
+            .onFocusChanged { focused = it.isFocused }
+            .zIndex(if (focused) 1f else 0f)
+            .stableAction(true, interactionSource, onLongClick, onClick)
+            .padding(3.dp),
     ) {
         Column(Modifier.padding(MediaCardLayout.ContentInset)) {
             Box(
-                Modifier.clip(RoundedCornerShape(MediaCardLayout.Corner))
+                Modifier.posterFocus(tv && focused)
             ) {
                 if (item.type == "Episode")
                     EpisodeArtwork(item, images, Modifier.fillMaxWidth(), imageRatio)
@@ -129,7 +139,7 @@ fun MediaCard(
                     fontSize = 15.sp,
                     lineHeight = 20.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                    color = Palette.Text,
+                    color = titleColor,
                     minLines = 1,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

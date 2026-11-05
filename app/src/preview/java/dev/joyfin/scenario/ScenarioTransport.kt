@@ -52,6 +52,11 @@ internal class ScenarioTransport(
                         ScenarioMedia.episodes.filter { season == null || it.seasonId == season }
                     }
                     path.endsWith("/Similar") -> ScenarioMedia.movies
+                    path == "/Items" && request.url.queryParameter("ParentId") == null &&
+                        request.url.queryParameter("Recursive") == null &&
+                        request.url.queryParameter("SearchTerm") == null -> listOf(ScenarioMedia.library)
+                    path == "/Items" && request.url.queryParameter("ParentId") == ScenarioMedia.library.id ->
+                        listOf(ScenarioMedia.series) + ScenarioMedia.gridMovies
                     path == "/Items" -> listOf(ScenarioMedia.series) + ScenarioMedia.movies
                     else -> emptyList()
                 }
@@ -88,5 +93,10 @@ internal object ScenarioMedia {
             userData = UserDataDto(positionTicks = if (episode == 1) 3_600_000_000 else 0))
     } }
     val movies = (1..8).map { ItemDto("movie-$it", "海港来信 $it（演示）", "Movie", overview = series.overview, year = 2024, ticks = 54_000_000_000) }
-    val all = listOf(series, library) + seasons + episodes + movies
+    val gridMovies = movies + (9..36).map {
+        ItemDto("movie-$it", if (it % 3 == 0) "A Letter $it" else "海港来信 $it（演示）", "Movie",
+            overview = series.overview, year = if (it % 2 == 0) 2024 else 0,
+            genres = if (it % 3 == 0) listOf("剧情") else emptyList(), ticks = 54_000_000_000)
+    }
+    val all = listOf(series, library) + seasons + episodes + gridMovies
 }
