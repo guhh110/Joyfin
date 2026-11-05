@@ -18,14 +18,18 @@ import dev.joyfin.data.HomeLayoutPreferences
 internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
     val home = homeContent(ui)
     val result = rememberHomeResult(home)
-    val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
+    val carousel = rememberHomeCarousel(home, images)
+    val featured = carousel.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val artworkHeight = (maxWidth * .75f).coerceIn(220.dp, 360.dp)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item("hero", contentType = "hero") {
-                HeroBackdrop(featured, images, 0.dp, artworkHeight = artworkHeight) {
-                    HomeHeroContent(home, actions,
-                        Modifier.fillMaxWidth().statusBarsPadding().padding(top = if (result.visible) 96.dp else artworkHeight * .58f), result = result)
+                HeroBackdrop(featured, images, 0.dp, artworkHeight = artworkHeight,
+                    background = { HomeCarouselBackdrop(carousel) }) {
+                    val heroModifier = Modifier.fillMaxWidth().statusBarsPadding()
+                        .padding(top = if (result.visible) 96.dp else artworkHeight * .58f)
+                    if (!result.visible && carousel.items.isNotEmpty()) HomeCarouselContent(carousel, actions, heroModifier)
+                    else HomeHeroContent(home, actions, heroModifier, result = result)
                     Box(Modifier.align(Alignment.TopCenter)) { AppHeader(actions, statusBarInset = true) }
                 }
             }

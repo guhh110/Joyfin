@@ -64,6 +64,18 @@ adb logcat -d -v raw -s JoyfinPayloadProfile:I
 
 在本地图片场景中加 `--ei decodeParallelism 2` 或 `4` 可比较 BitmapFactory 解码并发，并启用 `JoyfinImageProfile` 中不含 URL 的解码和图片完成耗时记录。正式应用仍使用 Coil 默认并发；未传入该参数的普通图片预览不记录这些耗时。
 
+## 首页轮播
+
+`page home` 正常场景提供 6 部去重推荐，复用首页最近加入数据；继续观看保持独立。每 8 秒自动切换，TV 在轮播按钮获得焦点时暂停，回到顶部导航后恢复；手机可在主视觉左右滑动。TV 在播放／查看剧集按钮上按左键切换上一部，在查看详情上按右键切换下一部，两个按钮之间仍用左右键移动焦点。界面不显示圆点、页码或左右箭头。
+
+进入详情再返回会恢复推荐作品；主视觉离屏、应用后台及滑动中暂停计时。背景按 1080p 请求，仅预加载下一张；自动切换等待背景准备好，手动切换遇到图片失败时保留已显示的背景，仍可查看目标作品。`scenario empty/error` 可检查空状态及重试。
+
+```sh
+adb shell am start -S -W -n dev.joyfin/.scenario.UiScenarioActivity --es page home --es scenario normal --el delayMs 80
+```
+
+可配合 `artworkBase` 本地图片服务记录 1920px 背景请求数量，区分轮播预加载与下方 320px 列表请求。
+
 ## 播放器、设置与侧边栏
 
 ```sh

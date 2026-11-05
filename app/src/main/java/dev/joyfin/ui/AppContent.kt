@@ -57,7 +57,7 @@ fun AppContent(
             Page.CONNECT -> if (ui.entry.server.isBlank()) "auth:input" else "auth:submit"
             Page.LOGIN -> if (ui.entry.userName.isBlank()) "auth:input" else "auth:password"
             Page.RESTORE -> "auth:change-server"
-            Page.HOME -> "hero:play"
+            Page.HOME -> if (LocalDeviceLayout.current.television) "header:home" else "hero:play"
             Page.DETAIL ->
                 if (ui.detail.entryType in setOf("Series", "Season", "Episode")) "header:back"
                 else "detail:play"

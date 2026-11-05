@@ -27,7 +27,8 @@ import dev.joyfin.ui.model.FirstViewportScrollSpec
 internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
     val home = homeContent(ui)
     val result = rememberHomeResult(home)
-    val featured = home.resume.firstOrNull() ?: home.latest.firstOrNull()
+    val carousel = rememberHomeCarousel(home, images)
+    val featured = carousel.current
     val pinResume = layout.visibleKeys(home.libraries.map { it.id }).firstOrNull() == "resume"
     val scroll = rememberLazyListState()
     val platformScroll = LocalBringIntoViewSpec.current
@@ -57,11 +58,17 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                             images,
                             0.dp,
                             Modifier.height(heroHeight).testTag("home:hero"),
+                            background = { HomeCarouselBackdrop(carousel) },
                         ) {
                             Column(Modifier.fillMaxSize()) {
                                 AppHeader(actions, active = "home")
                                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                                    HomeHeroContent(
+                                    val heroModifier = Modifier.align(
+                                        if (result.visible || resumeEmpty) Alignment.CenterStart else Alignment.BottomStart)
+                                    if (!result.visible && carousel.items.isNotEmpty()) HomeCarouselContent(
+                                        carousel, actions, heroModifier,
+                                        compact = maxHeight / LocalDensity.current.fontScale < 320.dp)
+                                    else HomeHeroContent(
                                         home,
                                         actions,
                                         modifier = Modifier.align(

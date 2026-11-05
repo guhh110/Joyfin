@@ -1,7 +1,7 @@
 package dev.joyfin.ui.theme
 
 import android.provider.Settings
-import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.snap
@@ -66,7 +66,7 @@ fun rememberMotionDuration(baseDurationMs: Int): Int {
 fun <T> rememberMotionSpec(
     baseDurationMs: Int,
     easing: Easing = MotionTokens.Easing,
-): AnimationSpec<T> {
+): FiniteAnimationSpec<T> {
     val duration = rememberMotionDuration(baseDurationMs)
     return remember(duration, easing) {
         if (duration <= 0) snap()

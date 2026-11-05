@@ -17,14 +17,16 @@ import dev.joyfin.ui.theme.Palette
 @Composable
 fun HeroBackdrop(
     item: Media?, images: ArtworkSource, minHeight: Dp, modifier: Modifier = Modifier,
-    artworkHeight: Dp? = null, content: @Composable BoxScope.() -> Unit,
+    artworkHeight: Dp? = null, background: (@Composable BoxScope.() -> Unit)? = null,
+    content: @Composable BoxScope.() -> Unit,
 ) {
     val tv = LocalDeviceLayout.current.television
     Box(modifier.fillMaxWidth().heightIn(min = minHeight)) {
         if (item != null) {
             Box(if (artworkHeight == null) Modifier.matchParentSize()
                 else Modifier.fillMaxWidth().height(artworkHeight)) {
-                Artwork(images.backdrop(item), images, Modifier.matchParentSize(),
+                if (background != null) background()
+                else Artwork(images.backdrop(item), images, Modifier.matchParentSize(),
                     alignment = if (tv) Alignment.CenterEnd else Alignment.TopCenter)
                 if (tv) Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
                     0f to Palette.Background.copy(alpha = .97f),
