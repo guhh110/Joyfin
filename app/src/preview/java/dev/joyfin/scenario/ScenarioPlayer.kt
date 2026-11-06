@@ -20,8 +20,8 @@ import kotlinx.coroutines.delay
 
 /** Local presentation fixture: no player, server, playback reports or real preferences. */
 @Composable
-internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, onClose: () -> Unit) {
-    var ui by remember(scenario) { mutableStateOf(playerFixture(scenario)) }
+internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, skipOffer: String? = null, onClose: () -> Unit) {
+    var ui by remember(scenario, skipOffer) { mutableStateOf(playerFixture(scenario, skipOffer)) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val seek = remember {
@@ -55,7 +55,7 @@ internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, onCl
         selectVersion = { ui = ui.copy(sourceId = it) },
         compatible = { ui = ui.copy(compatible = true, method = "Transcode", error = null) },
         selectCompatibility = { ui = ui.copy(compatible = it, method = if (it) "Transcode" else "DirectPlay") },
-        retry = { ui = playerFixture(Scenario.NORMAL) },
+        retry = { ui = playerFixture(Scenario.NORMAL, skipOffer) },
         cancelNext = { ui = ui.copy(nextSeconds = 0) },
         nextNow = { ui = ui.copy(nextSeconds = 0, positionMs = 0) },
         close = onClose,
@@ -67,6 +67,12 @@ internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, onCl
         setVideoScaleMode = { ui = ui.copy(videoScaleMode = it) },
         setToolbarPreferences = { ui = ui.copy(toolbar = it) },
         setSkipPreferences = { ui = ui.copy(navigation = ui.navigation.copy(preferences = it)) },
+        dismissSkip = { ui = ui.copy(navigation = ui.navigation.copy(offer = null, offerSeconds = 0, offerAutomatic = false)) },
+        skipSegment = {
+            val range = ui.navigation.offer
+            if (range != null) ui = ui.copy(positionMs = range.endMs,
+                navigation = ui.navigation.copy(offer = null, offerSeconds = 0, offerAutomatic = false))
+        },
     )
     BackHandler(onBack = onClose)
     Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -84,9 +90,9 @@ private fun fixtureEpisodes(season: Int): List<Media> = listOf(
         season = season, episode = index + 1, played = season == 1 && index < 2)
 }
 
-private fun playerFixture(scenario: Scenario): PlayerUiState {
+private fun playerFixture(scenario: Scenario, skipOffer: String? = null): PlayerUiState {
     val empty = scenario == Scenario.EMPTY
-    return PlayerUiState(
+    val fixture = PlayerUiState(
         title = "山海之间",
         subtitle = "S1 E3 · 风从山谷来 · 本地模拟",
         canSeek = true,
@@ -123,5 +129,19 @@ private fun playerFixture(scenario: Scenario): PlayerUiState {
             canConfigure = !empty,
             preferenceScope = "演示剧集 · 第 1 季 · 仅本次场景",
         ),
+    )
+    if (scenario != Scenario.NORMAL) return fixture
+    val offer = when (skipOffer) {
+        "auto-outro", "outro" -> fixture.navigation.ranges.last()
+        "intro" -> fixture.navigation.ranges.first()
+        else -> return fixture
+    }
+    // Freeze the presentation so the prompt remains available for visual review.
+    return fixture.copy(
+        positionMs = if (skipOffer == "auto-outro") offer.startMs - 3000 else offer.startMs,
+        navigation = fixture.navigation.copy(offer = offer,
+            preferences = fixture.navigation.preferences.copy(automatic = skipOffer == "auto-outro"),
+            offerSeconds = if (skipOffer == "auto-outro") 3 else 0,
+            offerAutomatic = skipOffer == "auto-outro"),
     )
 }

@@ -26,14 +26,20 @@ class PlayerControlsLayoutTest {
 
     @Test
     fun outroOfferIsVisibleWithHiddenControlsOnTvAndPhone() {
+        androidx.test.uiautomator.UiDevice.getInstance(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        ).pressDPadUp()
         var ui by mutableStateOf(dev.joyfin.playback.PlayerUiState(playing = true, canSeek = true))
         var tv by mutableStateOf(true)
         var skips = 0
+        var dismisses = 0
+        var undos = 0
         val actions = dev.joyfin.playback.PlayerActions(
             toggle = {}, preview = dev.joyfin.playback.SeekPreviewActions({}, {}, {}, {}, {}, {}),
             seek = {}, selectEpisode = {}, selectSeason = {}, selectAudio = {}, selectSubtitle = {},
             selectBitrate = {}, speed = {}, selectVersion = {}, compatible = {}, selectCompatibility = {},
             retry = {}, cancelNext = {}, nextNow = {}, close = {}, skipSegment = { skips++ },
+            dismissSkip = { dismisses++ }, undoSkip = { undos++ },
         )
         compose.mainClock.autoAdvance = false
         val scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -51,14 +57,32 @@ class PlayerControlsLayoutTest {
             compose.onNodeWithTag("player:toggle").assertDoesNotExist()
             compose.runOnIdle {
                 ui = ui.copy(navigation = dev.joyfin.playback.PlaybackNavigationState(
-                    offer = dev.joyfin.playback.SkipRange(55000, 60000, "片尾"), offerSeconds = 3))
+                    offer = dev.joyfin.playback.SkipRange(55000, 60000, "片尾"), offerSeconds = 3,
+                    offerAutomatic = true))
             }
             compose.mainClock.advanceTimeByFrame()
-            compose.onNodeWithText("跳过片尾 · 3 秒后进入片尾").assertIsDisplayed().performClick()
+            compose.onNodeWithText("3 秒后播放下一集").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("player:skip-dismiss").performSemanticsAction(
+                androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithTag("player:skip-dismiss").assertIsFocused().performClick()
             compose.runOnIdle { tv = false }
             compose.mainClock.advanceTimeByFrame()
-            compose.onNodeWithText("跳过片尾 · 3 秒后进入片尾").assertIsDisplayed().performClick()
+            compose.onNodeWithText("3 秒后播放下一集").assertIsDisplayed().performClick()
             compose.runOnIdle { assertEquals(2, skips) }
+            compose.runOnIdle { ui = ui.copy(navigation = ui.navigation.copy(offerAutomatic = false)) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithText("跳过片尾").assertIsDisplayed().performClick()
+            compose.onNodeWithContentDescription("不跳过").performClick()
+            compose.runOnIdle { ui = ui.copy(navigation = ui.navigation.copy(undoPositionMs = 1000)) }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithText("撤销跳过").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("player:skip-dismiss").assertDoesNotExist()
+            compose.runOnIdle {
+                assertEquals(3, skips)
+                assertEquals(2, dismisses)
+                assertEquals(1, undos)
+            }
         } finally {
             scenario.close()
             compose.mainClock.autoAdvance = true
