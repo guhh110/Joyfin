@@ -9,6 +9,32 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 class EpisodeProgressTest {
+    @Test fun playerSelectionQueryKeepsEpisodeIdentityAndWatchedStateWithoutHeavyMetadata() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val api = JellyfinApi("test-device").apply {
+                session = Session(server.url("/jellyfin").toString(), "test-token", "viewer", "Viewer")
+            }
+            server.enqueue(MockResponse().setBody("""{"Items":[
+                {"Id":"e950","Name":"Later episode","Type":"Episode","SeriesId":"show","SeasonId":"s1",
+                 "ParentIndexNumber":1,"IndexNumber":950,"UserData":{"Played":true}}
+            ]}"""))
+            val episode = api.playerEpisodes("show", "s1").single()
+            assertEquals("e950", episode.id)
+            assertEquals("show", episode.seriesId)
+            assertEquals("s1", episode.seasonId)
+            assertEquals("S1 E950 · Later episode", episode.label)
+            assertTrue(episode.played)
+            val url = requireNotNull(server.takeRequest(3, TimeUnit.SECONDS)).requestUrl!!
+            assertEquals("/jellyfin/Shows/show/Episodes", url.encodedPath)
+            assertEquals("s1", url.queryParameter("SeasonId"))
+            assertEquals("ParentId", url.queryParameter("Fields"))
+            assertEquals("false", url.queryParameter("EnableImages"))
+            assertEquals("true", url.queryParameter("EnableUserData"))
+            assertNull(url.queryParameter("Limit"))
+        }
+    }
+
     @Test fun progressQueryKeepsViewingHistoryWithoutRequestingFullEpisodeMetadata() = runBlocking {
         MockWebServer().use { server ->
             server.start()

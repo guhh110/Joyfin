@@ -692,7 +692,7 @@ class PlaybackController(
             try {
                 val (seasons, episodes) = coroutineScope {
                     val seasons = async { api.seasons(media.seriesId) }
-                    val episodes = async { api.episodes(media.seriesId, media.seasonId.takeIf { it.isNotBlank() }) }
+                    val episodes = async { api.playerEpisodes(media.seriesId, media.seasonId.takeIf { it.isNotBlank() }) }
                     seasons.await() to episodes.await()
                 }
                 ensureActive()
@@ -729,7 +729,7 @@ class PlaybackController(
         }
         seasonJob = scope.launch {
             try {
-                val episodes = api.episodes(media.seriesId, id)
+                val episodes = api.playerEpisodes(media.seriesId, id)
                 ensureActive()
                 if (released || token != seasonGeneration || owner != metadataGeneration || media.id != currentId) return@launch
                 mutable.update { it.copy(episodes = episodes) }
