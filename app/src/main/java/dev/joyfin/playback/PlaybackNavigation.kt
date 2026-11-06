@@ -34,10 +34,11 @@ data class PlaybackNavigationState(
     val canSharePreferences: Boolean = false,
     val separateVersions: Boolean = false,
     val offerSeconds: Int = 0,
+    val offerAutomatic: Boolean = false,
 ) {
     val skipLabel: String get() = when {
         undoPositionMs != null -> "撤销跳过"
-        offerSeconds > 0 -> "跳过片尾 · ${offerSeconds} 秒后进入片尾"
+        offerAutomatic && offer?.label == "片尾" && offerSeconds > 0 -> "${offerSeconds} 秒后播放下一集"
         else -> "跳过${offer?.label.orEmpty()}"
     }
 }
@@ -178,7 +179,7 @@ internal class PlaybackNavigation(
         undoRange = null
         update(current.copy(preferences = preferences, preferenceScope = target.label,
             separateVersions = enabled, legacyPreferences = loadLegacyPreferences(target),
-            ranges = resolveRanges(preferences), offer = null, offerSeconds = 0, undoPositionMs = null,
+            ranges = resolveRanges(preferences), offer = null, offerSeconds = 0, offerAutomatic = false, undoPositionMs = null,
             markFeedback = null, canUndoMark = false))
     }
     fun retry() {
@@ -213,7 +214,7 @@ internal class PlaybackNavigation(
         automaticSuppressed.clear()
         undoRange = null
         markUndo = null
-        update(current.copy(preferences = preferences, offer = null, offerSeconds = 0, undoPositionMs = null,
+        update(current.copy(preferences = preferences, offer = null, offerSeconds = 0, offerAutomatic = false, undoPositionMs = null,
             markFeedback = null, ranges = resolveRanges(preferences), canUndoMark = false, legacyPreferences = null))
     }
 
@@ -287,12 +288,14 @@ internal class PlaybackNavigation(
             (!nextEpisode || canPlayNext) && position >= offerStart && position < it.endMs && it.key !in suppressed
         }
         val offerSeconds = range?.let { ((it.startMs - position + 999) / 1000).coerceIn(0, 3).toInt() } ?: 0
+        val offerAutomatic = range != null && current.preferences.automatic && automaticAllowed &&
+            range.label !in automaticSuppressed
         val undo = current.undoPositionMs?.takeIf { now <= undoUntil }
         update(current.copy(chapters = chapters, ranges = ranges, offer = range, offerSeconds = offerSeconds, undoPositionMs = undo,
+            offerAutomatic = offerAutomatic,
             markFeedback = current.markFeedback?.takeIf { now <= feedbackUntil },
             serverMarks = PlaybackNavigationPolicy.ranges(server, duration, SkipPreferences(), false).size))
-        if (range != null && position >= range.startMs && current.preferences.automatic && automaticAllowed &&
-            range.label !in automaticSuppressed)
+        if (range != null && position >= range.startMs && offerAutomatic)
             return skip(position, now)
         return null
     }
@@ -304,19 +307,22 @@ internal class PlaybackNavigation(
         suppressed += range.key
         if (nextEpisode) {
             undoRange = null
-            update(current.copy(offer = null, offerSeconds = 0, undoPositionMs = null))
+            update(current.copy(offer = null, offerSeconds = 0, offerAutomatic = false, undoPositionMs = null))
             return PlaybackSkipAction.NextEpisode
         }
         undoRange = range
         undoUntil = now + 8000
-        update(current.copy(offer = null, offerSeconds = 0, undoPositionMs = position))
+        update(current.copy(offer = null, offerSeconds = 0, offerAutomatic = false, undoPositionMs = position))
         return PlaybackSkipAction.Seek(range.endMs)
     }
-    fun dismiss() { current.offer?.let { suppressed += it.key }; update(current.copy(offer = null, offerSeconds = 0)) }
+    fun dismiss() {
+        current.offer?.let { suppressed += it.key }
+        update(current.copy(offer = null, offerSeconds = 0, offerAutomatic = false))
+    }
     fun undo(now: Long): Long? {
         val position = current.undoPositionMs?.takeIf { now <= undoUntil } ?: return null
         undoRange?.let { suppressed += it.key }
-        update(current.copy(offer = null, offerSeconds = 0, undoPositionMs = null))
+        update(current.copy(offer = null, offerSeconds = 0, offerAutomatic = false, undoPositionMs = null))
         return position
     }
 }

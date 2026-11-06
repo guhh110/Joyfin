@@ -149,7 +149,7 @@ class UiScenarioActivity : ComponentActivity() {
                     }
                 }
                 if (showPlayer) {
-                    ScenarioPlayer(scenario, initialPanel) { showPlayer = false }
+                    ScenarioPlayer(scenario, initialPanel, intent.getStringExtra("skipOffer")) { showPlayer = false }
                 } else Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                     if (intent.getStringExtra("page") != "audit") Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                         Caption("UI 演示 · 本地模拟")

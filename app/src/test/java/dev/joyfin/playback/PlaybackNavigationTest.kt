@@ -76,6 +76,7 @@ class PlaybackNavigationTest {
             assertNull(controller.tick(position, 600000, true, 0, canPlayNext = true))
             assertEquals("片尾", state.offer?.label)
             assertEquals(seconds, state.offerSeconds)
+            assertEquals("$seconds 秒后播放下一集", state.skipLabel)
         }
         // Even a server outro that ends before EOF goes directly to the next episode.
         assertEquals(PlaybackSkipAction.NextEpisode,
@@ -94,6 +95,7 @@ class PlaybackNavigationTest {
         advanceUntilIdle()
         assertNull(controller.tick(537000, 600000, true, 0, canPlayNext = true))
         assertEquals(3, state.offerSeconds)
+        assertEquals("跳过片尾", state.skipLabel)
         assertEquals(PlaybackSkipAction.NextEpisode, controller.skip(537000, 0))
         assertNull(state.undoPositionMs)
     }
@@ -121,16 +123,21 @@ class PlaybackNavigationTest {
         assertNull(state.offer)
         assertNull(controller.tick(540000, 600000, false, 1, canPlayNext = true))
         assertNotNull(state.offer)
+        assertFalse(state.offerAutomatic)
         assertEquals(PlaybackSkipAction.NextEpisode,
             controller.tick(540300, 600000, true, 2, canPlayNext = true))
     }
 
     @Test fun newlyMarkedOutroDoesNotImmediatelyAdvanceAndManualModeWaitsForAChoice() = runTest {
+        var state = PlaybackNavigationState()
         val controller = PlaybackNavigation(this, { SkipPreferences(automatic = true) }, { _, _ -> },
-            { emptyList() }, {}, {})
+            { emptyList() }, { state = it }, {})
         controller.open(episode, "version")
         advanceUntilIdle()
         controller.markOutroStart(540000, 600000, 0)
+        assertNull(controller.tick(537000, 600000, true, 0, canPlayNext = true))
+        assertFalse(state.offerAutomatic)
+        assertEquals("跳过片尾", state.skipLabel)
         assertNull(controller.tick(540000, 600000, true, 1, canPlayNext = true))
         controller.preferences(SkipPreferences(outroSeconds = 60, automatic = false))
         assertNull(controller.tick(540000, 600000, true, 2, canPlayNext = true))
