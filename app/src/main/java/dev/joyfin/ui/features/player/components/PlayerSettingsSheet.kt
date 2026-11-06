@@ -67,6 +67,10 @@ fun PlayerSettingsSheet(
         PlaybackDiagnosticsSheet(onDismiss)
         return
     }
+    if (panel == PlayerPanel.Episodes || panel == PlayerPanel.Seasons) {
+        PlayerEpisodeSheet(panel, ui, actions, onPanel, onDismiss, initialFocus)
+        return
+    }
     key(panel) {
         RememberScreenFocus(initialFocus) {
             Sheet(panel.title, onDismiss, side = true, preferredWidth = 420.dp) {
@@ -156,56 +160,7 @@ fun PlayerSettingsSheet(
                                 actions.speed(speed)
                             }
                         }
-                    PlayerPanel.Episodes -> {
-                        ActionButton(
-                            ui.seasons.firstOrNull { it.id == ui.selectedSeasonId }?.name ?: "切换季",
-                            { onPanel(PlayerPanel.Seasons) },
-                            modifier = Modifier.focusTarget("player:episode-season"),
-                            icon = Glyph.Down,
-                        )
-                        if (ui.episodeError != null) {
-                            Caption(ui.episodeError)
-                            ActionButton(
-                                "重试读取剧集",
-                                { ui.selectedSeasonId?.let(actions.selectSeason) },
-                            )
-                        } else if (ui.episodes.isEmpty()) Caption("暂无可选剧集")
-                        ui.episodes.forEach { episode ->
-                            val isPlaying = episode.id == ui.itemId
-                            ChoiceRow(
-                                episode.label,
-                                subtitle =
-                                    if (isPlaying) "正在播放"
-                                    else if (episode.played) "已看" else "",
-                                selected = isPlaying,
-                                leading = {
-                                    Box(Modifier.size(36.dp)
-                                        .background(if (isPlaying) Palette.Text else Palette.Elevated,
-                                            RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
-                                        if (isPlaying) AppIcon(Glyph.Play, Modifier.size(18.dp), color = Palette.Background)
-                                        else Caption(episode.episode.toString(), color = Palette.Text)
-                                    }
-                                },
-                                modifier = Modifier.focusTarget(panel.choiceKey(episode.id)),
-                            ) {
-                                onDismiss()
-                                actions.selectEpisode(episode)
-                            }
-                        }
-                    }
-                    PlayerPanel.Seasons -> {
-                        if (ui.seasons.isEmpty()) Caption("暂无季信息")
-                        ui.seasons.forEach { season ->
-                            ChoiceRow(
-                                season.name,
-                                selected = season.id == ui.selectedSeasonId,
-                                modifier = Modifier.focusTarget(panel.choiceKey(season.id)),
-                            ) {
-                                actions.selectSeason(season.id)
-                                onPanel(PlayerPanel.Episodes)
-                            }
-                        }
-                    }
+                    PlayerPanel.Episodes, PlayerPanel.Seasons -> Unit
                     PlayerPanel.Versions -> {
                         if (ui.versions.isEmpty()) Caption("暂无其他媒体版本")
                         ui.versions.forEach { version ->

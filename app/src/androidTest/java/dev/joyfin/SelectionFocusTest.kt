@@ -44,13 +44,13 @@ class SelectionFocusTest {
             close = {},
         )
 
-    private fun mount(content: @Composable () -> Unit): ActivityScenario<MainActivity> =
+    private fun mount(television: Boolean = true, content: @Composable () -> Unit): ActivityScenario<MainActivity> =
         ActivityScenario.launch(MainActivity::class.java).also { scenario ->
             scenario.onActivity { activity ->
                 activity.setContent {
                     BoundlessTheme {
                         CompositionLocalProvider(
-                            LocalDeviceLayout provides DeviceLayout(true, 960)
+                            LocalDeviceLayout provides DeviceLayout(television, 960)
                         ) {
                             content()
                         }
@@ -58,6 +58,80 @@ class SelectionFocusTest {
                 }
             }
         }
+
+    @Test
+    fun thousandEpisodeTvListComposesOnlyViewportAndKeepsFocusWhileScrolling() {
+        androidx.test.uiautomator.UiDevice.getInstance(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()).pressDPadUp()
+        val longEpisodes = (1..1000).map { Media("e$it", "第 $it 集", "Episode", episode = it) }
+        var ui by mutableStateOf(PlayerUiState(episodes = longEpisodes, itemId = "e950", selectedSeasonId = "s1"))
+        var picked: Media? = null
+        val scenario = mount { PlayerSettingsSheet(PlayerPanel.Episodes, ui,
+            actions.copy(selectEpisode = { picked = it }), {}, {}) }
+        try {
+            val current = compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e950"))
+            current.assertIsDisplayed().assertIsFocused()
+            val episodeRows = compose.onAllNodes(SemanticsMatcher("episode row") { node ->
+                node.config.getOrElse(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { "" }
+                    .startsWith("player-choice:Episodes:")
+            }).fetchSemanticsNodes()
+            org.junit.Assert.assertTrue("Only the viewport should be composed, got ${episodeRows.size}",
+                episodeRows.size in 1..30)
+            repeat(12) {
+                compose.onNode(isFocused()).performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionDown) }
+            }
+            val later = compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e962"))
+            later.assertIsFocused().assertIsDisplayed()
+            compose.runOnIdle { ui = ui.copy(positionMs = 1234) }
+            later.assertIsFocused().performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionCenter) }
+            compose.runOnIdle { org.junit.Assert.assertEquals("e962", picked?.id) }
+            compose.onNodeWithTag("player:episode-season").assertIsDisplayed()
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun thousandEpisodePhoneListOpensAtCurrentEpisodeAndCanChooseAfterScrolling() {
+        val longEpisodes = (1..1000).map { Media("e$it", "第 $it 集", "Episode", episode = it) }
+        val ui = PlayerUiState(episodes = longEpisodes, itemId = "e950", selectedSeasonId = "s1")
+        var picked: Media? = null
+        val scenario = mount(television = false) { PlayerSettingsSheet(PlayerPanel.Episodes, ui,
+            actions.copy(selectEpisode = { picked = it }), {}, {}) }
+        try {
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e950")).assertIsDisplayed()
+            compose.onNodeWithTag("player:episode-list").performScrollToNode(hasTestTag(PlayerPanel.Episodes.choiceKey("e980")))
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e980")).assertIsDisplayed().performClick()
+            compose.runOnIdle { org.junit.Assert.assertEquals("e980", picked?.id) }
+            compose.onNodeWithTag("player:episode-season").assertIsDisplayed()
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
+    fun switchingSeasonResetsLongListAndLateRowsDoNotStealDeliberatelyMovedFocus() {
+        androidx.test.uiautomator.UiDevice.getInstance(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()).pressDPadUp()
+        val longEpisodes = (1..1000).map { Media("e$it", "第 $it 集", "Episode", episode = it) }
+        var ui by mutableStateOf(PlayerUiState(episodes = longEpisodes, itemId = "e950", selectedSeasonId = "s1"))
+        val scenario = mount { PlayerSettingsSheet(PlayerPanel.Episodes, ui, actions, {}, {}) }
+        try {
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e950")).assertIsDisplayed().assertIsFocused()
+            compose.runOnIdle { ui = ui.copy(selectedSeasonId = "s2", episodes = emptyList()) }
+            compose.onNodeWithTag("player:episode-season").assertIsFocused()
+            val secondSeason = listOf(Media("s2e1", "新的季", "Episode", season = 2, episode = 1))
+            compose.runOnIdle { ui = ui.copy(episodes = secondSeason) }
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("s2e1")).assertIsDisplayed().assertIsFocused()
+            compose.runOnIdle { ui = ui.copy(selectedSeasonId = "s1", episodes = emptyList()) }
+            compose.onNodeWithTag("player:episode-season").assertIsFocused()
+            compose.onNodeWithTag("sheet:close").performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.runOnIdle { ui = ui.copy(episodes = longEpisodes) }
+            compose.onNodeWithTag("sheet:close").assertIsFocused()
+        } finally {
+            scenario.close()
+        }
+    }
 
     @Test
     fun repeatedSkipButtonConfirmationsAccumulateAndAllowDirectionChanges() {
