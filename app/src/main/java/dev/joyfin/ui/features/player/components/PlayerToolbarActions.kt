@@ -77,7 +77,8 @@ internal fun PlayerToolbarAction.enabled(ui: PlayerUiState): Boolean {
     val playbackAvailable = !ui.loading && ui.error == null && !ui.subtitleApplying &&
         !ui.subtitleSearchOpen && ui.nextSeconds == 0
     return when (this) {
-        PlayerToolbarAction.EPISODES -> ui.episodes.isNotEmpty() || ui.seasons.isNotEmpty()
+        PlayerToolbarAction.EPISODES -> ui.episodes.isNotEmpty() || ui.seasons.isNotEmpty() ||
+            ui.episodesLoading || ui.seasonsLoading || ui.episodeError != null || ui.seasonsError != null
         PlayerToolbarAction.AUDIO -> ui.audio.isNotEmpty()
         PlayerToolbarAction.NEXT -> playbackAvailable && ui.nextItem != null
         PlayerToolbarAction.CHAPTERS -> playbackAvailable && ui.canSeek && ui.navigation.timelineAvailable &&

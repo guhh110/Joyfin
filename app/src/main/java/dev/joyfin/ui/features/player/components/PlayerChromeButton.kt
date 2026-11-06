@@ -34,6 +34,7 @@ internal fun PlayerChromeButton(
     text: String? = null,
     enabled: Boolean = true,
     selected: Boolean = false,
+    compact: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
@@ -60,15 +61,15 @@ internal fun PlayerChromeButton(
             )
             .semantics { contentDescription = label }
             .stableAction(enabled, interaction, onClick)
-            .padding(horizontal = if (text == null) 0.dp else if (tv) 16.dp else 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            .padding(horizontal = if (text == null) 0.dp else if (compact) 8.dp else if (tv) 16.dp else 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIcon(glyph, Modifier.size(if (text == null) 22.dp else 20.dp), color = tint)
+        AppIcon(glyph, Modifier.size(if (text == null) 22.dp else if (compact) 18.dp else 20.dp), color = tint)
         if (text != null) Text(
             text,
             color = tint,
-            fontSize = if (tv) 15.sp else 14.sp,
+            fontSize = if (tv && !compact) 15.sp else 14.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

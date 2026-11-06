@@ -23,6 +23,7 @@ internal fun TvSheetLayout(
     actions: (@Composable ColumnScope.() -> Unit)?,
     scrollContent: Boolean,
     preferredWidth: androidx.compose.ui.unit.Dp?,
+    header: (@Composable RowScope.() -> Unit)?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
@@ -64,6 +65,7 @@ internal fun TvSheetLayout(
                 actions,
                 scrollContent,
                 isMobileBottom = false,
+                header = header,
                 content = content,
             )
         }

@@ -26,6 +26,8 @@ fun NextEpisodeCard(
     onNext: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    paused: Boolean = false,
+    buffering: Boolean = false,
 ) {
     val cardShape = RoundedCornerShape(16.dp)
     Column(
@@ -42,7 +44,11 @@ fun NextEpisodeCard(
         ) {
             MediaPill("${seconds}s", icon = Glyph.Clock, highlight = true)
             Text(
-                "即将播放下一集",
+                when {
+                    buffering -> "缓冲中 · 等待播放继续"
+                    paused -> "已暂停 · 连播倒计时暂停"
+                    else -> "即将播放下一集"
+                },
                 color = Palette.Text,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,

@@ -44,8 +44,10 @@ class SelectionFocusTest {
             close = {},
         )
 
-    private fun mount(television: Boolean = true, content: @Composable () -> Unit): ActivityScenario<MainActivity> =
-        ActivityScenario.launch(MainActivity::class.java).also { scenario ->
+    private fun mount(television: Boolean = true, content: @Composable () -> Unit): ActivityScenario<MainActivity> {
+        if (television) androidx.test.uiautomator.UiDevice.getInstance(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()).pressDPadUp()
+        return ActivityScenario.launch(MainActivity::class.java).also { scenario ->
             scenario.onActivity { activity ->
                 activity.setContent {
                     BoundlessTheme {
@@ -58,6 +60,58 @@ class SelectionFocusTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun episodeGroupsAppearOnlyAboveFiftyAndJumpWithoutPlayingOnTv() {
+        androidx.test.uiautomator.UiDevice.getInstance(
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()).pressDPadUp()
+        var ui by mutableStateOf(PlayerUiState(episodes = episodes(50), itemId = "e30", selectedSeasonId = "s1"))
+        var picked = 0
+        val scenario = mount { PlayerSettingsSheet(PlayerPanel.Episodes, ui,
+            actions.copy(selectEpisode = { picked++ }), {}, {}) }
+        try {
+            compose.onNodeWithTag("player:episode-groups").assertDoesNotExist()
+            compose.runOnIdle { ui = ui.copy(episodes = episodes(51)) }
+            compose.onNodeWithTag("player:episode-groups").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("player:episode-group:1").assertIsDisplayed().performClick()
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e51")).assertIsDisplayed().assertIsFocused()
+            compose.runOnIdle { org.junit.Assert.assertEquals(0, picked) }
+            compose.onNodeWithTag("player:episode-groups").performClick()
+            compose.onNodeWithTag("player:episode-groups-back").performClick()
+            compose.onNodeWithTag("player:episode-groups").assertIsFocused()
+            compose.onNodeWithTag("player:episode-list").performScrollToNode(hasTestTag(PlayerPanel.Episodes.choiceKey("e49")))
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e49")).performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.runOnIdle { ui = ui.copy(episodes = ui.episodes.map { it.copy(played = true) }) }
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e49")).assertIsFocused()
+        } finally { scenario.close() }
+    }
+
+    private fun episodes(count: Int) = (1..count).map { Media("e$it", "第 $it 集", "Episode", episode = it) }
+
+    @Test
+    fun phoneGroupNavigationAndLoadingErrorRetryStatesAreDistinct() {
+        var ui by mutableStateOf(PlayerUiState(episodesLoading = true, selectedSeasonId = "s1"))
+        var retries = 0
+        val scenario = mount(television = false) { PlayerSettingsSheet(PlayerPanel.Episodes, ui,
+            actions.copy(retryEpisodes = { retries++ }), {}, {}) }
+        try {
+            compose.onNodeWithText("正在读取剧集…").assertIsDisplayed()
+            compose.onNodeWithText("本季暂无可选剧集").assertDoesNotExist()
+            compose.runOnIdle { ui = ui.copy(episodesLoading = false, episodeError = "网络连接失败") }
+            compose.onNodeWithText("网络连接失败").assertIsDisplayed()
+            compose.onNodeWithText("重试加载").performClick()
+            compose.runOnIdle {
+                org.junit.Assert.assertEquals(1, retries)
+                ui = ui.copy(episodeError = null)
+            }
+            compose.onNodeWithText("本季暂无可选剧集").assertIsDisplayed()
+            compose.runOnIdle { ui = ui.copy(episodes = episodes(123)) }
+            compose.onNodeWithTag("player:episode-groups").performClick()
+            compose.onNodeWithTag("player:episode-group:2").performClick()
+            compose.onNodeWithTag(PlayerPanel.Episodes.choiceKey("e101")).assertIsDisplayed().performClick()
+        } finally { scenario.close() }
+    }
 
     @Test
     fun thousandEpisodeTvListComposesOnlyViewportAndKeepsFocusWhileScrolling() {

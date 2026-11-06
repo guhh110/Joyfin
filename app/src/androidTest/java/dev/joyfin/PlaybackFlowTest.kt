@@ -55,8 +55,13 @@ class PlaybackFlowTest {
     fun selectingAnEpisodeAfterHalfwayDoesNotApplyTheNextButtonWatchedRule() =
         checkOutroTransition(automatic = false, nextHalfOffsetMs = 1, pickEpisode = true)
 
+    @Test
+    fun countdownWaitsWhilePausedAndUsesSpeedAndNewSeekPosition() =
+        checkOutroTransition(automatic = false, autoNext = true, verifyCountdown = true)
+
     private fun checkOutroTransition(automatic: Boolean, autoNext: Boolean = false, outroDurationMs: Long = 5000,
-        nextHalfOffsetMs: Long? = null, pickEpisode: Boolean = false, failFirstMark: Boolean = false) {
+        nextHalfOffsetMs: Long? = null, pickEpisode: Boolean = false, failFirstMark: Boolean = false,
+        verifyCountdown: Boolean = false) {
         val inst = InstrumentationRegistry.getInstrumentation()
         val context = inst.targetContext
         val store = SessionStore(context)
@@ -71,6 +76,8 @@ class PlaybackFlowTest {
         val closed = java.util.concurrent.atomic.AtomicInteger()
         val events = ConcurrentLinkedQueue<String>()
         val markAttempts = java.util.concurrent.atomic.AtomicInteger()
+        val holdStream = java.util.concurrent.atomic.AtomicBoolean()
+        val streamGate = java.util.concurrent.CountDownLatch(1)
         val source = """{"Id":"source","SupportsDirectPlay":true,"Container":"mp4","MediaStreams":[{"Type":"Video","Index":0,"Codec":"h264","Width":320,"Height":180},{"Type":"Audio","Index":1,"Codec":"aac","Channels":2}]}"""
         fun episode(id: String) = """{"Id":"$id","Name":"$id","Type":"Episode","SeriesId":"series","ParentId":"season","RunTimeTicks":600000000,"MediaSources":[$source]}"""
         fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
@@ -94,6 +101,7 @@ class PlaybackFlowTest {
                     path.endsWith("/Shows/series/Episodes") -> json("""{"Items":[${episode("first")},${episode("second")}]}""")
                     path.endsWith("/PlaybackInfo") -> json("""{"PlaySessionId":"${path.substringBeforeLast('/')}","MediaSources":[$source]}""")
                     path.endsWith("/stream") -> {
+                        if (holdStream.get()) streamGate.await(15, java.util.concurrent.TimeUnit.SECONDS)
                         val offset = request.getHeader("Range")?.substringAfter("bytes=")
                             ?.substringBefore('-')?.toIntOrNull() ?: 0
                         if (offset >= bytes.size) return MockResponse().setResponseCode(416)
@@ -127,6 +135,46 @@ class PlaybackFlowTest {
                 await { controller.state.value.let { it.playing && it.canSeek && it.nextItem != null && !it.loading } }
             } catch (e: AssertionError) {
                 throw AssertionError("Playback did not start: ${controller.state.value}; closed=${closed.get()}; requests=${server.requestCount}", e)
+            }
+            if (verifyCountdown) {
+                inst.runOnMainSync {
+                    controller.player.seekTo(controller.player.duration - 4800)
+                    controller.player.play()
+                }
+                await { controller.state.value.nextSeconds > 0 }
+                inst.runOnMainSync { controller.player.pause() }
+                SystemClock.sleep(500)
+                val paused = controller.state.value.nextSeconds
+                SystemClock.sleep(5500)
+                assertEquals("first", controller.state.value.itemId)
+                assertEquals(paused, controller.state.value.nextSeconds)
+                holdStream.set(true)
+                inst.runOnMainSync {
+                    controller.player.stop()
+                    controller.player.prepare()
+                    controller.player.play()
+                }
+                await { controller.state.value.loading }
+                val buffering = controller.state.value.nextSeconds
+                SystemClock.sleep(5500)
+                assertEquals("first", controller.state.value.itemId)
+                assertEquals(buffering, controller.state.value.nextSeconds)
+                holdStream.set(false)
+                streamGate.countDown()
+                await { controller.state.value.let { !it.loading && it.playing } }
+                inst.runOnMainSync { controller.player.pause() }
+                inst.runOnMainSync { controller.actions.speed(2f) }
+                await { controller.state.value.nextSeconds in 1..3 }
+                inst.runOnMainSync { controller.actions.seek(30000) }
+                await { controller.state.value.nextSeconds == 0 }
+                inst.runOnMainSync {
+                    controller.player.seekTo(controller.player.duration - 3500)
+                    controller.player.play()
+                }
+                await { controller.state.value.nextSeconds > 0 }
+                await { controller.state.value.let { it.itemId == "second" && it.playing } }
+                assertEquals(0, closed.get())
+                return
             }
             inst.runOnMainSync {
                 if (nextHalfOffsetMs == null)
@@ -170,6 +218,7 @@ class PlaybackFlowTest {
                 assertTrue(events.filter { it.startsWith("watched:") }.all { it == "watched:first" })
             } else assertEquals(0, markAttempts.get())
         } finally {
+            streamGate.countDown()
             inst.runOnMainSync { if (created) controller.release() }
             scope.cancel()
             store.autoNext = previousAutoNext
