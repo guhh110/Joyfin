@@ -71,14 +71,15 @@ class PlaybackController(
     private var wasPlaying = false
     private var suspendedPlayback = false
     private var loadJob: Job? = null
-    private var metadataJob: Job? = null
-    private var seasonJob: Job? = null
     private var countdown: Job? = null
     private var countdownDismissed = false
     private var pollJob: Job? = null
     private var reportJob: Job? = null
-    private var metadataGeneration = 0L
-    private var seasonGeneration = 0L
+    private val episodeCatalog = PlayerEpisodeCatalog(scope, api::seasons, api::playerEpisodes,
+        { value -> mutable.update { it.copy(seasons = value.seasons, episodes = value.episodes,
+            selectedSeasonId = value.seasonId, episodesLoading = value.loading, seasonsLoading = value.seasonsLoading,
+            episodeError = value.error, seasonsError = value.seasonsError) } },
+        { onClose(true) }, android.os.SystemClock::elapsedRealtime)
     private val nextEpisode = NextEpisodePreparation(scope, api::nextEpisode, api::item,
         { value -> mutable.update { it.copy(nextItem = value.next, nextPreparing = value.loading,
             nextPreparationError = value.error) } }, { onClose(true) }, android.os.SystemClock::elapsedRealtime)
@@ -272,6 +273,7 @@ class PlaybackController(
             retrySegments = navigation::retry,
             setNavigationBlocked = { navigationBlocked = it },
             retryNext = nextEpisode::retry,
+            retryEpisodes = episodeCatalog::retry,
             setVideoScaleMode = { mode ->
                 if (!released && mutable.value.videoScaleMode != mode) {
                     videoScalePreferences.mode = mode
@@ -473,17 +475,11 @@ class PlaybackController(
             )
         }
         if (fetch) {
-            metadataGeneration++
-            seasonGeneration++
-            metadataJob?.cancel()
-            seasonJob?.cancel()
+            episodeCatalog.suspendRequests()
             nextEpisode.clear()
             mutable.update {
                 it.copy(
-                    episodes = emptyList(),
-                    seasons = emptyList(),
                     nextItem = null,
-                    episodeError = null,
                 )
             }
         }
@@ -535,7 +531,7 @@ class PlaybackController(
                             },
                     )
                 }
-                if (fetch) loadEpisodeMetadata(media)
+                if (fetch) episodeCatalog.open(media)
                 val source =
                     media.sources.firstOrNull { sourceId == null || it.id == sourceId }
                 PlaybackDiagnostics.preparing(diagnostics, bitrate, compatible, environment.forceAudioTranscode, environment.isFallback)
@@ -684,66 +680,7 @@ class PlaybackController(
         }
     }
 
-    /** Metadata browsing has its own job: changing an audio track cannot cancel season loading. */
-    private fun loadEpisodeMetadata(media: Media) {
-        if (media.type != "Episode" || media.seriesId.isBlank()) return
-        val token = metadataGeneration
-        val selection = seasonGeneration
-        metadataJob = scope.launch {
-            try {
-                val (seasons, episodes) = coroutineScope {
-                    val seasons = async { api.seasons(media.seriesId) }
-                    val episodes = async { api.playerEpisodes(media.seriesId, media.seasonId.takeIf { it.isNotBlank() }) }
-                    seasons.await() to episodes.await()
-                }
-                ensureActive()
-                if (released || token != metadataGeneration || media.id != currentId) return@launch
-                mutable.update {
-                    it.copy(
-                        seasons = seasons,
-                        episodes = if (selection == seasonGeneration) episodes else it.episodes,
-                        selectedSeasonId = if (selection == seasonGeneration)
-                            media.seasonId.takeIf { id -> id.isNotBlank() } else it.selectedSeasonId,
-                        episodeError = if (selection == seasonGeneration) null else it.episodeError,
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                ensureActive()
-                if (released || token != metadataGeneration || media.id != currentId) return@launch
-                if (e is ApiException && e.status == 401) onClose(true)
-                else if (selection == seasonGeneration)
-                    mutable.update { it.copy(episodeError = "读取剧集信息失败，请重新选择季重试") }
-            }
-        }
-    }
-
-    private fun selectSeason(id: String) {
-        val media = item ?: return
-        if (media.seriesId.isBlank()) return
-        seasonJob?.cancel()
-        val token = ++seasonGeneration
-        val owner = metadataGeneration
-        mutable.update {
-            it.copy(selectedSeasonId = id, episodes = emptyList(), episodeError = null)
-        }
-        seasonJob = scope.launch {
-            try {
-                val episodes = api.playerEpisodes(media.seriesId, id)
-                ensureActive()
-                if (released || token != seasonGeneration || owner != metadataGeneration || media.id != currentId) return@launch
-                mutable.update { it.copy(episodes = episodes) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                ensureActive()
-                if (released || token != seasonGeneration || owner != metadataGeneration || media.id != currentId) return@launch
-                if (e is ApiException && e.status == 401) onClose(true)
-                else mutable.update { it.copy(episodeError = e.message ?: "读取剧集失败，请重试") }
-            }
-        }
-    }
+    private fun selectSeason(id: String) = episodeCatalog.select(id)
 
     private fun playNextEpisode(markWatched: Boolean = false) {
         val ui = mutable.value
@@ -753,6 +690,7 @@ class PlaybackController(
         val duration = player.duration.takeIf { it > 0 } ?: ui.durationMs
         val watched = markWatched && started && plan != null && item?.type == "Episode" &&
             duration > 0 && position > duration / 2
+        if (watched) episodeCatalog.markWatched(currentId)
         playEpisode(upcoming, markPreviousWatched = watched)
     }
 
@@ -854,7 +792,7 @@ class PlaybackController(
         } else seek(target, dismissCountdown = false)
     }
 
-    private fun seek(target: Long) = seek(target, dismissCountdown = true)
+    private fun seek(target: Long) = seek(target, dismissCountdown = false)
 
     private fun seek(target: Long, dismissCountdown: Boolean) {
         if (!mutable.value.canSeek || mutable.value.loading || mutable.value.error != null ||
@@ -1219,12 +1157,6 @@ class PlaybackController(
             ensureActive()
             if (released || generation != playbackGeneration) return@launch
             if (upcoming == null) { onClose(false); return@launch }
-            for (seconds in 5 downTo 1) {
-                ensureActive()
-                if (released || generation != playbackGeneration) return@launch
-                mutable.update { it.copy(nextSeconds = seconds, nextItem = upcoming) }
-                delay(1000)
-            }
             ensureActive()
             if (released || generation != playbackGeneration) return@launch
             mutable.update { it.copy(nextSeconds = 0) }
@@ -1235,29 +1167,17 @@ class PlaybackController(
     private fun checkUpcomingCountdown(positionMs: Long, durationMs: Long, playing: Boolean) {
         if (item?.type == "Episode" && mutable.value.navigation.offer?.label == "片尾") {
             // The outro offer owns this transition, including outros shorter than five seconds.
-            if (countdown != null) cancelCountdown(dismiss = false)
+            if (countdown != null || mutable.value.nextSeconds > 0) cancelCountdown(dismiss = false)
             return
         }
-        if (!store.autoNext || countdown != null || countdownDismissed || !playing) return
-        if (durationMs <= 10_000L || positionMs < 0) return
-        val remainingMs = durationMs - positionMs
-        if (remainingMs in 0..5_000L) {
-            val upcoming = nextEpisode.state.next ?: return
-            val generation = playbackGeneration
-            countdown = scope.launch {
-                val initialSeconds = ((remainingMs + 999) / 1000).toInt().coerceIn(1, 5)
-                for (seconds in initialSeconds downTo 1) {
-                    ensureActive()
-                    if (released || generation != playbackGeneration) return@launch
-                    mutable.update { it.copy(nextSeconds = seconds, nextItem = upcoming) }
-                    delay(1000)
-                }
-                ensureActive()
-                if (released || generation != playbackGeneration) return@launch
-                mutable.update { it.copy(nextSeconds = 0) }
-                playEpisode(upcoming)
-            }
-        }
+        if (countdown?.isActive == true) return
+        val upcoming = nextEpisode.state.next
+        val ui = mutable.value
+        val allowed = store.autoNext && !countdownDismissed && upcoming != null && !navigationBlocked &&
+            !ui.subtitleApplying && !ui.subtitleSearchOpen && ui.seekPreview?.active != true
+        val seconds = if (allowed && (playing || ui.nextSeconds > 0))
+            NextEpisodeCountdown.seconds(positionMs, durationMs, player.playbackParameters.speed) else 0
+        mutable.update { it.copy(nextSeconds = seconds) }
     }
 
     fun cancelCountdown(dismiss: Boolean = true) {
@@ -1335,10 +1255,7 @@ class PlaybackController(
         discardSubtitleSearch()
         loadJob?.cancel()
         subtitleJob?.cancel()
-        metadataJob?.cancel()
-        seasonJob?.cancel()
-        metadataGeneration++
-        seasonGeneration++
+        episodeCatalog.suspendRequests()
         nextEpisode.clear()
         stopCurrentStream()
     }
@@ -1389,8 +1306,7 @@ class PlaybackController(
         discardSubtitleSearch()
         loadJob?.cancel()
         subtitleJob?.cancel()
-        metadataJob?.cancel()
-        seasonJob?.cancel()
+        episodeCatalog.suspendRequests()
         countdown?.cancel()
         pollJob?.cancel()
         reportJob?.cancel()

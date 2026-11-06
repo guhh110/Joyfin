@@ -333,6 +333,8 @@ fun PlayerRoute(
                             actions.nextNow,
                             actions.cancelNext,
                             Modifier.padding(24.dp),
+                            paused = !ui.playing && ui.canSeek,
+                            buffering = ui.loading,
                         )
                     }
                 }

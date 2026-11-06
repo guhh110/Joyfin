@@ -28,6 +28,7 @@ internal fun MobileSheetLayout(
     modifier: Modifier,
     actions: (@Composable ColumnScope.() -> Unit)?,
     scrollContent: Boolean,
+    header: (@Composable RowScope.() -> Unit)?,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
@@ -118,6 +119,7 @@ internal fun MobileSheetLayout(
                 isMobileBottom = !side,
                 dragHandleModifier = dragHandleModifier,
                 dragModifier = dragModifier,
+                header = header,
                 content = content,
             )
         }

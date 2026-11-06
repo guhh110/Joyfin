@@ -26,6 +26,7 @@ fun Sheet(
     actions: (@Composable ColumnScope.() -> Unit)? = null,
     scrollContent: Boolean = true,
     preferredWidth: androidx.compose.ui.unit.Dp? = null,
+    header: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -33,8 +34,8 @@ fun Sheet(
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         if (LocalDeviceLayout.current.television)
-            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, preferredWidth, content)
-        else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, content)
+            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, preferredWidth, header, content)
+        else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, header, content)
     }
 }
 

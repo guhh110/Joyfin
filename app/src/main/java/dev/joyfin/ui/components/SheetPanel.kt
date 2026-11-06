@@ -25,6 +25,7 @@ internal fun SheetPanel(
     isMobileBottom: Boolean = false,
     dragHandleModifier: Modifier = Modifier,
     dragModifier: Modifier = Modifier,
+    header: (@Composable RowScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -59,7 +60,8 @@ internal fun SheetPanel(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            SectionTitle(title, Modifier.weight(1f).then(dragModifier))
+            if (header != null) header()
+            else SectionTitle(title, Modifier.weight(1f).then(dragModifier))
             IconButton("关闭", Glyph.Close, onDismiss, Modifier.focusTarget("sheet:close"))
         }
         Column(
