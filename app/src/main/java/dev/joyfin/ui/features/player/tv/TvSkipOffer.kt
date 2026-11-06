@@ -16,7 +16,7 @@ import dev.joyfin.ui.theme.Palette
 internal fun TvSkipOffer(nav: PlaybackNavigationState, actions: PlayerActions, modifier: Modifier = Modifier) {
     Row(modifier.background(Palette.Surface.copy(alpha = .94f), RoundedCornerShape(10.dp)).padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        ActionButton(if (nav.undoPositionMs != null) "撤销跳过" else "跳过${nav.offer?.label.orEmpty()}",
+        ActionButton(nav.skipLabel,
             if (nav.undoPositionMs != null) actions.undoSkip else actions.skipSegment,
             Modifier.focusTarget("player:skip-action"), primary = true)
         if (nav.undoPositionMs == null) ActionButton("不跳过", actions.dismissSkip,

@@ -83,12 +83,12 @@ internal fun MobilePlayerLockedInfo(ui: PlayerUiState, modifier: Modifier = Modi
                             else ProgressBarRangeInfo.Indeterminate
                     },
             ) {
-                val y = 3.dp.toPx()
+                val y = size.height / 2
                 drawLine(Palette.Text.copy(alpha = .2f), Offset(0f, y), Offset(size.width, y),
                     3.dp.toPx(), StrokeCap.Round)
                 if (fraction > 0f) drawLine(Palette.Text, Offset(0f, y), Offset(size.width * fraction, y),
                     3.dp.toPx(), StrokeCap.Round)
-                drawSkipTimeline(ui.navigation.ranges, ui.durationMs, ui.positionMs, 11.dp.toPx())
+                drawSkipTimeline(ui.navigation.ranges, ui.durationMs, ui.positionMs, y, 3.dp.toPx())
             }
         }
     }

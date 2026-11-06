@@ -44,19 +44,18 @@ internal fun PlayerTransportButton(
     val dpSpec = rememberMotionSpec<Dp>(MotionTokens.FocusDurationMs)
 
     val highlighted = focused && enabled
-    val lightSurface = primary || highlighted
-    val baseTint = if (lightSurface) Palette.Surface else Palette.Text
+    val baseTint = Palette.Text
     val targetTint = if (pressed && enabled) baseTint.copy(alpha = 0.82f) else baseTint
 
     val baseSurface =
         when {
-            highlighted -> Palette.Text
-            primary -> Palette.Text.copy(alpha = if (enabled) .98f else .88f)
-            else -> Palette.Surface.copy(alpha = .94f)
+            highlighted -> Color.White.copy(alpha = .20f)
+            primary -> Color.Black.copy(alpha = .18f)
+            else -> Color.Black.copy(alpha = .08f)
         }
     val targetSurface =
         if (pressed && enabled) {
-            if (lightSurface) baseSurface.copy(alpha = 0.85f) else Palette.Pressed
+            Color.White.copy(alpha = .28f)
         } else {
             baseSurface
         }
@@ -64,11 +63,11 @@ internal fun PlayerTransportButton(
     val targetOutline =
         when {
             focused -> Palette.BorderFocus
-            primary -> Palette.Text.copy(alpha = .85f)
-            else -> Palette.Text.copy(alpha = if (enabled) .65f else .4f)
+            primary -> Palette.Text.copy(alpha = .24f)
+            else -> Color.Transparent
         }
 
-    val targetBorderWidth = if (focused) 2.dp else 1.dp
+    val targetBorderWidth = if (focused) 2.dp else if (primary) 1.dp else 0.dp
 
     val animatedTint by
         animateColorAsState(targetValue = targetTint, animationSpec = if (pressed) pressColorSpec else colorSpec, label = "tint")

@@ -47,7 +47,6 @@ fun SeekBar(
     Column(modifier) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Caption(timeLabel(preview?.targetMs ?: positionMs), color = Palette.Text)
-            Caption(rangeDescription, Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 1)
             Caption(if (knownDuration) timeLabel(durationMs) else "--:--")
         }
         Canvas(
@@ -113,7 +112,7 @@ fun SeekBar(
         ) {
             val y = size.height / 2
             val end = size.width
-            val trackHeight = 4.dp.toPx()
+            val trackHeight = (if (focused || preview != null) 4.dp else 3.dp).toPx()
             val radius = trackHeight / 2
 
             // 底槽
@@ -126,8 +125,6 @@ fun SeekBar(
             )
 
             if (!knownDuration) return@Canvas
-
-            drawSkipTimeline(skipRanges, durationMs, preview?.targetMs ?: positionMs, y + 12.dp.toPx())
 
             // 缓冲进度
             val bufferedEnd = (end * (bufferedMs.toFloat() / durationMs.coerceAtLeast(1))).coerceIn(radius, end - radius)
@@ -154,10 +151,13 @@ fun SeekBar(
                 )
             }
 
+            // Keep segment highlights inside the main track and below the playhead.
+            drawSkipTimeline(skipRanges, durationMs, preview?.targetMs ?: positionMs, y, trackHeight)
+
             // 微光滑块
             if (focused) {
                 // 外层发光晕环
-                drawCircle(Palette.Text.copy(alpha = 0.32f), 9.dp.toPx(), Offset(currentX, y))
+                drawCircle(Palette.Text.copy(alpha = 0.16f), 10.dp.toPx(), Offset(currentX, y))
                 // 中层光圈
                 drawCircle(Palette.Text, 6.dp.toPx(), Offset(currentX, y))
                 // 核心纯白实心

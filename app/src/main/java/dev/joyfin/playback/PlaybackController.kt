@@ -829,10 +829,15 @@ class PlaybackController(
         else navigation.markOutroStart(position, duration, now)
     }
 
-    private fun skipSegment(target: Long) {
+    private fun skipSegment(action: PlaybackSkipAction) {
         val ui = mutable.value
         if (released || !started || plan == null || !ui.canSeek || ui.loading || ui.error != null ||
             ui.subtitleApplying || ui.subtitleSearchOpen) return
+        if (action == PlaybackSkipAction.NextEpisode) {
+            playNextEpisode()
+            return
+        }
+        val target = (action as PlaybackSkipAction.Seek).positionMs
         if (ui.durationMs > 0 && target >= ui.durationMs) {
             // End-of-file seeks can request an empty HTTP range/HLS segment. Complete deliberately
             // through the same generation gate and countdown as natural playback completion.
@@ -1220,6 +1225,11 @@ class PlaybackController(
     }
 
     private fun checkUpcomingCountdown(positionMs: Long, durationMs: Long, playing: Boolean) {
+        if (item?.type == "Episode" && mutable.value.navigation.offer?.label == "片尾") {
+            // The outro offer owns this transition, including outros shorter than five seconds.
+            if (countdown != null) cancelCountdown(dismiss = false)
+            return
+        }
         if (!store.autoNext || countdown != null || countdownDismissed || !playing) return
         if (durationMs <= 10_000L || positionMs < 0) return
         val remainingMs = durationMs - positionMs
@@ -1280,12 +1290,15 @@ class PlaybackController(
                 val second = android.os.SystemClock.elapsedRealtime() / 1000
                 val ui = mutable.value
                 if (plan != null && player.currentMediaItem?.localConfiguration?.tag == playbackGeneration) {
+                    val generation = playbackGeneration
                     nextEpisode.tick(ui.positionMs, ui.durationMs, player.isPlaying && !ui.loading && ui.error == null)
                     navigation.tick(ui.positionMs, ui.durationMs,
                         !navigationBlocked && player.isPlaying && ui.canSeek && !ui.loading && ui.error == null && !ui.subtitleApplying &&
                             !ui.subtitleSearchOpen && ui.seekPreview?.active != true,
-                        android.os.SystemClock.elapsedRealtime())?.let(::skipSegment)
-                    checkUpcomingCountdown(ui.positionMs, ui.durationMs, player.isPlaying && !ui.loading && ui.error == null)
+                        android.os.SystemClock.elapsedRealtime(),
+                        canPlayNext = nextEpisode.state.next?.let { it.id != currentId } == true)?.let(::skipSegment)
+                    if (generation == playbackGeneration)
+                        checkUpcomingCountdown(ui.positionMs, ui.durationMs, player.isPlaying && !ui.loading && ui.error == null)
                 }
                 if (plan != null && diagnosticSecond != second) {
                     diagnosticSecond = second

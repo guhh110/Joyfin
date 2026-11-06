@@ -12,6 +12,10 @@ data class ChapterChoice(
 data class SkipRange(val startMs: Long, val endMs: Long, val label: String) {
     val key: String get() = "$startMs:$endMs:$label"
 }
+internal sealed interface PlaybackSkipAction {
+    data class Seek(val positionMs: Long) : PlaybackSkipAction
+    data object NextEpisode : PlaybackSkipAction
+}
 data class PlaybackNavigationState(
     val chapters: List<ChapterChoice> = emptyList(),
     val preferences: SkipPreferences = SkipPreferences(),
@@ -29,7 +33,14 @@ data class PlaybackNavigationState(
     val canUndoMark: Boolean = false,
     val canSharePreferences: Boolean = false,
     val separateVersions: Boolean = false,
-)
+    val offerSeconds: Int = 0,
+) {
+    val skipLabel: String get() = when {
+        undoPositionMs != null -> "撤销跳过"
+        offerSeconds > 0 -> "跳过片尾 · ${offerSeconds} 秒后进入片尾"
+        else -> "跳过${offer?.label.orEmpty()}"
+    }
+}
 
 /** Player marks override automatic ranges; chapter fallback only recognizes explicit intro/outro names. */
 internal object PlaybackNavigationPolicy {
@@ -167,7 +178,7 @@ internal class PlaybackNavigation(
         undoRange = null
         update(current.copy(preferences = preferences, preferenceScope = target.label,
             separateVersions = enabled, legacyPreferences = loadLegacyPreferences(target),
-            ranges = resolveRanges(preferences), offer = null, undoPositionMs = null,
+            ranges = resolveRanges(preferences), offer = null, offerSeconds = 0, undoPositionMs = null,
             markFeedback = null, canUndoMark = false))
     }
     fun retry() {
@@ -202,7 +213,7 @@ internal class PlaybackNavigation(
         automaticSuppressed.clear()
         undoRange = null
         markUndo = null
-        update(current.copy(preferences = preferences, offer = null, undoPositionMs = null,
+        update(current.copy(preferences = preferences, offer = null, offerSeconds = 0, undoPositionMs = null,
             markFeedback = null, ranges = resolveRanges(preferences), canUndoMark = false, legacyPreferences = null))
     }
 
@@ -260,7 +271,8 @@ internal class PlaybackNavigation(
         val shared = preferenceTarget?.let { it.canShare && !it.separateVersions } == true
         feedback(if (shared) "$point · 本季通用" else point, now)
     }
-    fun tick(position: Long, duration: Long, automaticAllowed: Boolean, now: Long): Long? {
+    fun tick(position: Long, duration: Long, automaticAllowed: Boolean, now: Long,
+        canPlayNext: Boolean = false): PlaybackSkipAction? {
         val item = media ?: return null
         timelineDuration = duration
         val chapters = if (!current.timelineAvailable) emptyList() else if (chapterDuration == duration) current.chapters
@@ -269,29 +281,42 @@ internal class PlaybackNavigation(
             chapter.copy(imageUrl = tag.takeIf { it.isNotBlank() }?.let { chapterImage(item, chapter.index, it) })
         }.also { chapterDuration = duration }
         val ranges = resolveRanges()
-        val range = ranges.firstOrNull { position >= it.startMs && position < it.endMs && it.key !in suppressed }
+        val range = ranges.firstOrNull {
+            val nextEpisode = item.type == "Episode" && it.label == "片尾"
+            val offerStart = if (nextEpisode) (it.startMs - 3000).coerceAtLeast(0) else it.startMs
+            (!nextEpisode || canPlayNext) && position >= offerStart && position < it.endMs && it.key !in suppressed
+        }
+        val offerSeconds = range?.let { ((it.startMs - position + 999) / 1000).coerceIn(0, 3).toInt() } ?: 0
         val undo = current.undoPositionMs?.takeIf { now <= undoUntil }
-        update(current.copy(chapters = chapters, ranges = ranges, offer = range, undoPositionMs = undo,
+        update(current.copy(chapters = chapters, ranges = ranges, offer = range, offerSeconds = offerSeconds, undoPositionMs = undo,
             markFeedback = current.markFeedback?.takeIf { now <= feedbackUntil },
             serverMarks = PlaybackNavigationPolicy.ranges(server, duration, SkipPreferences(), false).size))
-        if (range != null && current.preferences.automatic && automaticAllowed && range.label !in automaticSuppressed)
+        if (range != null && position >= range.startMs && current.preferences.automatic && automaticAllowed &&
+            range.label !in automaticSuppressed)
             return skip(position, now)
         return null
     }
-    fun skip(position: Long, now: Long): Long? {
+    fun skip(position: Long, now: Long): PlaybackSkipAction? {
         val range = current.offer ?: return null
-        if (position !in range.startMs until range.endMs) return null
+        val nextEpisode = media?.type == "Episode" && range.label == "片尾"
+        val offerStart = if (nextEpisode) (range.startMs - 3000).coerceAtLeast(0) else range.startMs
+        if (position !in offerStart until range.endMs) return null
         suppressed += range.key
+        if (nextEpisode) {
+            undoRange = null
+            update(current.copy(offer = null, offerSeconds = 0, undoPositionMs = null))
+            return PlaybackSkipAction.NextEpisode
+        }
         undoRange = range
         undoUntil = now + 8000
-        update(current.copy(offer = null, undoPositionMs = position))
-        return range.endMs
+        update(current.copy(offer = null, offerSeconds = 0, undoPositionMs = position))
+        return PlaybackSkipAction.Seek(range.endMs)
     }
-    fun dismiss() { current.offer?.let { suppressed += it.key }; update(current.copy(offer = null)) }
+    fun dismiss() { current.offer?.let { suppressed += it.key }; update(current.copy(offer = null, offerSeconds = 0)) }
     fun undo(now: Long): Long? {
         val position = current.undoPositionMs?.takeIf { now <= undoUntil } ?: return null
         undoRange?.let { suppressed += it.key }
-        update(current.copy(offer = null, undoPositionMs = null))
+        update(current.copy(offer = null, offerSeconds = 0, undoPositionMs = null))
         return position
     }
 }
