@@ -1,18 +1,11 @@
 package dev.joyfin.ui.features.player.components
 
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import dev.joyfin.data.PlaybackQuality
 import dev.joyfin.data.PlayerToolbarAction
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerUiState
-import dev.joyfin.ui.components.ActionButton
 import dev.joyfin.ui.components.Glyph
 import dev.joyfin.ui.components.timeLabel
 import dev.joyfin.ui.interaction.focusTarget
@@ -151,21 +144,16 @@ internal fun PlayerToolbarButton(
         PlayerToolbarAction.MARK_OUTRO -> ui.navigation.preferences.outroDurationMs != null
         else -> false
     }
-    ActionButton(
-        label,
+    PlayerChromeButton(
+        "${action.label}：${action.detail(ui)}",
+        action.glyph,
         {
             onInteraction()
             action.perform(actions, onPanel, {})
         },
-        Modifier.focusTarget(action.focusKey)
-            .background(dev.joyfin.ui.theme.Palette.Text.copy(alpha = .045f), RoundedCornerShape(8.dp))
-            .border(.5.dp, dev.joyfin.ui.theme.Palette.Text.copy(alpha = .06f), RoundedCornerShape(8.dp))
-            .semantics { contentDescription = "${action.label}：${action.detail(ui)}" },
-        icon = action.glyph,
+        Modifier.focusTarget(action.focusKey),
+        text = label,
         enabled = action.enabled(ui),
         selected = selected,
-        quiet = true,
-        maxLines = 1,
-        focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale,
     )
 }

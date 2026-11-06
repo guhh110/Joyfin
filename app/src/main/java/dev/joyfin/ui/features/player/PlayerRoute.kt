@@ -263,13 +263,13 @@ fun PlayerRoute(
             PlayerControlsExitHost(visible = showControls) {
                 if (tv) TvPlayerLayout(ui, actions, panel, ::openPanel, ::touch)
                 else MobilePlayerLayout(ui, actions, panel, ::openPanel, ::touch)
-                if (skipVisible && panel == null && ui.error == null && !ui.loading && !ui.subtitleApplying &&
-                    ui.canSeek && ui.nextSeconds == 0) {
-                    val skipModifier = Modifier.align(Alignment.BottomEnd).safeDrawingPadding()
-                        .padding(end = if (tv) 40.dp else 22.dp, bottom = (if (tv) 112.dp else 100.dp) * fontScale)
-                    if (tv) TvSkipOffer(ui.navigation, actions, skipModifier)
-                    else MobileSkipOffer(ui.navigation, actions, skipModifier)
-                }
+            }
+            if (skipVisible && !locked && panel == null && ui.error == null && !ui.loading && !ui.subtitleApplying &&
+                ui.canSeek && ui.nextSeconds == 0) {
+                val skipModifier = Modifier.align(Alignment.BottomEnd).safeDrawingPadding()
+                    .padding(end = if (tv) 40.dp else 22.dp, bottom = (if (tv) 112.dp else 100.dp) * fontScale)
+                if (tv) TvSkipOffer(ui.navigation, actions, skipModifier)
+                else MobileSkipOffer(ui.navigation, actions, skipModifier)
             }
             AnimatedVisibility(
                 visible = !tv && locked && lockControlsVisible,
@@ -367,7 +367,7 @@ private fun LockFloatingButton(
             .semantics { contentDescription = if (locked) "解锁屏幕" else "锁定屏幕" }
             .size(44.dp)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.65f))
+            .background(Color.Black.copy(alpha = 0.20f))
             .border(0.5.dp, Color.White.copy(alpha = 0.25f), CircleShape)
             .clickable(onClick = onToggleLock),
         contentAlignment = Alignment.Center,

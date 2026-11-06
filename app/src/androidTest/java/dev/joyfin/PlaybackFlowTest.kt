@@ -16,6 +16,9 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import dev.joyfin.data.Session
 import dev.joyfin.data.SessionStore
+import dev.joyfin.data.SkipPreferences
+import dev.joyfin.playback.PlaybackController
+import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentLinkedQueue
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
@@ -29,6 +32,112 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class PlaybackFlowTest {
+    @Test
+    fun automaticOutroStartsNextEpisodeWithAutoNextDisabledAndCountdownDismissed() =
+        checkOutroTransition(automatic = true)
+
+    @Test
+    fun earlyManualOutroSkipStartsNextEpisodeWithAutoNextDisabled() =
+        checkOutroTransition(automatic = false)
+
+    @Test
+    fun shortOutroOfferTakesPriorityOverTheNormalNextEpisodeCountdown() =
+        checkOutroTransition(automatic = true, autoNext = true, outroDurationMs = 2000)
+
+    private fun checkOutroTransition(automatic: Boolean, autoNext: Boolean = false, outroDurationMs: Long = 5000) {
+        val inst = InstrumentationRegistry.getInstrumentation()
+        val context = inst.targetContext
+        val store = SessionStore(context)
+        val previousSession = store.load()
+        val previousAutoNext = store.autoNext
+        val previousProxy = java.net.ProxySelector.getDefault()
+        java.net.ProxySelector.setDefault(object : java.net.ProxySelector() {
+            override fun select(uri: java.net.URI): List<java.net.Proxy> = listOf(java.net.Proxy.NO_PROXY)
+            override fun connectFailed(uri: java.net.URI, address: java.net.SocketAddress, error: java.io.IOException) = Unit
+        })
+        val bytes = inst.context.assets.open("sample.mp4").use { it.readBytes() }
+        val closed = java.util.concurrent.atomic.AtomicInteger()
+        val source = """{"Id":"source","SupportsDirectPlay":true,"Container":"mp4","MediaStreams":[{"Type":"Video","Index":0,"Codec":"h264","Width":320,"Height":180},{"Type":"Audio","Index":1,"Codec":"aac","Channels":2}]}"""
+        fun episode(id: String) = """{"Id":"$id","Name":"$id","Type":"Episode","SeriesId":"series","ParentId":"season","RunTimeTicks":600000000,"MediaSources":[$source]}"""
+        fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
+        val server = MockWebServer()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.requestUrl!!.encodedPath
+                return when {
+                    path.contains("/Sessions/Playing") -> MockResponse().setResponseCode(204)
+                    path.endsWith("/Items/first") -> json(episode("first"))
+                    path.endsWith("/Items/second") -> json(episode("second"))
+                    path.endsWith("/Shows/series/Episodes") -> json("""{"Items":[${episode("first")},${episode("second")}]}""")
+                    path.endsWith("/PlaybackInfo") -> json("""{"PlaySessionId":"${path.substringBeforeLast('/')}","MediaSources":[$source]}""")
+                    path.endsWith("/stream") -> {
+                        val offset = request.getHeader("Range")?.substringAfter("bytes=")
+                            ?.substringBefore('-')?.toIntOrNull() ?: 0
+                        if (offset >= bytes.size) return MockResponse().setResponseCode(416)
+                        val response = MockResponse().setHeader("Content-Type", "video/mp4")
+                            .setHeader("Accept-Ranges", "bytes")
+                        if (offset > 0) response.setResponseCode(206)
+                            .setHeader("Content-Range", "bytes $offset-${bytes.lastIndex}/${bytes.size}")
+                        response.setBody(Buffer().write(bytes, offset, bytes.size - offset))
+                    }
+                    else -> json("""{"Items":[]}""")
+                }
+            }
+        }
+        server.start()
+        store.save(Session(server.url("/").toString().trimEnd('/'), "mock-token", "user", "Test"))
+        assertNotNull("The playback fixture needs a readable session", store.load())
+        store.autoNext = autoNext
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        lateinit var controller: PlaybackController
+        var created = false
+        try {
+            inst.runOnMainSync {
+                controller = PlaybackController(context, scope, { true }, { closed.incrementAndGet() },
+                    "first", 0, null, null)
+                created = true
+                controller.player.trackSelectionParameters = controller.player.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
+                controller.onStart()
+            }
+            try {
+                await { controller.state.value.let { it.playing && it.canSeek && it.nextItem != null && !it.loading } }
+            } catch (e: AssertionError) {
+                throw AssertionError("Playback did not start: ${controller.state.value}; closed=${closed.get()}; requests=${server.requestCount}", e)
+            }
+            inst.runOnMainSync {
+                controller.actions.setSkipPreferences(SkipPreferences(automatic = automatic, outroDurationMs = outroDurationMs))
+                controller.player.pause()
+                val offerPosition = controller.state.value.durationMs - outroDurationMs - 2800
+                if (autoNext) controller.player.seekTo(offerPosition)
+                // The normal seek action also dismisses the end-of-video countdown.
+                else controller.actions.seek(offerPosition)
+            }
+            await { controller.state.value.navigation.offerSeconds == 3 }
+            assertEquals("first", controller.state.value.itemId)
+            assertEquals(0, controller.state.value.nextSeconds)
+            assertEquals(0, closed.get())
+            inst.runOnMainSync {
+                if (automatic) controller.player.play() else controller.actions.skipSegment()
+            }
+            await {
+                val ui = controller.state.value
+                assertEquals("Outro switching must not show the normal five-second countdown", 0, ui.nextSeconds)
+                ui.itemId == "second" && ui.playing && !ui.loading
+            }
+            assertEquals(0, closed.get())
+            assertEquals(0, controller.state.value.nextSeconds)
+            assertNull(controller.state.value.error)
+        } finally {
+            inst.runOnMainSync { if (created) controller.release() }
+            scope.cancel()
+            store.autoNext = previousAutoNext
+            if (previousSession == null) store.clear() else store.save(previousSession)
+            server.shutdown()
+            java.net.ProxySelector.setDefault(previousProxy)
+        }
+    }
+
     @Test
     fun actualDecodeResumeSubtitleRemoteAndHlsFallback() {
         val inst = InstrumentationRegistry.getInstrumentation()

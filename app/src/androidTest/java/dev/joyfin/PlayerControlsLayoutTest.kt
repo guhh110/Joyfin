@@ -25,6 +25,47 @@ class PlayerControlsLayoutTest {
     @get:Rule val compose = createEmptyComposeRule()
 
     @Test
+    fun outroOfferIsVisibleWithHiddenControlsOnTvAndPhone() {
+        var ui by mutableStateOf(dev.joyfin.playback.PlayerUiState(playing = true, canSeek = true))
+        var tv by mutableStateOf(true)
+        var skips = 0
+        val actions = dev.joyfin.playback.PlayerActions(
+            toggle = {}, preview = dev.joyfin.playback.SeekPreviewActions({}, {}, {}, {}, {}, {}),
+            seek = {}, selectEpisode = {}, selectSeason = {}, selectAudio = {}, selectSubtitle = {},
+            selectBitrate = {}, speed = {}, selectVersion = {}, compatible = {}, selectCompatibility = {},
+            retry = {}, cancelNext = {}, nextNow = {}, close = {}, skipSegment = { skips++ },
+        )
+        compose.mainClock.autoAdvance = false
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        try {
+            scenario.onActivity { activity ->
+                activity.setContent {
+                    BoundlessTheme {
+                        CompositionLocalProvider(LocalDeviceLayout provides DeviceLayout(tv, 960)) {
+                            dev.joyfin.ui.features.player.PlayerRoute(ui, actions)
+                        }
+                    }
+                }
+            }
+            compose.mainClock.advanceTimeBy(5500)
+            compose.onNodeWithTag("player:toggle").assertDoesNotExist()
+            compose.runOnIdle {
+                ui = ui.copy(navigation = dev.joyfin.playback.PlaybackNavigationState(
+                    offer = dev.joyfin.playback.SkipRange(55000, 60000, "片尾"), offerSeconds = 3))
+            }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithText("跳过片尾 · 3 秒后进入片尾").assertIsDisplayed().performClick()
+            compose.runOnIdle { tv = false }
+            compose.mainClock.advanceTimeByFrame()
+            compose.onNodeWithText("跳过片尾 · 3 秒后进入片尾").assertIsDisplayed().performClick()
+            compose.runOnIdle { assertEquals(2, skips) }
+        } finally {
+            scenario.close()
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test
     fun unknownDurationShowsPendingProgressUntilDurationArrives() {
         var duration by mutableStateOf(0L)
         val scenario = ActivityScenario.launch(MainActivity::class.java)
@@ -173,7 +214,9 @@ class PlayerControlsLayoutTest {
 
     @Test
     fun tvHudKeepsTransportAndEmptyTrackSlotsAcrossLoadingAndError() {
-        var ui by mutableStateOf(dev.joyfin.playback.PlayerUiState(title = "Test"))
+        var ui by mutableStateOf(dev.joyfin.playback.PlayerUiState(title = "Test",
+            toolbar = dev.joyfin.data.PlayerToolbarPreferences(listOf(
+                dev.joyfin.data.PlayerToolbarAction.EPISODES, dev.joyfin.data.PlayerToolbarAction.AUDIO))))
         var toggles = 0
         val actions =
             dev.joyfin.playback.PlayerActions(

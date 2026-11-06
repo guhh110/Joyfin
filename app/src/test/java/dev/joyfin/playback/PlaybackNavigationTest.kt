@@ -58,9 +58,94 @@ class PlaybackNavigationTest {
         advanceUntilIdle()
         assertNull(controller.tick(0, 600000, true, 1000))
         assertNull(controller.tick(35000, 600000, false, 1100))
-        assertEquals(90000L, controller.tick(35000, 600000, true, 1200))
+        assertEquals(PlaybackSkipAction.Seek(90000), controller.tick(35000, 600000, true, 1200))
         assertEquals(35000L, controller.undo(1300))
         assertNull(controller.tick(35000, 600000, true, 1400))
+    }
+
+    @Test fun outroOffersThreeSecondsEarlyAndAdvancesOnlyAtItsStart() = runTest {
+        var state = PlaybackNavigationState()
+        val controller = PlaybackNavigation(this, { SkipPreferences(automatic = true) }, { _, _ -> },
+            { listOf(segment("Outro", 540000, 570000)) }, { state = it }, {})
+        controller.open(episode, "version")
+        advanceUntilIdle()
+
+        assertNull(controller.tick(536999, 600000, true, 0, canPlayNext = true))
+        assertNull(state.offer)
+        for ((position, seconds) in listOf(537000L to 3, 538000L to 2, 539999L to 1)) {
+            assertNull(controller.tick(position, 600000, true, 0, canPlayNext = true))
+            assertEquals("片尾", state.offer?.label)
+            assertEquals(seconds, state.offerSeconds)
+        }
+        // Even a server outro that ends before EOF goes directly to the next episode.
+        assertEquals(PlaybackSkipAction.NextEpisode,
+            controller.tick(540000, 600000, true, 0, canPlayNext = true))
+        assertNull(state.offer)
+        assertNull(state.undoPositionMs)
+        assertNull(controller.undo(1))
+        assertNull(controller.tick(540300, 600000, true, 1, canPlayNext = true))
+    }
+
+    @Test fun manualOutroSkipCanAdvanceDuringTheEarlyOfferWithoutSeeking() = runTest {
+        var state = PlaybackNavigationState()
+        val controller = PlaybackNavigation(this, { SkipPreferences(outroSeconds = 60) }, { _, _ -> },
+            { emptyList() }, { state = it }, {})
+        controller.open(episode, "version")
+        advanceUntilIdle()
+        assertNull(controller.tick(537000, 600000, true, 0, canPlayNext = true))
+        assertEquals(3, state.offerSeconds)
+        assertEquals(PlaybackSkipAction.NextEpisode, controller.skip(537000, 0))
+        assertNull(state.undoPositionMs)
+    }
+
+    @Test fun dismissingTheEarlyOutroOfferKeepsPlayingAtTheOutro() = runTest {
+        var state = PlaybackNavigationState()
+        val controller = PlaybackNavigation(this, { SkipPreferences(outroSeconds = 60, automatic = true) },
+            { _, _ -> }, { emptyList() }, { state = it }, {})
+        controller.open(episode, "version")
+        advanceUntilIdle()
+        controller.tick(537000, 600000, true, 0, canPlayNext = true)
+        controller.dismiss()
+        assertEquals(0, state.offerSeconds)
+        assertNull(controller.tick(540000, 600000, true, 1, canPlayNext = true))
+        assertNull(state.offer)
+    }
+
+    @Test fun outroWaitsForNextEpisodeAndForAutomaticNavigationToBeAllowed() = runTest {
+        var state = PlaybackNavigationState()
+        val controller = PlaybackNavigation(this, { SkipPreferences(outroSeconds = 60, automatic = true) },
+            { _, _ -> }, { emptyList() }, { state = it }, {})
+        controller.open(episode, "version")
+        advanceUntilIdle()
+        assertNull(controller.tick(540000, 600000, true, 0, canPlayNext = false))
+        assertNull(state.offer)
+        assertNull(controller.tick(540000, 600000, false, 1, canPlayNext = true))
+        assertNotNull(state.offer)
+        assertEquals(PlaybackSkipAction.NextEpisode,
+            controller.tick(540300, 600000, true, 2, canPlayNext = true))
+    }
+
+    @Test fun newlyMarkedOutroDoesNotImmediatelyAdvanceAndManualModeWaitsForAChoice() = runTest {
+        val controller = PlaybackNavigation(this, { SkipPreferences(automatic = true) }, { _, _ -> },
+            { emptyList() }, {}, {})
+        controller.open(episode, "version")
+        advanceUntilIdle()
+        controller.markOutroStart(540000, 600000, 0)
+        assertNull(controller.tick(540000, 600000, true, 1, canPlayNext = true))
+        controller.preferences(SkipPreferences(outroSeconds = 60, automatic = false))
+        assertNull(controller.tick(540000, 600000, true, 2, canPlayNext = true))
+        assertEquals(PlaybackSkipAction.NextEpisode, controller.skip(540000, 2))
+    }
+
+    @Test fun movieOutroRemainsASeekWithoutRequiringAnotherEpisode() = runTest {
+        var state = PlaybackNavigationState()
+        val controller = PlaybackNavigation(this, { SkipPreferences(outroSeconds = 60, automatic = true) },
+            { _, _ -> }, { emptyList() }, { state = it }, {})
+        controller.open(episode.copy(type = "Movie"), "version")
+        advanceUntilIdle()
+        assertNull(controller.tick(537000, 600000, true, 0))
+        assertNull(state.offer)
+        assertEquals(PlaybackSkipAction.Seek(600000), controller.tick(540000, 600000, true, 1))
     }
 
     @Test fun switchingItemsRejectsLateSegmentsAndClearsUndo() = runTest {
@@ -117,7 +202,7 @@ class PlaybackNavigationTest {
         advanceUntilIdle()
         assertNotNull(state.error)
         controller.tick(10000, 600000, false, 0)
-        assertEquals(60000L, controller.skip(10000, 0))
+        assertEquals(PlaybackSkipAction.Seek(60000), controller.skip(10000, 0))
         fail = false
         controller.retry()
         advanceUntilIdle()

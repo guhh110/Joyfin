@@ -1,15 +1,15 @@
 package dev.joyfin.ui.features.player.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
@@ -35,11 +35,12 @@ fun PlayerHeader(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        IconButton("退出播放器", Glyph.Back, actions.close, Modifier.focusTarget("player:back"))
+        PlayerChromeButton("退出播放器", Glyph.Back, actions.close, Modifier.focusTarget("player:back"))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(ui.title, color = Palette.Text,
                 fontSize = if (LocalDeviceLayout.current.television) 24.sp else 20.sp,
-                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 8f)))
             if (ui.subtitle.isNotBlank()) Caption(ui.subtitle, maxLines = 1)
             ui.playbackNotice?.let { Caption(it, maxLines = 1) }
         }
@@ -47,7 +48,7 @@ fun PlayerHeader(
         if (!LocalDeviceLayout.current.television) {
             PlayerBattery()
         }
-        IconButton(
+        PlayerChromeButton(
             "播放设置",
             Glyph.Settings,
             { onPanel(PlayerPanel.Settings) },
@@ -95,8 +96,12 @@ fun PlayerBottomBar(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val method = playerMethodLabel(ui.method)
-            if (method.isNotBlank()) QualityBadge(method)
-            QualityBadge(if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL) "原画" else "${ui.bitrate / 1_000_000f} Mbps")
+            if (method.isNotBlank()) {
+                Caption(method, color = Palette.Text.copy(alpha = .75f))
+                Caption("·", color = Palette.Text.copy(alpha = .4f))
+            }
+            Caption(if (ui.bitrate == dev.joyfin.data.PlaybackQuality.ORIGINAL) "原画" else "${ui.bitrate / 1_000_000f} Mbps",
+                color = Palette.Text.copy(alpha = .75f))
             Spacer(Modifier.weight(1f))
             if (ui.durationMs > 0) {
                 Caption("剩余 ${timeLabel((ui.durationMs - ui.positionMs).coerceAtLeast(0))}", maxLines = 1)
@@ -112,16 +117,13 @@ fun PlayerBottomBar(
             skipRanges = ui.navigation.ranges,
         )
         Row(
-            Modifier.fillMaxWidth()
-                .background(Palette.Background.copy(alpha = .65f), RoundedCornerShape(16.dp))
-                .border(.5.dp, Palette.Line, RoundedCornerShape(16.dp))
-                .padding(horizontal = 8.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
                 Modifier.weight(1f).horizontalScroll(rememberScrollState()).focusGroup(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ui.toolbar.pinned.forEach { action ->
                     key(action) {
@@ -129,13 +131,11 @@ fun PlayerBottomBar(
                     }
                 }
             }
-            Box(Modifier.width(.5.dp).height(24.dp).background(Palette.Text.copy(alpha = .15f)))
-            ActionButton("更多", {
+            PlayerChromeButton("更多", Glyph.List, {
                 onInteraction()
                 onPanel(PlayerPanel.More)
             },
-                Modifier.focusTarget("player:more"), icon = Glyph.List, quiet = true, maxLines = 1,
-                focusedScale = dev.joyfin.ui.theme.MotionTokens.FixedScale)
+                Modifier.focusTarget("player:more"), text = "更多")
         }
     }
 }

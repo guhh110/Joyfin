@@ -34,7 +34,7 @@ fun PlayerToggleButton(
             return@PlayerTransportButton
         }
         val tint = LocalTransportTint.current
-        Canvas(Modifier.size(if (tv) 32.dp else 28.dp)) {
+        Canvas(Modifier.size(if (tv) 36.dp else 32.dp)) {
             val unit = size.width / 24f
             val stroke = 1.6f * unit
             if (playing) {
