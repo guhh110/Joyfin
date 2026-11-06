@@ -44,7 +44,19 @@ class PlaybackFlowTest {
     fun shortOutroOfferTakesPriorityOverTheNormalNextEpisodeCountdown() =
         checkOutroTransition(automatic = true, autoNext = true, outroDurationMs = 2000)
 
-    private fun checkOutroTransition(automatic: Boolean, autoNext: Boolean = false, outroDurationMs: Long = 5000) {
+    @Test
+    fun nextButtonMarksCurrentEpisodeOnlyAfterHalfwayAndRetriesFailedMark() {
+        checkOutroTransition(automatic = false, nextHalfOffsetMs = -1)
+        checkOutroTransition(automatic = false, nextHalfOffsetMs = 0)
+        checkOutroTransition(automatic = false, nextHalfOffsetMs = 1, failFirstMark = true)
+    }
+
+    @Test
+    fun selectingAnEpisodeAfterHalfwayDoesNotApplyTheNextButtonWatchedRule() =
+        checkOutroTransition(automatic = false, nextHalfOffsetMs = 1, pickEpisode = true)
+
+    private fun checkOutroTransition(automatic: Boolean, autoNext: Boolean = false, outroDurationMs: Long = 5000,
+        nextHalfOffsetMs: Long? = null, pickEpisode: Boolean = false, failFirstMark: Boolean = false) {
         val inst = InstrumentationRegistry.getInstrumentation()
         val context = inst.targetContext
         val store = SessionStore(context)
@@ -57,6 +69,8 @@ class PlaybackFlowTest {
         })
         val bytes = inst.context.assets.open("sample.mp4").use { it.readBytes() }
         val closed = java.util.concurrent.atomic.AtomicInteger()
+        val events = ConcurrentLinkedQueue<String>()
+        val markAttempts = java.util.concurrent.atomic.AtomicInteger()
         val source = """{"Id":"source","SupportsDirectPlay":true,"Container":"mp4","MediaStreams":[{"Type":"Video","Index":0,"Codec":"h264","Width":320,"Height":180},{"Type":"Audio","Index":1,"Codec":"aac","Channels":2}]}"""
         fun episode(id: String) = """{"Id":"$id","Name":"$id","Type":"Episode","SeriesId":"series","ParentId":"season","RunTimeTicks":600000000,"MediaSources":[$source]}"""
         fun json(body: String) = MockResponse().setHeader("Content-Type", "application/json").setBody(body)
@@ -65,6 +79,15 @@ class PlaybackFlowTest {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.requestUrl!!.encodedPath
                 return when {
+                    path.contains("/PlayedItems/") -> {
+                        events.add("watched:${path.substringAfterLast('/')}")
+                        val fail = markAttempts.incrementAndGet() == 1 && failFirstMark
+                        MockResponse().setResponseCode(if (fail) 500 else 204)
+                    }
+                    path.endsWith("/Sessions/Playing/Stopped") -> {
+                        events.add("stopped:${JSONObject(request.body.readUtf8()).optString("ItemId")}")
+                        MockResponse().setResponseCode(204)
+                    }
                     path.contains("/Sessions/Playing") -> MockResponse().setResponseCode(204)
                     path.endsWith("/Items/first") -> json(episode("first"))
                     path.endsWith("/Items/second") -> json(episode("second"))
@@ -106,19 +129,29 @@ class PlaybackFlowTest {
                 throw AssertionError("Playback did not start: ${controller.state.value}; closed=${closed.get()}; requests=${server.requestCount}", e)
             }
             inst.runOnMainSync {
-                controller.actions.setSkipPreferences(SkipPreferences(automatic = automatic, outroDurationMs = outroDurationMs))
+                if (nextHalfOffsetMs == null)
+                    controller.actions.setSkipPreferences(SkipPreferences(automatic = automatic, outroDurationMs = outroDurationMs))
                 controller.player.pause()
-                val offerPosition = controller.state.value.durationMs - outroDurationMs - 2800
-                if (autoNext) controller.player.seekTo(offerPosition)
+                val duration = controller.player.duration
+                val offerPosition = nextHalfOffsetMs?.let { duration / 2 + it } ?: (duration - outroDurationMs - 2800)
+                if (autoNext || nextHalfOffsetMs != null) controller.player.seekTo(offerPosition)
                 // The normal seek action also dismisses the end-of-video countdown.
                 else controller.actions.seek(offerPosition)
             }
-            await { controller.state.value.navigation.offerSeconds == 3 }
+            if (nextHalfOffsetMs == null) await { controller.state.value.navigation.offerSeconds == 3 }
+            else await { controller.state.value.let { !it.loading && it.canSeek && !it.playing } }
             assertEquals("first", controller.state.value.itemId)
             assertEquals(0, controller.state.value.nextSeconds)
             assertEquals(0, closed.get())
             inst.runOnMainSync {
-                if (automatic) controller.player.play() else controller.actions.skipSegment()
+                if (nextHalfOffsetMs != null) assertEquals("Use the exact player position at the halfway boundary",
+                    controller.player.duration / 2 + nextHalfOffsetMs, controller.player.currentPosition)
+                when {
+                    pickEpisode -> controller.actions.selectEpisode(requireNotNull(controller.state.value.nextItem))
+                    nextHalfOffsetMs != null -> controller.actions.nextNow()
+                    automatic -> controller.player.play()
+                    else -> controller.actions.skipSegment()
+                }
             }
             await {
                 val ui = controller.state.value
@@ -128,6 +161,14 @@ class PlaybackFlowTest {
             assertEquals(0, closed.get())
             assertEquals(0, controller.state.value.nextSeconds)
             assertNull(controller.state.value.error)
+            await { events.contains("stopped:first") }
+            if (nextHalfOffsetMs != null && nextHalfOffsetMs > 0 && !pickEpisode) {
+                val expected = if (failFirstMark) 2 else 1
+                try { await { markAttempts.get() == expected } }
+                catch (e: AssertionError) { throw AssertionError("Expected $expected marks, got ${markAttempts.get()}; events=$events", e) }
+                assertEquals("stopped:first", events.first())
+                assertTrue(events.filter { it.startsWith("watched:") }.all { it == "watched:first" })
+            } else assertEquals(0, markAttempts.get())
         } finally {
             inst.runOnMainSync { if (created) controller.release() }
             scope.cancel()

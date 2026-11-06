@@ -233,7 +233,7 @@ class PlaybackController(
             selectCompatibility = ::selectCompatibility,
             retry = { load(positionTicks(), reason = PlaybackLoadReason.RETRY) },
             cancelNext = ::cancelCountdown,
-            nextNow = ::playNextEpisode,
+            nextNow = { playNextEpisode(markWatched = true) },
             close = { onClose(false) },
             subtitleOffset = ::setSubtitleOffset,
             selectLocalFile = ::selectManagedSubtitle,
@@ -425,6 +425,7 @@ class PlaybackController(
             subtitleSearchResume ?: pendingPlay ?: if (player.mediaItemCount > 0) player.playWhenReady else true,
         reason: PlaybackLoadReason = PlaybackLoadReason.USER_CHANGE,
         prefetched: Media? = null,
+        markPreviousWatched: Boolean = false,
     ) {
         if (reason != PlaybackLoadReason.SPEED) speedController.cancel()
         discardSubtitleSearch()
@@ -448,7 +449,7 @@ class PlaybackController(
         countdownDismissed = false
         cancelCountdown(dismiss = false)
         pendingPlay = autoPlay
-        plan?.let { reporter.send(it, "Stopped", positionTicks(), true) }
+        plan?.let { reporter.send(it, "Stopped", positionTicks(), true, markWatched = markPreviousWatched) }
         plan = null
         started = false
         initialTicks = ticks
@@ -744,14 +745,20 @@ class PlaybackController(
         }
     }
 
-    private fun playNextEpisode() {
+    private fun playNextEpisode(markWatched: Boolean = false) {
         val ui = mutable.value
         if (released || ui.loading || ui.error != null || ui.subtitleApplying || ui.subtitleSearchOpen) return
         val upcoming = nextEpisode.state.next?.takeIf { it.id != currentId } ?: return
-        playEpisode(upcoming)
+        val position = player.currentPosition.coerceAtLeast(0)
+        val duration = player.duration.takeIf { it > 0 } ?: ui.durationMs
+        val watched = markWatched && started && plan != null && item?.type == "Episode" &&
+            duration > 0 && position > duration / 2
+        playEpisode(upcoming, markPreviousWatched = watched)
     }
 
-    private fun playEpisode(media: Media) {
+    private fun playEpisode(media: Media) = playEpisode(media, markPreviousWatched = false)
+
+    private fun playEpisode(media: Media, markPreviousWatched: Boolean) {
         val ui = mutable.value
         if (released || ui.loading || ui.subtitleApplying || ui.subtitleSearchOpen) return
         val prefetched = nextEpisode.preparedFor(media)
@@ -764,7 +771,8 @@ class PlaybackController(
         subtitleIndex = null
         compatible = false
         settingsItemId = null
-        load(0, fetch = true, autoPlay = true, reason = PlaybackLoadReason.INITIAL, prefetched = prefetched)
+        load(0, fetch = true, autoPlay = true, reason = PlaybackLoadReason.INITIAL, prefetched = prefetched,
+            markPreviousWatched = markPreviousWatched)
     }
 
     private fun canSelectTrack(type: String, index: Int): Boolean {

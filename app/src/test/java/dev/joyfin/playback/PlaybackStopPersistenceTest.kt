@@ -19,6 +19,21 @@ class PlaybackStopPersistenceTest {
         assertEquals("episode", stop.body.itemId)
         assertEquals(123L, stop.body.positionTicks)
         assertTrue(stop.encoding)
+        assertFalse(stop.markWatched)
+    }
+
+    @Test
+    fun watchedMarkSurvivesPlayerRecreationAndKeepsTheOriginalEpisode() {
+        var raw: String? = null
+        val persistence = PlaybackStopPersistence(owner, { raw }, { raw = it })
+        persistence.load()
+        persistence.save(listOf(PlaybackStop(
+            PlaybackReport(playSessionId = "first-session", itemId = "first-episode", positionTicks = 310000000),
+            encoding = false, markWatched = true)))
+        val restored = PlaybackStopPersistence(owner, { raw }, {}).load().single()
+        assertTrue(restored.markWatched)
+        assertEquals("first-episode", restored.body.itemId)
+        assertEquals(310000000L, restored.body.positionTicks)
     }
 
     @Test

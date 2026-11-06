@@ -42,6 +42,7 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
         PlaybackStopQueue(cleanupScope, stopPersistence.load(), stopPersistence::save) { stop ->
             if (stop.encoding) api.stopTranscoding(stop.body.playSessionId)
             api.reportSnapshot(stop.body, "Stopped")
+            if (stop.markWatched) api.setPlayed(stop.body.itemId, true)
         }
 
     init {
@@ -90,7 +91,7 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
         }
     }
 
-    fun send(plan: PlaybackPlan, event: String, ticks: Long, paused: Boolean) {
+    fun send(plan: PlaybackPlan, event: String, ticks: Long, paused: Boolean, markWatched: Boolean = false) {
         val body = api.reportBody(plan, event, ticks, paused)
         val key = plan.sessionId.ifBlank { plan.item.id }
         if (event == "Stopped") {
@@ -98,7 +99,7 @@ class PlaybackReporter(private val api: JellyfinApi, private val store: SessionS
                 stopped.add(key)
                 inFlight?.takeIf { it.first == key }?.second?.cancel()
             }
-            stops.enqueue(PlaybackStop(body, plan.method != "DirectPlay"))
+            stops.enqueue(PlaybackStop(body, plan.method != "DirectPlay", markWatched))
         } else if (key !in stopped) {
             queue.trySend(Message(key, event, body))
         }

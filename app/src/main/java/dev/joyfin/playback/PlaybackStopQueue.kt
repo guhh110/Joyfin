@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 
 /** Stops have a dedicated worker; a slow progress report cannot hold a transcoder open. */
 @Serializable
-internal data class PlaybackStop(val body: PlaybackReport, val encoding: Boolean) {
+internal data class PlaybackStop(val body: PlaybackReport, val encoding: Boolean, val markWatched: Boolean = false) {
     val key: String
         get() = body.playSessionId.ifBlank { body.itemId }
 }
