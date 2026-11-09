@@ -70,12 +70,14 @@ fun SeekBar(
                 .onFocusChanged { focused = it.isFocused }
                 .onPreviewKeyEvent { e ->
                     if (
-                        e.type == KeyEventType.KeyDown &&
-                            enabled &&
+                        enabled &&
                             durationMs > 0 &&
                             (e.key == Key.DirectionLeft || e.key == Key.DirectionRight)
                     ) {
-                        currentActions.adjust(if (e.key == Key.DirectionLeft) -10_000 else 10_000)
+                        val direction = if (e.key == Key.DirectionLeft) -1 else 1
+                        if (e.type == KeyEventType.KeyUp) currentActions.remoteUp(direction)
+                        else if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0)
+                            currentActions.remoteDown(direction)
                         true
                     } else false
                 }

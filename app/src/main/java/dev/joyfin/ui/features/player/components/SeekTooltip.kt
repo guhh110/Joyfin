@@ -25,10 +25,13 @@ fun SeekTooltip(state: SeekPreviewState, modifier: Modifier = Modifier) {
             "${if (state.deltaMs < 0) "快退" else "快进"} ${abs(state.deltaMs) / 1000} 秒 · ${timeLabel(state.targetMs)}"
         )
         Caption(
-            if (!state.active) "已跳转"
-            else if (state.input == dev.joyfin.playback.SeekInput.REMOTE)
-                "停止操作 1 秒后跳转 · 返回取消"
-            else "松手跳转"
+            when {
+                !state.active -> "已跳转"
+                state.remoteStepMs != null -> "每步 ${state.remoteStepMs / 1000} 秒 · 长按加速 · 返回取消"
+                state.requiresConfirmation -> "左右微调 · 确认跳转 · 返回取消"
+                state.input == dev.joyfin.playback.SeekInput.REMOTE -> "停止操作 1 秒后跳转 · 返回取消"
+                else -> "松手跳转"
+            }
         )
     }
 }

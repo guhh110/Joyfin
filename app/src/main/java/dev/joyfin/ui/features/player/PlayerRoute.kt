@@ -179,6 +179,7 @@ fun PlayerRoute(
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         exitRequestedAt = null
         exitHint.cancel()
+        actions.preview.cancel()
     }
     LaunchedEffect(locked, lockControlsVisible, lockInteraction) {
         if (locked && lockControlsVisible) {
@@ -224,6 +225,10 @@ fun PlayerRoute(
     RememberScreenFocus("player:toggle") {
         val focusMemory = LocalScreenFocus.current
         val window = LocalWindowInfo.current
+        LaunchedEffect(window.isWindowFocused, locked, panel, ui.subtitleSearchOpen, ui.nextSeconds > 0) {
+            if (!window.isWindowFocused || locked || panel != null || ui.subtitleSearchOpen || ui.nextSeconds > 0)
+                actions.preview.cancel()
+        }
         val skipVisible = ui.navigation.offer != null || ui.navigation.undoPositionMs != null
         LaunchedEffect(skipVisible, ui.navigation.undoPositionMs != null) {
             if (tv && (!skipVisible && focusMemory?.target?.invoke()?.startsWith("player:skip-") == true ||
@@ -260,17 +265,32 @@ fun PlayerRoute(
         Box(
             Modifier.fillMaxSize().onPreviewKeyEvent { event ->
                 if (locked) return@onPreviewKeyEvent false
+                if (event.type == KeyEventType.KeyUp &&
+                    (event.key == Key.DirectionLeft || event.key == Key.DirectionRight) &&
+                    ui.seekPreview?.input == SeekInput.REMOTE) {
+                    actions.preview.remoteUp(if (event.key == Key.DirectionLeft) -1 else 1)
+                    return@onPreviewKeyEvent true
+                }
                 if (event.type == KeyEventType.KeyDown && ui.seekPreview?.active == true) {
                     when (event.key) {
                         Key.DirectionLeft,
                         Key.DirectionRight ->
                             if (
                                 ui.seekPreview.input == SeekInput.REMOTE &&
-                                    (!visible || focusMemory?.target?.invoke() == "player:progress")
+                                    (ui.seekPreview.requiresConfirmation || !visible ||
+                                        focusMemory?.target?.invoke() == "player:progress")
                             ) {
-                                actions.preview.adjust(
-                                    if (event.key == Key.DirectionLeft) -10_000 else 10_000
-                                )
+                                if (event.nativeKeyEvent.repeatCount == 0)
+                                    actions.preview.remoteDown(if (event.key == Key.DirectionLeft) -1 else 1)
+                                if (visible) touch()
+                                return@onPreviewKeyEvent true
+                            }
+                        Key.DirectionCenter,
+                        Key.Enter ->
+                            if (ui.seekPreview.input == SeekInput.REMOTE &&
+                                (ui.seekPreview.requiresConfirmation || ui.seekPreview.remoteStepMs != null &&
+                                    (!visible || focusMemory?.target?.invoke() == "player:progress"))) {
+                                if (event.nativeKeyEvent.repeatCount == 0) actions.preview.commit()
                                 if (visible) touch()
                                 return@onPreviewKeyEvent true
                             }

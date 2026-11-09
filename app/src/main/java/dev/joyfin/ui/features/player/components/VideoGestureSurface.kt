@@ -56,25 +56,25 @@ internal fun BoxScope.VideoGestureSurface(
             .focusRequester(focus)
             .onPreviewKeyEvent {
                 if (locked) return@onPreviewKeyEvent false
+                if (!visible && (it.key == Key.DirectionLeft || it.key == Key.DirectionRight)) {
+                    val direction = if (it.key == Key.DirectionLeft) -1 else 1
+                    if (it.type == KeyEventType.KeyUp) currentActions.remoteUp(direction)
+                    else if (it.type == KeyEventType.KeyDown && seekEnabled && it.nativeKeyEvent.repeatCount == 0)
+                        currentActions.remoteDown(direction)
+                    return@onPreviewKeyEvent true
+                }
                 if (
                     !visible &&
                         it.type == KeyEventType.KeyDown &&
                         it.key in
                             listOf(
-                                Key.DirectionLeft,
-                                Key.DirectionRight,
                                 Key.DirectionUp,
                                 Key.DirectionDown,
                                 Key.DirectionCenter,
                                 Key.Enter,
                             )
                 ) {
-                    if (it.key == Key.DirectionLeft || it.key == Key.DirectionRight) {
-                        if (seekEnabled)
-                            currentActions.adjust(
-                                if (it.key == Key.DirectionLeft) -10_000 else 10_000
-                            )
-                    } else if (it.key == Key.DirectionCenter || it.key == Key.Enter) {
+                    if (it.key == Key.DirectionCenter || it.key == Key.Enter) {
                         if (it.nativeKeyEvent.repeatCount == 0) confirm()
                     } else wake()
                     true

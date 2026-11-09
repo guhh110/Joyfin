@@ -12,6 +12,7 @@ Joyfin 是一款面向 Android TV、Google TV 和 Android 手机的 Jellyfin 客
 - 首页优先轮播追剧内容，没有收藏剧时展示最近入库，支持手机滑动与 TV 遥控器翻页，继续观看保持独立。
 - 查看剧集、演职人员和相似作品，管理收藏与继续观看。
 - 切换媒体版本、画质、音轨、字幕与播放速度。
+- 遥控器左右键或快进／快退键短按跳转 10 秒；长按逐级加速，松开后可微调，按确认跳转、返回取消。
 - 搜索、下载和整理字幕，在播放器中选择本地字幕。
 
 播放器基于 Media3 与 libass，使用系统音频解码／直通，并通过 [Jellyfin FFmpeg 音频扩展](https://github.com/jellyfin/jellyfin-androidx-media)补充 DTS、DTS-HD 和 TrueHD 等格式的解码能力。默认使用不限码率的原画设置，实际播放方式取决于设备能力、音视频格式、网络条件与 Jellyfin 服务端协商结果。
