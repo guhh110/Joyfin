@@ -10,7 +10,6 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
@@ -136,15 +135,6 @@ class PlayerActivity : ComponentActivity() {
                 hide(WindowInsetsCompat.Type.systemBars())
             }
         }
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    if (controller.state.value.nextSeconds > 0) controller.cancelCountdown()
-                    else finish()
-                }
-            },
-        )
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =

@@ -1,5 +1,7 @@
 package dev.joyfin.ui.features.player
 
+import android.os.SystemClock
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -25,6 +28,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.joyfin.playback.PlayerActions
 import dev.joyfin.playback.PlayerDeviceControls
 import dev.joyfin.playback.PlayerUiState
@@ -47,6 +52,8 @@ import dev.joyfin.ui.theme.Palette
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 
+private const val ExitConfirmationWindowMs = 2_000L
+
 /** Presentation only: never creates a player, requests an API or submits playback reports. */
 @Composable
 fun PlayerRoute(
@@ -58,6 +65,11 @@ fun PlayerRoute(
     initialPanel: PlayerPanel? = null,
 ) {
     var visible by remember { mutableStateOf(true) }
+    var exitRequestedAt by remember(ui.itemId, ui.sourceId) { mutableStateOf<Long?>(null) }
+    val context = LocalContext.current
+    val exitHint = remember(context) {
+        Toast.makeText(context, "再按一次返回退出播放", Toast.LENGTH_SHORT)
+    }
     var locked by remember { mutableStateOf(false) }
     var lockControlsVisible by remember { mutableStateOf(false) }
     var lockInteraction by remember { mutableIntStateOf(0) }
@@ -140,6 +152,34 @@ fun PlayerRoute(
         lockControlsVisible = true
         lockInteraction++
     }
+    fun requestExit() {
+        val now = SystemClock.elapsedRealtime()
+        val previous = exitRequestedAt
+        if (previous != null && now - previous in 0L until ExitConfirmationWindowMs) {
+            exitRequestedAt = null
+            exitHint.cancel()
+            actions.close()
+        } else {
+            exitRequestedAt = now
+        }
+    }
+    val guardedActions = actions.copy(close = ::requestExit)
+    LaunchedEffect(exitRequestedAt) {
+        if (exitRequestedAt != null) {
+            exitHint.show()
+            delay(ExitConfirmationWindowMs)
+            exitRequestedAt = null
+        } else exitHint.cancel()
+    }
+    DisposableEffect(exitHint) { onDispose { exitHint.cancel() } }
+    LaunchedEffect(locked, panel, ui.subtitleSearchOpen, ui.nextSeconds > 0, ui.seekPreview?.active) {
+        if (locked || panel != null || ui.subtitleSearchOpen || ui.nextSeconds > 0 || ui.seekPreview?.active == true)
+            exitRequestedAt = null
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        exitRequestedAt = null
+        exitHint.cancel()
+    }
     LaunchedEffect(locked, lockControlsVisible, lockInteraction) {
         if (locked && lockControlsVisible) {
             delay(3000)
@@ -168,15 +208,17 @@ fun PlayerRoute(
         }
     }
     LaunchedEffect(ui.error) { if (tv && ui.error != null) touch() }
-    BackHandler(
-        enabled = locked || panel != null || ui.nextSeconds > 0 || visible || ui.seekPreview?.active == true
-    ) {
+    BackHandler {
         when {
             locked -> wakeLockControls()
             ui.seekPreview?.active == true -> actions.preview.cancel()
             panel != null -> dismissPanel()
             ui.nextSeconds > 0 -> actions.cancelNext()
-            else -> visible = false
+            ui.subtitleSearchOpen -> Unit // The subtitle dialog owns back while open or closing.
+            else -> {
+                visible = false
+                requestExit()
+            }
         }
     }
     RememberScreenFocus("player:toggle") {
@@ -261,8 +303,8 @@ fun PlayerRoute(
             )
             val showControls = !locked && (visible || panel != null || ui.error != null || (ui.nextSeconds > 0 && !ui.playing))
             PlayerControlsExitHost(visible = showControls) {
-                if (tv) TvPlayerLayout(ui, actions, panel, ::openPanel, ::touch)
-                else MobilePlayerLayout(ui, actions, panel, ::openPanel, ::touch)
+                if (tv) TvPlayerLayout(ui, guardedActions, panel, ::openPanel, ::touch)
+                else MobilePlayerLayout(ui, guardedActions, panel, ::openPanel, ::touch)
             }
             if (skipVisible && !locked && panel == null && ui.error == null && !ui.loading && !ui.subtitleApplying &&
                 ui.canSeek && ui.nextSeconds == 0) {
