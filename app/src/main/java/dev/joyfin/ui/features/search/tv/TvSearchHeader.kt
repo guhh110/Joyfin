@@ -11,16 +11,8 @@ import dev.joyfin.ui.interaction.focusTarget
 @Composable
 internal fun TvSearchHeader(back: () -> Unit, summary: String,
     field: @Composable () -> Unit, submit: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            IconButton("返回", Glyph.Back, back, Modifier.focusTarget("header:back"))
-            FilmTitle("搜索媒体", Modifier.weight(1f), maxLines = 1)
-        }
-        Row(Modifier.widthIn(max = 760.dp).fillMaxWidth(), verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(Modifier.weight(1f)) { field() }
-            submit()
-        }
-        Caption(summary, maxLines = 2)
+    PageHeader(summary, onBack = back, scrollActions = false) {
+        Box(Modifier.weight(1f).padding(end = 8.dp)) { field() }
+        submit()
     }
 }

@@ -91,6 +91,7 @@ internal fun BrowseHost(
     val ui by vm.state.collectAsStateWithLifecycle()
     val audioOutputMode by vm.audioOutputMode.collectAsStateWithLifecycle()
     val homeLayout by vm.homeLayout.collectAsStateWithLifecycle()
+    val tracking by vm.tracking.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     var exit by remember { mutableStateOf(false) }
     var logout by remember { mutableStateOf(false) }
@@ -113,6 +114,13 @@ internal fun BrowseHost(
             }
         }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle, vm) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.resumeBrowse()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     val readyEpisode = ui.detail.series?.playback as? dev.joyfin.browse.EpisodePlaybackState.Ready
     LaunchedEffect(readyEpisode?.intent?.sequence) {
         readyEpisode?.let { ready ->
@@ -175,6 +183,10 @@ internal fun BrowseHost(
                 removeResumeItem = vm::removeResumeItem,
                 markResumeItemPlayed = vm::markResumeItemPlayed,
                 cancelResumeAction = vm::cancelResumeAction,
+                tracking = vm::openTracking,
+                refreshTracking = vm::refreshTracking,
+                retryTracking = vm::retryTracking,
+                removeTracking = vm::removeTracking,
             )
         }
     val images =
@@ -195,7 +207,7 @@ internal fun BrowseHost(
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry, vm::quickLogin,
                 vm::discoverServers, vm::cancelDiscovery)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit, updates)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit, updates, tracking)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
             confirmInitiallyFocused = true)

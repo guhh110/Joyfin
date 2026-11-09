@@ -15,10 +15,11 @@ import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.data.HomeLayoutPreferences
 
 @Composable
-internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
+internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences(),
+    tracking: dev.joyfin.browse.TrackingUiState? = null) {
     val home = homeContent(ui)
     val result = rememberHomeResult(home)
-    val carousel = rememberHomeCarousel(home, images)
+    val carousel = rememberHomeCarousel(home, images, tracking)
     val featured = carousel.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val artworkHeight = (maxWidth * .75f).coerceIn(220.dp, 360.dp)
@@ -28,7 +29,8 @@ internal fun MobileHomeLayout(ui: HomeUiState, actions: BrowseActions, images: A
                     background = { HomeCarouselBackdrop(carousel) }) {
                     val heroModifier = Modifier.fillMaxWidth().statusBarsPadding()
                         .padding(top = if (result.visible) 96.dp else artworkHeight * .58f)
-                    if (!result.visible && carousel.items.isNotEmpty()) HomeCarouselContent(carousel, actions, heroModifier)
+                    if ((!result.visible || tracking != null) && carousel.items.isNotEmpty()) HomeCarouselContent(carousel, actions, heroModifier)
+                    else if (tracking != null) TrackingHeroPlaceholder(tracking, actions, heroModifier)
                     else HomeHeroContent(home, actions, heroModifier, result = result)
                     Box(Modifier.align(Alignment.TopCenter)) { AppHeader(actions, statusBarInset = true) }
                 }

@@ -25,6 +25,7 @@ internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
         IconButton("返回", Glyph.Back, actions.back, Modifier.seriesFocus("header:back", focus))
+        Caption("收藏后加入追剧", Modifier.weight(1f).padding(horizontal = 12.dp), maxLines = 1)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton("搜索", Glyph.Search, actions.search, Modifier.seriesFocus("header:search", focus))
             IconButton("账号与设置", Glyph.Settings, actions.settings, Modifier.seriesFocus("header:account", focus))

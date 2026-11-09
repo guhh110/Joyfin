@@ -29,8 +29,8 @@ internal fun TvSettingsLayout(
                 .widthIn(max = 1200.dp)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 48.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+                .padding(horizontal = 48.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries, updates)
         }

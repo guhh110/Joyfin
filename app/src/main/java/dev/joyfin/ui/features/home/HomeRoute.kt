@@ -10,9 +10,10 @@ import dev.joyfin.data.HomeLayoutPreferences
 import dev.joyfin.ui.features.home.components.HomeResumeActionsHost
 
 @Composable
-fun HomeRoute(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
+fun HomeRoute(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences(),
+    tracking: dev.joyfin.browse.TrackingUiState? = null) {
     HomeResumeActionsHost(ui, actions) {
-        if (LocalDeviceLayout.current.television) TvHomeLayout(ui, actions, images, layout)
-        else MobileHomeLayout(ui, actions, images, layout)
+        if (LocalDeviceLayout.current.television) TvHomeLayout(ui, actions, images, layout, tracking)
+        else MobileHomeLayout(ui, actions, images, layout, tracking)
     }
 }

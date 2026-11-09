@@ -16,6 +16,7 @@ import coil.request.SuccessResult
 import dev.joyfin.data.Home
 import dev.joyfin.data.Media
 import dev.joyfin.data.groupLatestVideo
+import dev.joyfin.browse.TrackingUiState
 import dev.joyfin.ui.components.rememberArtworkRequest
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.device.LocalDeviceLayout
@@ -40,12 +41,14 @@ internal class HomeCarouselState(initialId: String, initialItems: List<Media>) {
     var revision by mutableIntStateOf(0)
     var direction by mutableIntStateOf(1)
     var manualRequest by mutableStateOf(false)
+    var tracking by mutableStateOf<TrackingUiState?>(null)
     val current: Media? get() = frame?.item ?: items.firstOrNull { it.id == currentId } ?: items.firstOrNull()
     val index: Int get() = items.indexOfFirst { it.id == current?.id }.coerceAtLeast(0)
 
     fun update(values: List<Media>) {
         if (items == values) return
         items = values
+        frame = frame?.let { old -> values.firstOrNull { it.id == old.item.id }?.let { old.copy(item = it) } }
         if (values.isEmpty()) {
             frame = null
             currentId = ""
@@ -68,13 +71,17 @@ internal class HomeCarouselState(initialId: String, initialItems: List<Media>) {
 
 /** Keep one current image and at most one image ahead, including shared in-flight requests. */
 @Composable
-internal fun rememberHomeCarousel(home: Home, images: ArtworkSource): HomeCarouselState {
-    val candidates = remember(home.latest, home.resume, home.rails) {
-        groupLatestVideo(home.latest.ifEmpty { home.resume.ifEmpty { home.rails.flatMap { it.items } } }).take(6)
+internal fun rememberHomeCarousel(home: Home, images: ArtworkSource, tracking: TrackingUiState? = null): HomeCarouselState {
+    val candidates = remember(home.latest, home.resume, home.rails, tracking) {
+        when {
+            tracking == null -> groupLatestVideo(home.latest.ifEmpty { home.resume.ifEmpty { home.rails.flatMap { it.items } } }).take(6)
+            tracking.empty -> groupLatestVideo(home.latest).take(6)
+            else -> tracking.carousel.map { it.series }
+        }
     }
     val saver = Saver<HomeCarouselState, String>(save = { it.currentId }, restore = { HomeCarouselState(it, candidates) })
     val state = rememberSaveable(saver = saver) { HomeCarouselState("", candidates) }
-    SideEffect { state.update(candidates) }
+    SideEffect { state.update(candidates); state.tracking = tracking }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var resumed by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
     DisposableEffect(lifecycle) {

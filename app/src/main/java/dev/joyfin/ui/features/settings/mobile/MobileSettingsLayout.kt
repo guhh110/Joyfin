@@ -27,7 +27,7 @@ internal fun MobileSettingsLayout(
         Modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SettingsContent(ui, actions, autoNext, request, audioOutputMode, homeLayout, homeLibraries, updates)
     }

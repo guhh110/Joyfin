@@ -14,7 +14,7 @@ internal fun MobileSubtitleManagementLayout(header: @Composable () -> Unit, cont
     content: @Composable () -> Unit, actions: @Composable () -> Unit, hasActions: Boolean) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)) { header(); controls() }
+            verticalArrangement = Arrangement.spacedBy(6.dp)) { header(); controls() }
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp)) { content() }
         if (hasActions) FixedActionArea {
             Box(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = 20.dp, vertical = 14.dp)) { actions() }

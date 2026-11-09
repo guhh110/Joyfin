@@ -18,6 +18,10 @@ internal class ScenarioTransport(
     private val stress: Boolean = false,
     private val payloadStress: Boolean = false,
 ) : Interceptor {
+    private val allSeries = listOf(ScenarioMedia.series) + ScenarioTrackingMedia.series
+    private val allEpisodes = ScenarioMedia.episodes + ScenarioTrackingMedia.episodes
+    private val allSeasons = ScenarioMedia.seasons + ScenarioTrackingMedia.seasons
+    private val favorites = java.util.concurrent.ConcurrentHashMap.newKeySet<String>().apply { addAll(allSeries.map { it.id }) }
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         // Never forward even an unexpected request, including mutations, to a real server.
@@ -30,8 +34,14 @@ internal class ScenarioTransport(
             remaining -= step
         }
         val path = request.url.encodedPath
+        if (path.startsWith("/UserFavoriteItems/") && scenario == Scenario.NORMAL) {
+            val id = path.substringAfterLast('/')
+            if (request.method == "POST") favorites.add(id)
+            if (request.method == "DELETE") favorites.remove(id)
+        }
         val stressRows = if (payloadStress) ScenarioPayloadProfile.fullRows else ScenarioMedia.stressMovies
-        val media = if (stress) ScenarioMedia.all + stressRows + ScenarioMedia.stressLibraries else ScenarioMedia.all
+        val trackingMedia = ScenarioTrackingMedia.series + ScenarioTrackingMedia.seasons + ScenarioTrackingMedia.episodes
+        val media = ScenarioMedia.all + trackingMedia + if (stress) stressRows + ScenarioMedia.stressLibraries else emptyList()
         val infrastructure = path == "/System/Info/Public" || path == "/Users/preview" ||
             path == "/Users/AuthenticateByName" || path == "/Sessions/Logout"
         val failed = !infrastructure && scenario == Scenario.ERROR
@@ -42,7 +52,8 @@ internal class ScenarioTransport(
             request.method != "GET" -> "{}"
             media.any { path == "/Items/${it.id}" } -> {
                 val id = path.substringAfterLast('/')
-                AppJson.encodeToString(media.first { it.id == id })
+                val item = media.first { it.id == id }
+                AppJson.encodeToString(item.copy(userData = item.userData.copy(favorite = id in favorites)))
             }
             path.startsWith("/Persons/") -> AppJson.encodeToString(ItemDto("person", "演示演员", "Person"))
             else -> {
@@ -50,19 +61,24 @@ internal class ScenarioTransport(
                     path == "/UserViews" -> if (stress) ScenarioMedia.stressLibraries else listOf(ScenarioMedia.library)
                     path == "/UserItems/Resume" -> ScenarioMedia.episodes.take(4)
                     path == "/Items/Latest" -> listOf(ScenarioMedia.series) + ScenarioMedia.movies
-                    path.endsWith("/Seasons") -> ScenarioMedia.seasons
+                    path.endsWith("/Seasons") -> allSeasons.filter { it.seriesId == path.substringBeforeLast('/').substringAfterLast('/') }
                     path.endsWith("/Episodes") -> {
                         val season = request.url.queryParameter("SeasonId")
-                        ScenarioMedia.episodes.filter { season == null || it.seasonId == season }
+                        val seriesId = path.substringBeforeLast('/').substringAfterLast('/')
+                        allEpisodes.filter { it.seriesId == seriesId && (season == null || it.seasonId == season) }
                     }
                     path.endsWith("/Similar") -> ScenarioMedia.movies
+                    path == "/Items" && request.url.queryParameter("IsFavorite") == "true" ->
+                        allSeries.filter { it.id in favorites }.map { it.copy(userData = it.userData.copy(favorite = true)) }
+                    path == "/Items" && request.url.queryParameter("IncludeItemTypes") == "Episode" ->
+                        allEpisodes.filter { it.seriesId == request.url.queryParameter("ParentId") }
                     path == "/Items" && request.url.queryParameter("ParentId") == null &&
                         request.url.queryParameter("Recursive") == null &&
                         request.url.queryParameter("SearchTerm") == null ->
                         if (stress) ScenarioMedia.stressLibraries else listOf(ScenarioMedia.library)
                     path == "/Items" && request.url.queryParameter("ParentId") == ScenarioMedia.library.id ->
-                        listOf(ScenarioMedia.series) + ScenarioMedia.gridMovies
-                    path == "/Items" -> listOf(ScenarioMedia.series) + ScenarioMedia.movies
+                        allSeries + ScenarioMedia.gridMovies
+                    path == "/Items" -> allSeries + ScenarioMedia.movies
                     else -> emptyList()
                 }
                 if (stress && scenario != Scenario.EMPTY && path == "/Items" && request.url.queryParameter("ParentId") == ScenarioMedia.library.id) {
@@ -74,7 +90,11 @@ internal class ScenarioTransport(
                     if (payloadStress) android.util.Log.i("JoyfinPayloadProfile", "request=browse fields=${fields.sorted().joinToString(",")} bytes=${result.toByteArray().size}")
                     result
                 } else if (path == "/Items/Latest") AppJson.encodeToString(rows)
-                else AppJson.encodeToString(ItemsResponse(rows, rows.size))
+                else {
+                    val start = request.url.queryParameter("StartIndex")?.toIntOrNull() ?: 0
+                    val limit = request.url.queryParameter("Limit")?.toIntOrNull() ?: rows.size
+                    AppJson.encodeToString(ItemsResponse(rows.drop(start).take(limit), rows.size))
+                }
             }
         }
         return Response.Builder().request(request).protocol(Protocol.HTTP_1_1)

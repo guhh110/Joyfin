@@ -15,11 +15,11 @@ internal fun TvSubtitleManagementLayout(header: @Composable () -> Unit, controls
     content: @Composable () -> Unit, actions: @Composable () -> Unit, hasActions: Boolean) {
     val gutter = LocalDeviceLayout.current.gutter
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = gutter).padding(top = 24.dp, bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)) { header(); controls() }
+        Column(Modifier.fillMaxWidth().padding(horizontal = gutter).padding(top = 10.dp, bottom = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) { header(); controls() }
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = gutter)) { content() }
         if (hasActions) FixedActionArea {
-            Box(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = gutter, vertical = 18.dp)) { actions() }
+            Box(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = gutter, vertical = 10.dp)) { actions() }
         }
     }
 }

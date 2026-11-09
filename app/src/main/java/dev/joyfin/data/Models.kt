@@ -56,6 +56,7 @@ data class Media(
     /** Server viewing timestamp in epoch milliseconds; missing or invalid dates stay unknown. */
     val lastPlayedAt: Long? = null,
     val chapters: List<MediaChapter> = emptyList(),
+    val virtual: Boolean = false,
 ) {
     val isFolder
         get() = type in setOf("Series", "Season", "CollectionFolder", "Folder", "BoxSet")
@@ -77,6 +78,7 @@ data class Media(
                 }.toMap(),
                 type = dto.type,
                 path = dto.path,
+                virtual = dto.virtual || dto.locationType.equals("Virtual", ignoreCase = true),
                 overview = dto.overview.validText(),
                 year = dto.year,
                 ticks = dto.ticks,

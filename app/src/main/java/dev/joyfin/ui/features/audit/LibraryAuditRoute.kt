@@ -66,7 +66,10 @@ fun LibraryAuditRoute(controller: LibraryAuditController, actions: BrowseActions
     }
     val counts = ui.report.findings.filter { ui.showIgnored || it.fingerprint !in ui.ignored }.groupingBy { it.category }.eachCount()
     val header: @Composable () -> Unit = {
-        AuditControls(ui, counts, actions.back,
+        PageHeader("片库体检", onBack = actions.back, backFocusKey = "audit:back")
+    }
+    val controls: @Composable () -> Unit = {
+        AuditControls(ui, counts,
             onScope = { returnTarget = "audit:scope"; scopePicker = true },
             onScan = { if (ui.running) controller.cancel() else controller.start() },
             onFilter = controller::filter, onIgnored = { controller.showIgnored(!ui.showIgnored) },
@@ -117,7 +120,7 @@ fun LibraryAuditRoute(controller: LibraryAuditController, actions: BrowseActions
         }
       }
     }
-    if (tv) TvLibraryAuditLayout(header, content) else MobileLibraryAuditLayout(header, content)
+    if (tv) TvLibraryAuditLayout(header, controls, content) else MobileLibraryAuditLayout(header, controls, content)
     if (scopePicker) RememberSelectionFocus("audit:scope:${ui.report.scope.id ?: "all"}") {
         Sheet("扫描范围", { scopePicker = false }, side = true) {
             (listOf(AuditScope(), ui.report.scope) + libraries.map { AuditScope(it.id, it.name) }).distinctBy { it.id }.forEach { target ->

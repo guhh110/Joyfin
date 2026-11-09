@@ -37,6 +37,7 @@ fun MediaCard(
     showSubtitle: Boolean = true,
     preferSeriesTitle: Boolean = true,
     onLongClick: (() -> Unit)? = null,
+    subtitle: String? = null,
 ) {
     val tv = LocalDeviceLayout.current.television
     val imageUrl =
@@ -148,8 +149,8 @@ fun MediaCard(
                 )
             }
             if (showSubtitle) RailTextSlot(MediaCardLayout.SubtitleSlot) {
-                if (!item.libraryDirectory) Text(
-                    if (item.type == "Episode") "第 ${item.season} 季 · 第 ${item.episode} 集"
+                if (subtitle != null || !item.libraryDirectory) Text(
+                    subtitle ?: if (item.type == "Episode") "第 ${item.season} 季 · 第 ${item.episode} 集"
                     else
                         listOf(item.year.takeIf { it > 0 }?.toString(), item.genres.firstOrNull())
                             .filterNotNull()

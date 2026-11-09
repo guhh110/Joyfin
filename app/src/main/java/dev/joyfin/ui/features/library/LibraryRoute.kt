@@ -7,7 +7,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.joyfin.browse.CollectionUiState
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.features.collection.MediaCollection
@@ -41,29 +40,19 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
     MediaCollection(ui, actions, images) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                FilmTitle(ui.title.ifBlank { "媒体库" }, Modifier.weight(1f))
-                ActionButton(
-                    "片库体检",
+            PageHeader(ui.title.ifBlank { "媒体库" }) {
+                if (!((ui.busy || ui.error != null) && ui.media.isEmpty())) {
+                    Caption(if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品", maxLines = 1)
+                }
+                if (ui.canArrangeLibrary) {
+                    val sort = { restoreTarget = "library:sort"; panel = LibraryOptionsPanel.SORT }
+                    val watched = { restoreTarget = "library:watched"; panel = LibraryOptionsPanel.WATCHED }
+                    if (tv) TvLibraryControls(ui.libraryOptions, sort, watched)
+                    else MobileLibraryControls(ui.libraryOptions, sort, watched)
+                }
+                IconButton("片库体检", Glyph.CheckCircle,
                     { actions.libraryAudit(ui.parent, if (ui.parent == null) "全部电影与剧集" else ui.title) },
-                    Modifier.focusTarget("library:audit"),
-                    icon = Glyph.CheckCircle,
-                    quiet = true,
-                )
-            }
-            RailTextSlot(20.sp) {
-                Caption(if ((ui.busy || ui.error != null) && ui.media.isEmpty()) " "
-                    else if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品")
-            }
-            if (ui.canArrangeLibrary) {
-                val sort = { restoreTarget = "library:sort"; panel = LibraryOptionsPanel.SORT }
-                val watched = { restoreTarget = "library:watched"; panel = LibraryOptionsPanel.WATCHED }
-                if (tv) TvLibraryControls(ui.libraryOptions, sort, watched)
-                else MobileLibraryControls(ui.libraryOptions, sort, watched)
+                    Modifier.focusTarget("library:audit"))
             }
         }
     }

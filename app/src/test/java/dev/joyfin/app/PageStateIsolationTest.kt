@@ -20,7 +20,7 @@ class PageStateIsolationTest {
                 settings = SettingsUiState(error = "settings"),
             )
         for (page in Page.entries) {
-            if (page in setOf(Page.SUBTITLES, Page.AUDIT)) continue
+            if (page in setOf(Page.SUBTITLES, Page.AUDIT, Page.TRACKING)) continue
             val before = initial.copy(page = page)
             val state = MutableStateFlow(before)
             val requests = PageRequests(this, state, { false }, {})

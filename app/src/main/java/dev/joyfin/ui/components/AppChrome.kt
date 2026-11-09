@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -59,10 +61,11 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
             }
         }
         if (device.television) {
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true, selected = active == "home")
-                ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true, selected = active == "library")
-                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true, selected = active == "subtitles")
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true, selected = active == "home", maxLines = 1)
+                ActionButton("追剧", actions.tracking, Modifier.focusTarget("header:tracking"), icon = Glyph.Heart, quiet = true, selected = active == "tracking", maxLines = 1)
+                ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true, selected = active == "library", maxLines = 1)
+                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true, selected = active == "subtitles", maxLines = 1)
             }
         } else Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -77,6 +80,7 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
 fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
     val destinations = listOf(
         Triple("home", "首页", Glyph.Home),
+        Triple("tracking", "追剧", Glyph.Heart),
         Triple("library", "媒体库", Glyph.Library),
         Triple("subtitles", "字幕", Glyph.Subtitle),
         Triple("search", "搜索", Glyph.Search),
@@ -120,6 +124,7 @@ fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
                         .clickable {
                             if (!current) when (id) {
                                 "home" -> actions.home()
+                                "tracking" -> actions.tracking()
                                 "library" -> actions.library(null, "媒体库")
                                 "subtitles" -> actions.subtitleManager()
                                 else -> actions.search()

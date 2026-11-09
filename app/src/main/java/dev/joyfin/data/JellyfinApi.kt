@@ -332,6 +332,47 @@ class JellyfinApi(
                 .toMediaPage()
         }
 
+    /** Favorites are user-owned server data, shared by every client of this account. */
+    suspend fun favoriteSeries(start: Int = 0): MediaPage = withContext(Dispatchers.Default) {
+        service().items(authorization(), params(
+            "UserId" to requireSession().userId,
+            "IncludeItemTypes" to "Series",
+            "IsFavorite" to true,
+            "Recursive" to true,
+            "EnableUserData" to true,
+            "Fields" to homeFields,
+            "SortBy" to "SortName",
+            "SortOrder" to "Ascending",
+            "StartIndex" to start,
+            "Limit" to 40,
+        )).value().toMediaPage()
+    }
+
+    /** Paged, lightweight progress; excludes metadata-only episodes from tracking. */
+    suspend fun trackingEpisodes(seriesId: String): List<Media> = withContext(Dispatchers.Default) {
+        val result = mutableListOf<Media>()
+        var start = 0
+        do {
+            val page = service().items(authorization(), params(
+                "UserId" to requireSession().userId,
+                "ParentId" to seriesId,
+                "Recursive" to true,
+                "IncludeItemTypes" to "Episode",
+                "IsVirtualItem" to false,
+                "EnableImages" to false,
+                "EnableUserData" to true,
+                "Fields" to "ParentId",
+                "SortBy" to "ParentIndexNumber,IndexNumber,SortName",
+                "SortOrder" to "Ascending",
+                "StartIndex" to start,
+                "Limit" to 200,
+            )).value().toMediaPage()
+            result += page.items
+            start += page.items.size
+        } while (page.items.isNotEmpty() && start < page.total)
+        result.distinctBy { it.id }.filter { it.type == "Episode" && !it.virtual }
+    }
+
     suspend fun item(id: String): Media =
         withContext(Dispatchers.Default) {
             Media.from(service().item(authorization(), id, requireSession().userId).value())

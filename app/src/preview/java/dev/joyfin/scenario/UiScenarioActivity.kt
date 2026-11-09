@@ -99,6 +99,7 @@ class UiScenarioActivity : ComponentActivity() {
                 var scenario by remember { mutableStateOf(transport.scenario) }
                 var entered by rememberSaveable { mutableStateOf(false) }
                 var showPlayer by rememberSaveable { mutableStateOf(playerPage) }
+                var playbackTarget by remember { mutableStateOf<Media?>(null) }
                 var reloadIndex by remember { mutableIntStateOf(0) }
                 LaunchedEffect(Unit) {
                     if (intent.getBooleanExtra("payloadProfile", false)) {
@@ -137,6 +138,7 @@ class UiScenarioActivity : ComponentActivity() {
                         entered = true
                         when (intent.getStringExtra("page")) {
                             "detail" -> vm.open(Media.from(ScenarioMedia.series))
+                            "tracking" -> vm.openTracking()
                             "movie" -> vm.open(Media.from(ScenarioMedia.movies.first()))
                             "library" -> vm.library()
                             "library-grid" -> vm.library(ScenarioMedia.library.id, ScenarioMedia.library.name)
@@ -151,9 +153,9 @@ class UiScenarioActivity : ComponentActivity() {
                 if (showPlayer) {
                     ScenarioPlayer(scenario, initialPanel, intent.getStringExtra("skipOffer"),
                         intent.getIntExtra("episodeCount", 6), intent.getStringExtra("episodeState"),
-                        intent.getIntExtra("seasonCount", 2)) { showPlayer = false }
+                        intent.getIntExtra("seasonCount", 2), playbackTarget) { showPlayer = false }
                 } else Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    if (intent.getStringExtra("page") != "audit") Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    if (intent.getStringExtra("page") != "audit" && intent.getBooleanExtra("controls", true)) Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                         Caption("UI 演示 · 本地模拟")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Scenario.entries.forEach { value ->
@@ -162,6 +164,7 @@ class UiScenarioActivity : ComponentActivity() {
                                 transport.scenario = value
                                 when (state.page) {
                                     Page.HOME -> vm.refreshHome()
+                                    Page.TRACKING -> vm.refreshTracking()
                                     Page.DETAIL -> { vm.retry(); vm.retrySeriesSeasons(); vm.retrySeriesRecommendation(); vm.retryRelated() }
                                     Page.LIBRARY -> vm.library()
                                     Page.SEARCH -> vm.submitSearch(state.collection.query.ifBlank { "群山" })
@@ -173,7 +176,10 @@ class UiScenarioActivity : ComponentActivity() {
                         }
                     }
                     Box(Modifier.weight(1f)) {
-                        BrowseHost(vm, artwork, updates = null) { _, _, _ -> showPlayer = true }
+                        BrowseHost(vm, artwork, updates = null) { item, fromStart, _ ->
+                            playbackTarget = if (fromStart) item.copy(resumeTicks = 0) else item
+                            showPlayer = true
+                        }
                     }
                 }
             }

@@ -107,6 +107,8 @@ data class ItemDto(
     @SerialName("Type") val type: String = "",
     @SerialName("Path") val path: String = "",
     @SerialName("Overview") val overview: String = "",
+    @SerialName("LocationType") val locationType: String = "",
+    @SerialName("IsVirtualItem") val virtual: Boolean = false,
     @SerialName("ProductionYear") val year: Int = 0,
     @SerialName("RunTimeTicks") val ticks: Long = 0,
     @SerialName("Chapters") val chapters: List<MediaChapter> = emptyList(),

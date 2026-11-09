@@ -27,15 +27,20 @@ fun Sheet(
     scrollContent: Boolean = true,
     preferredWidth: androidx.compose.ui.unit.Dp? = null,
     header: (@Composable RowScope.() -> Unit)? = null,
+    initialFocus: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        if (LocalDeviceLayout.current.television)
-            TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, preferredWidth, header, content)
-        else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, header, content)
+        val layout: @Composable () -> Unit = {
+            if (LocalDeviceLayout.current.television)
+                TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, preferredWidth, header, content)
+            else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, header, content)
+        }
+        // Request focus from the dialog window, and keep its close button in the same focus scope.
+        if (initialFocus != null) RememberSelectionFocus(initialFocus, layout) else layout()
     }
 }
 

@@ -26,7 +26,7 @@ fun SearchRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
     MediaCollection(ui, actions, images) {
         val field: @Composable () -> Unit = {
             EntryTextField("影片与剧集", query, "片名、剧名或关键词",
-                Modifier.focusTarget("search:input"), onSubmit = ::search)
+                Modifier.focusTarget("search:input"), showLabel = false, onSubmit = ::search)
         }
         val submit: @Composable () -> Unit = {
             ActionButton(
@@ -39,7 +39,7 @@ fun SearchRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
                 maxLines = 1,
             )
         }
-        val summary = if (ui.query.isBlank()) "搜索当前服务器的影片与剧集"
+        val summary = if (ui.query.isBlank()) "搜索媒体"
             else if (ui.error != null && ui.media.isEmpty()) "“${ui.query}” · 暂时无法读取结果"
             else if (ui.busy && ui.media.isEmpty()) "“${ui.query}”"
             else "“${ui.query}” · ${ui.total} 个结果"

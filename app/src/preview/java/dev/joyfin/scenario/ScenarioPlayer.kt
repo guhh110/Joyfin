@@ -21,8 +21,32 @@ import kotlinx.coroutines.delay
 /** Local presentation fixture: no player, server, playback reports or real preferences. */
 @Composable
 internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, skipOffer: String? = null,
-    episodeCount: Int = 6, episodeState: String? = null, seasonCount: Int = 2, onClose: () -> Unit) {
+    episodeCount: Int = 6, episodeState: String? = null, seasonCount: Int = 2,
+    initialItem: Media? = null, onClose: () -> Unit) {
+    fun selectedEpisodes(seasonId: String?) = (ScenarioMedia.episodes + ScenarioTrackingMedia.episodes)
+        .filter { it.seriesId == initialItem?.seriesId && it.seasonId == seasonId && !it.virtual }
+        .map(Media::from)
     fun fixture(mode: Scenario) = playerFixture(mode, skipOffer).let { value ->
+        if (initialItem != null) {
+            val duration = (initialItem.ticks / 10_000).takeIf { it > 0 } ?: value.durationMs
+            return@let value.copy(
+                title = initialItem.seriesName.ifBlank { initialItem.name },
+                subtitle = "${initialItem.label} · 本地模拟",
+                itemId = initialItem.id,
+                positionMs = (initialItem.resumeTicks / 10_000).coerceIn(0, duration),
+                durationMs = duration, bufferedMs = duration,
+                episodes = if (mode == Scenario.EMPTY) emptyList() else selectedEpisodes(initialItem.seasonId),
+                seasons = if (mode == Scenario.EMPTY) emptyList() else
+                    (ScenarioMedia.seasons + ScenarioTrackingMedia.seasons)
+                        .filter { it.seriesId == initialItem.seriesId }.map(Media::from),
+                selectedSeasonId = initialItem.seasonId,
+                navigation = value.navigation.copy(
+                    chapters = value.navigation.chapters.filter { it.positionMs < duration },
+                    ranges = value.navigation.ranges.filter { it.endMs <= duration },
+                    preferenceScope = "${initialItem.seriesName.ifBlank { initialItem.name }} · 仅本次场景",
+                ),
+            )
+        }
         val count = episodeCount.coerceIn(1, 2000)
         val episodes = if (count == 6) value.episodes else (1..count).map { i ->
             Media("episode-1-$i", listOf("沿着海岸线", "风从山谷来", "抵达无人知晓的港湾")[i % 3],
@@ -35,7 +59,7 @@ internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, skip
             selectedSeasonId = if (initialPanel == PlayerPanel.Seasons) "season-${seasonCount.coerceIn(1, 100)}" else "season-1",
             itemId = if (count == 6) value.itemId else "episode-1-${(count * .72).toInt().coerceAtLeast(1)}")
     }
-    var ui by remember(scenario, skipOffer, episodeCount, episodeState, seasonCount) { mutableStateOf(fixture(scenario)) }
+    var ui by remember(scenario, skipOffer, episodeCount, episodeState, seasonCount, initialItem) { mutableStateOf(fixture(scenario)) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val seek = remember {
@@ -60,7 +84,9 @@ internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, skip
         selectEpisode = { episode -> ui = ui.copy(itemId = episode.id, subtitle = "${episode.label} · 本地模拟", positionMs = 0) },
         selectSeason = { season ->
             val number = if (season == "season-2") 2 else 1
-            ui = ui.copy(selectedSeasonId = season, episodes = fixtureEpisodes(number), episodesLoading = false, episodeError = null)
+            ui = ui.copy(selectedSeasonId = season,
+                episodes = if (initialItem == null) fixtureEpisodes(number) else selectedEpisodes(season),
+                episodesLoading = false, episodeError = null)
         },
         selectAudio = { ui = ui.copy(audioIndex = it) },
         selectSubtitle = { ui = ui.copy(subtitleIndex = it, localSubtitle = null) },
@@ -70,7 +96,8 @@ internal fun ScenarioPlayer(scenario: Scenario, initialPanel: PlayerPanel?, skip
         compatible = { ui = ui.copy(compatible = true, method = "Transcode", error = null) },
         selectCompatibility = { ui = ui.copy(compatible = it, method = if (it) "Transcode" else "DirectPlay") },
         retry = { ui = fixture(Scenario.NORMAL) },
-        retryEpisodes = { ui = ui.copy(episodesLoading = false, episodeError = null, episodes = fixtureEpisodes(1)) },
+        retryEpisodes = { ui = ui.copy(episodesLoading = false, episodeError = null,
+            episodes = if (initialItem == null) fixtureEpisodes(1) else selectedEpisodes(ui.selectedSeasonId)) },
         cancelNext = { ui = ui.copy(nextSeconds = 0) },
         nextNow = { ui = ui.copy(nextSeconds = 0, positionMs = 0) },
         close = onClose,

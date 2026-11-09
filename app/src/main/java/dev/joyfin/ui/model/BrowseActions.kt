@@ -45,4 +45,8 @@ data class BrowseActions(
     val removeResumeItem: (Media) -> Unit = {},
     val markResumeItemPlayed: (Media) -> Unit = {},
     val cancelResumeAction: () -> Unit = {},
+    val tracking: () -> Unit = {},
+    val refreshTracking: () -> Unit = {},
+    val retryTracking: (String) -> Unit = {},
+    val removeTracking: (String) -> Unit = {},
 )

@@ -24,10 +24,11 @@ import dev.joyfin.ui.model.FirstViewportScrollSpec
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences()) {
+internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: ArtworkSource, layout: HomeLayoutPreferences = HomeLayoutPreferences(),
+    tracking: dev.joyfin.browse.TrackingUiState? = null) {
     val home = homeContent(ui)
     val result = rememberHomeResult(home)
-    val carousel = rememberHomeCarousel(home, images)
+    val carousel = rememberHomeCarousel(home, images, tracking)
     val featured = carousel.current
     val pinResume = layout.visibleKeys(home.libraries.map { it.id }).firstOrNull() == "resume"
     val scroll = rememberLazyListState()
@@ -65,9 +66,10 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                                     val heroModifier = Modifier.align(
                                         if (result.visible || resumeEmpty) Alignment.CenterStart else Alignment.BottomStart)
-                                    if (!result.visible && carousel.items.isNotEmpty()) HomeCarouselContent(
+                                    if ((!result.visible || tracking != null) && carousel.items.isNotEmpty()) HomeCarouselContent(
                                         carousel, actions, heroModifier,
                                         compact = maxHeight / LocalDensity.current.fontScale < 320.dp)
+                                    else if (tracking != null) TrackingHeroPlaceholder(tracking, actions, heroModifier)
                                     else HomeHeroContent(
                                         home,
                                         actions,

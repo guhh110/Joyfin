@@ -1,6 +1,8 @@
 package dev.joyfin.ui.features.subtitles
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -9,7 +11,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import dev.joyfin.data.Media
 import dev.joyfin.subtitles.*
@@ -93,99 +94,92 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
     val pack = editor.pack
     val visiblePacks = ui.packages.filter { !ui.filterWork || it.workId == ui.context?.work?.id }
     val header: @Composable () -> Unit = {
-        val heading: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SubtitleTitle(when (ui.screen) {
-                    SubtitleScreen.ORGANIZE -> pack?.takeIf { it.workName.isNotBlank() }?.let {
-                        listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · ")
-                    } ?: "整理字幕"
-                    SubtitleScreen.SEARCH -> "搜索字幕"
-                    else -> "字幕管理"
-                }, large = true, maxLines = if (tv) 2 else 3)
-                if (ui.screen == SubtitleScreen.ORGANIZE) {
-                    Caption(pack?.title.orEmpty(), maxLines = 1)
-                    Caption(pack?.origin?.substringBefore(" · ").orEmpty(), maxLines = 1)
-                } else if (ui.filterWork) Caption(listOfNotNull(ui.context?.work?.name, ui.context?.seasonMedia?.name)
-                    .joinToString(" · "), maxLines = 2)
-            }
-        }
-        val headerAction: @Composable () -> Unit = {
+        PageHeader(when (ui.screen) {
+            SubtitleScreen.ORGANIZE -> pack?.takeIf { it.workName.isNotBlank() }?.let {
+                listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · ")
+            } ?: "整理字幕"
+            SubtitleScreen.SEARCH -> "搜索字幕"
+            else -> "字幕管理"
+        }, onBack = ::back, backFocusKey = "subtitles:back") {
             when (ui.screen) {
-                SubtitleScreen.MANAGEMENT -> ActionButton("搜索字幕", controller::showSearch,
-                    Modifier.focusTarget("subtitles:search-entry"), Glyph.Search, quiet = true,
-                    enabled = !ui.loading, maxLines = 1)
-                SubtitleScreen.SEARCH -> ActionButton("请求历史", { dialog = "history" },
-                    Modifier.focusTarget("subtitles:history"), quiet = true, maxLines = 1)
-                else -> Unit
+                SubtitleScreen.MANAGEMENT -> {
+                    TextTab("下载的字幕包", {}, true, Modifier.focusTarget("subtitles:manage-tab"), compact = !tv)
+                    TextTab("搜索下载", controller::showSearch, false, Modifier.focusTarget("subtitles:search-tab"),
+                        enabled = !ui.loading, compact = !tv)
+                }
+                SubtitleScreen.SEARCH -> {
+                    TextTab("字幕包", controller::management, false, Modifier.focusTarget("subtitles:pending"), compact = !tv)
+                    TextTab("ASSRT", { source = "assrt" }, source == "assrt", Modifier.focusTarget("subtitles:source:assrt"), compact = !tv)
+                    TextTab("OpenSubtitles", { source = "os" }, source == "os", Modifier.focusTarget("subtitles:source:os"), compact = !tv)
+                    IconButton("请求历史", Glyph.Clock, { dialog = "history" }, Modifier.focusTarget("subtitles:history"))
+                    IconButton("来源设置", Glyph.Settings, { dialog = "settings" }, Modifier.focusTarget("subtitles:settings"))
+                }
+                SubtitleScreen.ORGANIZE -> IconButton("字幕包信息", Glyph.Info, { dialog = "package-info" },
+                    Modifier.focusTarget("subtitles:package-info"))
             }
-        }
-        val narrow = !tv && LocalDeviceLayout.current.widthDp / LocalDensity.current.fontScale < 380
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                IconButton("返回", Glyph.Back, ::back, Modifier.focusTarget("subtitles:back"))
-                Box(Modifier.weight(1f)) { heading() }
-                if (!narrow) headerAction()
-            }
-            if (narrow && ui.screen != SubtitleScreen.ORGANIZE) Box(Modifier.padding(start = 58.dp)) { headerAction() }
         }
     }
     val controls: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             when (ui.screen) {
                 SubtitleScreen.MANAGEMENT -> {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextTab("下载的字幕包", {}, true, Modifier.focusTarget("subtitles:manage-tab"))
-                        TextTab("搜索下载", controller::showSearch, false, Modifier.focusTarget("subtitles:search-tab"), enabled = !ui.loading)
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("all" to "全部 ${visiblePacks.size}", "pending" to "待整理 ${visiblePacks.count { it.pending }}",
                             "linked" to "已关联 ${visiblePacks.count { it.localSaved }}", "failed" to "失败 ${visiblePacks.count { it.failed }}").forEach { (id, title) ->
                             TextTab(title, { group = id }, group == id, Modifier.focusTarget("subtitles:group:$id"), compact = true)
                         }
-                        if (ui.filterWork) ActionButton("全部作品", controller::allWorks, quiet = true, maxLines = 1)
+                        if (ui.filterWork) {
+                            Caption(listOfNotNull(ui.context?.work?.name, ui.context?.seasonMedia?.name).joinToString(" · "), maxLines = 1)
+                            ActionButton("全部作品", controller::allWorks, quiet = true, maxLines = 1)
+                        }
                     }
                 }
                 SubtitleScreen.SEARCH -> {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextTab("下载的字幕包", controller::management, false, Modifier.focusTarget("subtitles:pending"))
-                        TextTab("搜索下载", {}, true, Modifier.focusTarget("subtitles:search-tab"))
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextTab("ASSRT", { source = "assrt" }, source == "assrt", Modifier.focusTarget("subtitles:source:assrt"))
-                        TextTab("OpenSubtitles", { source = "os" }, source == "os", Modifier.focusTarget("subtitles:source:os"))
-                    }
                     val field: @Composable (Modifier) -> Unit = { modifier ->
-                        EntryTextField("作品名称", searchText, "作品名、原名或文件名", modifier.focusTarget("subtitles:query"), onSubmit = controller::search)
+                        EntryTextField("作品名称", searchText, "作品名、原名或文件名", modifier.focusTarget("subtitles:query"),
+                            showLabel = false, onSubmit = controller::search)
                     }
                     val searchAction: @Composable () -> Unit = {
                         ActionButton("搜索", controller::search, Modifier.focusTarget("subtitles:search"), primary = true,
                             loading = assrt.loading && !assrt.loadingMore || os.loading && !os.loadingMore,
                             enabled = !assrt.loading && !os.loading, maxLines = 1)
                     }
-                    if (tv) TvSubtitleSearchInput(field, searchAction) else MobileSubtitleSearchInput(field, searchAction)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ActionButton(when (ui.language) { "zh" -> "中文"; "en" -> "英语"; else -> "全部语言" }, { dialog = "language" }, Modifier.focusTarget("subtitles:language"), quiet = true)
-                        if (ui.seasons.isNotEmpty()) ActionButton(ui.context?.seasonMedia?.name ?: "选择季", { dialog = "search-season" }, Modifier.focusTarget("subtitles:search-season"), quiet = true)
-                        ActionButton("来源设置", { dialog = "settings" }, Modifier.focusTarget("subtitles:settings"), quiet = true)
+                    val filters: @Composable () -> Unit = {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            ActionButton(when (ui.language) { "zh" -> "中文"; "en" -> "英语"; else -> "全部语言" },
+                                { dialog = "language" }, Modifier.focusTarget("subtitles:language"), quiet = true, maxLines = 1)
+                            if (ui.seasons.isNotEmpty()) ActionButton(ui.context?.seasonMedia?.name ?: "选择季",
+                                { dialog = "search-season" }, Modifier.focusTarget("subtitles:search-season"), quiet = true, maxLines = 1)
+                        }
+                    }
+                    if (tv) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.weight(1f)) { TvSubtitleSearchInput(field, searchAction) }
+                        Box(Modifier.widthIn(max = 280.dp)) { filters() }
+                    } else {
+                        MobileSubtitleSearchInput(field, searchAction)
+                        filters()
                     }
                     transfer.notice?.let { Caption(it) }
                     transfer.error?.let { Caption(it, color = Palette.Error) }
                 }
                 SubtitleScreen.ORGANIZE -> {
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         ActionButton(if (pack?.workId == null) "选择作品" else "更换作品", {
                             workText.edit { replace(0, length, "") }
                             controller.findWorks("")
                             dialog = "work"
                         }, Modifier.focusTarget("subtitles:work"), enabled = !editor.loading && !editor.saving,
-                            loading = editor.loading, primary = pack?.workId == null, quiet = pack?.workId != null)
+                            loading = editor.loading, primary = pack?.workId == null, quiet = pack?.workId != null, maxLines = 1)
                         if (editor.seasons.isNotEmpty()) ActionButton(pack?.seasonName ?: "选择季", { dialog = "organize-season" },
-                            Modifier.focusTarget("subtitles:organize-season"), enabled = !editor.loading && !editor.saving, quiet = true)
-                        if (pack?.workId != null) ActionButton("媒体版本", { dialog = "version-family" }, Modifier.focusTarget("subtitles:version-family"), enabled = !editor.loading && !editor.saving, quiet = true)
-                    }
-                    if (pack?.workId != null) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Caption("${pack.files.mapNotNull { it.mapping?.itemId }.distinct().size} 集 · ${pack.matched} 份字幕已对应")
+                            Modifier.focusTarget("subtitles:organize-season"), enabled = !editor.loading && !editor.saving, quiet = true, maxLines = 1)
+                        if (pack?.workId != null) {
+                            ActionButton("媒体版本", { dialog = "version-family" }, Modifier.focusTarget("subtitles:version-family"),
+                                enabled = !editor.loading && !editor.saving, quiet = true, maxLines = 1)
+                            Caption("${pack.files.mapNotNull { it.mapping?.itemId }.distinct().size} 集 · ${pack.matched} 份字幕已对应", maxLines = 1)
+                        }
                     }
                     editor.error?.let { Caption(it, color = Palette.Error) }
                     editor.notice?.let { Caption(it) }
@@ -232,6 +226,13 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
 
     if (transfer.needsEncoding) SubtitleEncodingSheet(controller.download)
     when (dialog) {
+        "package-info" -> Sheet("字幕包信息", ::dismiss, initialFocus = "sheet:close") {
+            pack?.let {
+                Caption(listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · "))
+                Caption(it.title)
+                Caption(it.origin)
+            }
+        }
         "settings" -> SubtitleSourcesRoute(controller) { dismiss(); controller.search() }
         "history" -> {
             val records by (if (source == "assrt") controller.assrt.requestHistory else controller.openSubtitles.requestHistory).collectAsState()

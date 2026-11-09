@@ -41,16 +41,18 @@ fun AppContent(
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     audit: dev.joyfin.audit.LibraryAuditController? = null,
     updates: dev.joyfin.update.AppUpdateController? = null,
+    tracking: dev.joyfin.browse.TrackingUiState? = null,
 ) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
     val immersiveBrowse = ui.page in setOf(Page.HOME, Page.DETAIL)
     val subtitleScreen = subtitles?.state?.collectAsState()?.value?.screen
     val showNavigation = !LocalDeviceLayout.current.television &&
-        ui.page in setOf(Page.HOME, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES, Page.PERSON, Page.AUDIT) &&
+        ui.page in setOf(Page.HOME, Page.TRACKING, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES, Page.PERSON, Page.AUDIT) &&
         !(ui.page == Page.SUBTITLES && subtitleScreen == SubtitleScreen.ORGANIZE)
     val pageKey =
         if (ui.page == Page.DETAIL) "detail:${ui.detail.visit}"
+        else if (ui.page == Page.TRACKING) "tracking"
         else "${ui.page}:${ui.collection.parent}:${ui.collection.person?.id}"
     val initial =
         when (ui.page) {
@@ -58,6 +60,7 @@ fun AppContent(
             Page.LOGIN -> if (ui.entry.userName.isBlank()) "auth:input" else "auth:password"
             Page.RESTORE -> "auth:change-server"
             Page.HOME -> if (LocalDeviceLayout.current.television) "header:home" else "hero:play"
+            Page.TRACKING -> "header:tracking"
             Page.DETAIL ->
                 if (ui.detail.entryType in setOf("Series", "Season", "Episode")) "header:back"
                 else "detail:play"
@@ -75,6 +78,7 @@ fun AppContent(
 
     val activeTab = when (ui.page) {
         Page.HOME -> "home"
+        Page.TRACKING -> "tracking"
         Page.LIBRARY -> "library"
         Page.SUBTITLES -> "subtitles"
         Page.SEARCH -> "search"
@@ -120,7 +124,9 @@ fun AppContent(
                                     Page.LOGIN ->
                                         ConnectionRoute(ui.entry, entryActions, login = ui.page == Page.LOGIN)
                                     Page.RESTORE -> SessionRestoreRoute(ui.entry, entryActions)
-                                    Page.HOME -> HomeRoute(ui.home, actions, images, homeLayout)
+                                    Page.HOME -> HomeRoute(ui.home, actions, images, homeLayout, tracking)
+                                    Page.TRACKING -> dev.joyfin.ui.features.tracking.TrackingRoute(
+                                        tracking ?: dev.joyfin.browse.TrackingUiState(), actions, images)
                                     Page.DETAIL -> DetailRoute(ui.detail, actions, images)
                                     Page.LIBRARY -> LibraryRoute(ui.collection, actions, images)
                                     Page.PERSON -> PersonRoute(ui.collection, actions, images)

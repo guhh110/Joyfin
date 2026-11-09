@@ -29,7 +29,6 @@ import java.time.format.DateTimeFormatter
 internal fun AuditControls(
     ui: AuditUiState,
     counts: Map<AuditCategory, Int>,
-    onBack: () -> Unit,
     onScope: () -> Unit,
     onScan: () -> Unit,
     onFilter: (AuditCategory?) -> Unit,
@@ -38,25 +37,31 @@ internal fun AuditControls(
 ) {
     val tv = LocalDeviceLayout.current.television
     val available = !ui.loading && !ui.running && ui.rechecking == null
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        IconButton("返回", Glyph.Back, onBack, Modifier.focusTarget("audit:back"))
-        SectionTitle("片库体检")
-    }
-    FocusSurface(onScope, Modifier.fillMaxWidth().heightIn(min = 42.dp).focusTarget("audit:scope")
+    val scope: @Composable () -> Unit = {
+      FocusSurface(onScope, Modifier.fillMaxWidth().heightIn(min = 48.dp).focusTarget("audit:scope")
         .background(Palette.Surface, RoundedCornerShape(10.dp)),
         enabled = available, transparent = true, focusedScale = MotionTokens.FixedScale) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AppIcon(Glyph.Library, Modifier.size(17.dp), color = Palette.Muted)
             Text(ui.report.scope.title, Modifier.weight(1f), color = Palette.Text,
-                fontSize = 13.sp, lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                fontSize = 13.sp, lineHeight = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             AppIcon(Glyph.Down, Modifier.size(15.dp), color = Palette.Muted)
         }
+      }
     }
-    ActionButton(if (ui.running) "取消扫描" else if (ui.report.status == AuditStatus.READY) "开始扫描" else "重新扫描",
+    val scan: @Composable () -> Unit = {
+      ActionButton(if (ui.running) "取消扫描" else if (ui.report.status == AuditStatus.READY) "开始扫描" else "重新扫描",
         onScan, Modifier.fillMaxWidth().focusTarget("audit:start"), Glyph.Refresh, primary = true,
         enabled = !ui.loading && ui.rechecking == null, loading = ui.running, enabledWhileLoading = true,
-        loadingLabel = "取消扫描", focusedScale = MotionTokens.FixedScale)
+        loadingLabel = "取消扫描", focusedScale = MotionTokens.FixedScale, maxLines = 1)
+    }
+    if (tv) { scope(); scan() }
+    else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.weight(1f)) { scope() }
+        Box(Modifier.width(116.dp)) { scan() }
+    }
     val progress = ui.progress ?: ui.report
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Caption(if (ui.running) "${ui.phase} · ${progress.checked} 项"

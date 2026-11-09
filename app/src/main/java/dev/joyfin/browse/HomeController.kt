@@ -11,6 +11,7 @@ internal class HomeController(
     private val mutable: MutableStateFlow<UiState>,
     private val requests: PageRequests,
     private val expired: () -> Unit,
+    private val userDataChanged: () -> Unit = {},
 ) {
     private var resumeActionJob: Job? = null
     private var resumeActionGeneration = 0L
@@ -151,6 +152,7 @@ internal class HomeController(
                     content = home.content?.let { it.copy(resume = it.resume.filterNot { item -> item.id == media.id },
                         resumeLoad = it.resumeLoad.copy(loading = false)) },
                     resumeAction = action.copy(busy = false, completed = true)))
+                userDataChanged()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

@@ -10,6 +10,7 @@ enum class Page {
     LOGIN,
     RESTORE,
     HOME,
+    TRACKING,
     LIBRARY,
     SEARCH,
     DETAIL,

@@ -75,11 +75,7 @@ internal fun ColumnScope.SettingsContent(
             returnFromHome = false
         }
     }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        IconButton("返回", Glyph.Back, actions.back, Modifier.focusTarget("settings:back"))
-        FilmTitle("设置", Modifier.weight(1f), maxLines = 1)
-    }
+    PageHeader("设置", onBack = actions.back, backFocusKey = "settings:back")
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val accountShape = RoundedCornerShape(14.dp)
         Row(

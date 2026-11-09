@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class AppViewModel @JvmOverloads constructor(
     application: Application,
@@ -44,13 +46,17 @@ class AppViewModel @JvmOverloads constructor(
     private val requests: PageRequests =
         PageRequests(viewModelScope, mutable, { api.session != null }, ::expireSession)
     private val homeController =
-        HomeController(viewModelScope, api, mutable, requests, ::expireSession)
+        HomeController(viewModelScope, api, mutable, requests, ::expireSession, ::refreshTracking)
     private val libraryBrowseStore = LibraryBrowseStore(storageContext)
     private val collections = CollectionController(api, mutable, requests, ::push,
         { libraryBrowseStore.load(api.session, it) },
         { parent, value -> libraryBrowseStore.save(api.session, parent, value) })
+    private val trackingController = TrackingController(viewModelScope, { api.session },
+        api::favoriteSeries, api::trackingEpisodes, api::favorite, ::expireSession)
+    val tracking = trackingController.state
     private val details =
-        DetailController(viewModelScope, api, mutable, requests, ::push, ::library, ::expireSession)
+        DetailController(viewModelScope, api, mutable, requests, ::push, ::library, ::expireSession,
+            { trackingController.refresh(all = mutable.value.page == Page.TRACKING, force = true) })
     private val session: SessionController =
         SessionController(
             api,
@@ -60,6 +66,7 @@ class AppViewModel @JvmOverloads constructor(
             JellyfinApi::normalizeServer,
             {
                 cancelSections()
+                trackingController.clear()
                 navigation.clearHistory()
             },
             { homeController.loadHome(enterHome = true) },
@@ -83,6 +90,13 @@ class AppViewModel @JvmOverloads constructor(
 
     init {
         session.start()
+        viewModelScope.launch {
+            state.map { api.session to it.page }.distinctUntilChanged().collect { (user, page) ->
+                if (user == null) trackingController.clear()
+                else if (page == Page.HOME || page == Page.TRACKING)
+                    trackingController.refresh(all = page == Page.TRACKING)
+            }
+        }
     }
 
     fun connect(address: String) {
@@ -115,7 +129,10 @@ class AppViewModel @JvmOverloads constructor(
 
     fun expireSession(): Unit = session.expireSession()
 
-    fun refreshHome(validate: Boolean = false) = homeController.refreshHome(validate)
+    fun refreshHome(validate: Boolean = false) {
+        homeController.refreshHome(validate)
+        if (api.session != null) trackingController.refresh()
+    }
 
     fun retryHome(region: HomeRegion) = homeController.retryHome(region)
 
@@ -154,6 +171,22 @@ class AppViewModel @JvmOverloads constructor(
     fun retryRelated() = details.retryRelated()
 
     fun toggleFavorite() = details.toggleFavorite()
+
+    fun openTracking() {
+        if (mutable.value.page != Page.TRACKING) push(Page.TRACKING)
+        trackingController.refresh(all = true)
+    }
+
+    fun refreshTracking() = trackingController.refresh(all = mutable.value.page == Page.TRACKING, force = true)
+
+    fun retryTracking(id: String) = trackingController.retry(id)
+
+    fun removeTracking(id: String) = trackingController.remove(id)
+
+    fun resumeBrowse() {
+        if (mutable.value.page == Page.HOME || mutable.value.page == Page.TRACKING)
+            trackingController.refresh(all = mutable.value.page == Page.TRACKING)
+    }
 
     fun prepareEpisode(media: Media, fromStart: Boolean, sourceId: String?, trigger: String) =
         details.prepareEpisode(media, fromStart, sourceId, trigger)
@@ -223,6 +256,7 @@ class AppViewModel @JvmOverloads constructor(
 
     fun refreshAfterPlayback() {
         if (api.session == null) return
+        refreshTracking()
         when (mutable.value.page) {
             Page.HOME -> refreshHome()
             Page.DETAIL -> details.refreshAfterPlayback()

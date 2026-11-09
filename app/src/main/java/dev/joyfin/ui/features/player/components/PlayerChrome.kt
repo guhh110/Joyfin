@@ -36,14 +36,11 @@ fun PlayerHeader(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         PlayerChromeButton("退出播放器", Glyph.Back, actions.close, Modifier.focusTarget("player:back"))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(ui.title, color = Palette.Text,
+        Text(listOf(ui.title, ui.subtitle).filter(String::isNotBlank).joinToString(" · "),
+                Modifier.weight(1f), color = Palette.Text,
                 fontSize = if (LocalDeviceLayout.current.television) 24.sp else 20.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(shadow = Shadow(Color.Black.copy(alpha = .6f), blurRadius = 8f)))
-            if (ui.subtitle.isNotBlank()) Caption(ui.subtitle, maxLines = 1)
-            ui.playbackNotice?.let { Caption(it, maxLines = 1) }
-        }
         PlayerClock()
         if (!LocalDeviceLayout.current.television) {
             PlayerBattery()
@@ -93,6 +90,7 @@ fun PlayerBottomBar(
     onInteraction: () -> Unit = {},
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        ui.playbackNotice?.let { Caption(it, maxLines = 2) }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val method = playerMethodLabel(ui.method)

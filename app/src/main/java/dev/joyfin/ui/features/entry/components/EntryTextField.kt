@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.semantics.error as semanticsError
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -154,7 +155,7 @@ internal fun EntryTextField(
                         if (!enabled) disabled()
                         if (error != null) semanticsError(error)
                     }
-                    .padding(horizontal = 15.dp, vertical = 16.dp)
+                    .padding(horizontal = 15.dp, vertical = if (showLabel) 16.dp else 12.dp)
             val decorator: androidx.compose.foundation.text.input.TextFieldDecorator =
                 androidx.compose.foundation.text.input.TextFieldDecorator { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
@@ -162,7 +163,9 @@ internal fun EntryTextField(
                             Text(
                                 placeholder,
                                 color = Palette.Muted.copy(alpha = .6f),
-                                fontSize = style.fontSize,
+                                style = style,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         inner()
                     }

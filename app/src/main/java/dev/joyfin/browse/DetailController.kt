@@ -13,6 +13,7 @@ internal class DetailController(
     private val push: (Page) -> Unit,
     private val library: (String?, String) -> Unit,
     private val expired: () -> Unit,
+    private val userDataChanged: () -> Unit = {},
 ) {
     private var detailSequence = 0L
     private var favoriteJob: Job? = null
@@ -27,7 +28,7 @@ internal class DetailController(
             expired,
             api::seasons,
             api::episodeProgress,
-            api::setPlayed,
+            { id, played -> api.setPlayed(id, played); userDataChanged() },
         )
 
     private val episodePlayback =
@@ -182,6 +183,7 @@ internal class DetailController(
                 try {
                     api.favorite(item.id, !item.favorite)
                     currentCoroutineContext().ensureActive()
+                    userDataChanged()
                     if (mutable.value.detail.item?.id == item.id)
                         mutable.value =
                             mutable.value.copy(
