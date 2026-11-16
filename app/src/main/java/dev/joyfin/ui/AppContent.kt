@@ -43,6 +43,35 @@ fun AppContent(
     updates: dev.joyfin.update.AppUpdateController? = null,
     tracking: dev.joyfin.browse.TrackingUiState? = null,
 ) {
+    dev.joyfin.ui.cyber.CyberdeckShell(
+        ui = ui,
+        actions = actions,
+        images = images,
+        autoNext = autoNext,
+        entryActions = entryActions,
+        subtitles = subtitles,
+        audioOutputMode = audioOutputMode,
+        homeLayout = homeLayout,
+        audit = audit,
+        updates = updates,
+        tracking = tracking,
+    )
+}
+
+@Composable
+private fun LegacyAppContent(
+    ui: UiState,
+    actions: BrowseActions,
+    images: ArtworkSource,
+    autoNext: Boolean,
+    entryActions: EntryActions,
+    subtitles: dev.joyfin.subtitles.SubtitlePageController? = null,
+    audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
+    homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
+    audit: dev.joyfin.audit.LibraryAuditController? = null,
+    updates: dev.joyfin.update.AppUpdateController? = null,
+    tracking: dev.joyfin.browse.TrackingUiState? = null,
+) {
     val holder = rememberSaveableStateHolder()
     val entry = ui.page in setOf(Page.CONNECT, Page.LOGIN, Page.RESTORE)
     val immersiveBrowse = ui.page in setOf(Page.HOME, Page.DETAIL)

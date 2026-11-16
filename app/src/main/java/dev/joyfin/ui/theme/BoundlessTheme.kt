@@ -11,18 +11,18 @@ import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.device.isTelevision
 
 object Palette {
-    val Background = Color(0xFF0B0B0D)
-    val Surface = Color(0xFF19191D)
-    val Elevated = Color(0xFF29292F)
-    val Text = Color(0xFFF4F4F6)
-    val Muted = Color(0xFFA6A6AF)
-    val Selected = Color(0xFF2B2B31)
-    val Pressed = Color(0xFF34343A)
-    val Line = Color(0x1AFFFFFF)
-    val BorderSubtle = Color(0x1FFFFFFF)
-    val BorderFocus = Color(0xFFF4F4F6)
-    val TrackBackground = Color(0x26FFFFFF)
-    val Error = Color(0xFFE2E2E8)
+    val Background = dev.joyfin.ui.cyber.CyberPalette.VoidBlack
+    val Surface = dev.joyfin.ui.cyber.CyberPalette.SlateMetal
+    val Elevated = dev.joyfin.ui.cyber.CyberPalette.PanelElevated
+    val Text = dev.joyfin.ui.cyber.CyberPalette.TextBright
+    val Muted = dev.joyfin.ui.cyber.CyberPalette.TextSecondary
+    val Selected = dev.joyfin.ui.cyber.CyberPalette.PanelElevated
+    val Pressed = dev.joyfin.ui.cyber.CyberPalette.PanelPressed
+    val Line = dev.joyfin.ui.cyber.CyberPalette.ArmorSeam
+    val BorderSubtle = dev.joyfin.ui.cyber.CyberPalette.ArmorBorder
+    val BorderFocus = dev.joyfin.ui.cyber.CyberPalette.LaserCyan
+    val TrackBackground = Color(0x3300F0FF)
+    val Error = dev.joyfin.ui.cyber.CyberPalette.AlertCrimson
 }
 
 @Composable
