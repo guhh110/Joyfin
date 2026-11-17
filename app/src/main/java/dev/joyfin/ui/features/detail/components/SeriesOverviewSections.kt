@@ -48,6 +48,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
                 Modifier.padding(horizontal = layout.gutter),
                 stableRetrySlot = true,
                 reserveSpace = false,
+                retryModifier = Modifier.seriesFocus(if (ui.error != null) "detail:retry" else "recommendation:retry", focus),
             )
         }
         if (ui.busy && !ui.ready && media?.people.isNullOrEmpty()) PeopleRailSkeleton()
@@ -80,6 +81,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
                 ui.related.isNotEmpty(),
                 Modifier.padding(horizontal = layout.gutter),
                 reserveSpace = false,
+                retryModifier = Modifier.seriesFocus("series:related:retry", focus),
             )
         }
     }
@@ -149,6 +151,7 @@ private fun SeriesEpisodePreview(
             items.isNotEmpty(),
             Modifier.padding(horizontal = gutter),
             reserveSpace = false,
+            retryModifier = Modifier.seriesFocus(if (seasons?.error != null) "series:seasons:retry" else "series:preview:retry", focus),
         )
     }
 }

@@ -77,6 +77,57 @@ class EntryFlowLayoutTest {
     }
 
     @Test
+    fun tvLargeFontLoginKeepsPrimaryAndQuickActionsFullyVisible() {
+        val scenario = ActivityScenario.launch(MainActivity::class.java)
+        var displayDensity = 1f
+        try {
+            scenario.onActivity { activity ->
+                displayDensity = activity.resources.displayMetrics.density
+                activity.setContent {
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    CompositionLocalProvider(
+                        LocalDeviceLayout provides DeviceLayout(true, 960),
+                        androidx.compose.ui.platform.LocalDensity provides
+                            androidx.compose.ui.unit.Density(density.density, 1.3f),
+                    ) {
+                        BoundlessTheme {
+                            RememberScreenFocus("auth:input") {
+                                ConnectionRoute(
+                                    EntryState(server = "https://media.example.com", serverName = "测试影院"),
+                                    actions(),
+                                    login = true,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            for (key in listOf("auth:submit", "auth:quick", "auth:change-server")) {
+                val node = compose.onNodeWithTag(key).assertIsDisplayed()
+                val full = node.getUnclippedBoundsInRoot()
+                val visible = node.fetchSemanticsNode().boundsInRoot
+                assertEquals("$key must not be clipped", (full.bottom - full.top).value, visible.height / displayDensity, .5f)
+                assertEquals("$key must retain its width", (full.right - full.left).value, visible.width / displayDensity, .5f)
+            }
+            for (label in listOf("进入影院", "使用快速登录", "更换")) {
+                compose.onNodeWithText(label, useUnmergedTree = true)
+                    .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { getLayout ->
+                        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                        assertTrue(getLayout(layouts))
+                        val layout = layouts.single()
+                        assertFalse(
+                            "$label must not overflow: size=${layout.size}, " +
+                                "width=${layout.didOverflowWidth}, height=${layout.didOverflowHeight}",
+                            layout.hasVisualOverflow,
+                        )
+                    }
+            }
+        } finally {
+            scenario.close()
+        }
+    }
+
+    @Test
     fun tvAuthenticationErrorClearsPasswordAndPreservesSubmitFocus() {
         androidx.test.uiautomator.UiDevice.getInstance(
                 androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()

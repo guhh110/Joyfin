@@ -15,32 +15,34 @@ import dev.joyfin.ui.theme.Palette
 
 @Composable
 internal fun EntryServerIcon() {
+    val canvasMuted = Palette.Muted
     Canvas(Modifier.size(34.dp)) {
         val u = size.width / 34f
         val stroke = Stroke(1.dp.toPx())
         drawRoundRect(Palette.Line, cornerRadius = CornerRadius(7.dp.toPx()), style = stroke)
         listOf(9f, 19f).forEach { y ->
             drawRoundRect(
-                Palette.Muted,
+                canvasMuted,
                 Offset(9 * u, y * u),
                 Size(16 * u, 6 * u),
                 CornerRadius(u),
                 style = stroke,
             )
-            drawCircle(Palette.Muted, u / 2, Offset(12 * u, (y + 3) * u))
-            drawLine(Palette.Muted, Offset(18 * u, (y + 3) * u), Offset(22 * u, (y + 3) * u), u)
+            drawCircle(canvasMuted, u / 2, Offset(12 * u, (y + 3) * u))
+            drawLine(canvasMuted, Offset(18 * u, (y + 3) * u), Offset(22 * u, (y + 3) * u), u)
         }
     }
 }
 
 @Composable
 internal fun EntryNetworkSymbol() {
-    Canvas(Modifier.size(44.dp).border(1.dp, Palette.Text.copy(alpha = .3f), CircleShape)) {
+    val canvasText = Palette.Text
+    Canvas(Modifier.size(44.dp).border(1.dp, canvasText.copy(alpha = .3f), CircleShape)) {
         val stroke = Stroke(1.2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
         val u = size.width / 44f
         listOf(12f, 8f, 4f).forEach { radius ->
             drawArc(
-                Palette.Text,
+                canvasText,
                 -135f,
                 90f,
                 false,
@@ -49,6 +51,6 @@ internal fun EntryNetworkSymbol() {
                 style = stroke,
             )
         }
-        drawCircle(Palette.Text, u, Offset(22 * u, 29 * u))
+        drawCircle(canvasText, u, Offset(22 * u, 29 * u))
     }
 }

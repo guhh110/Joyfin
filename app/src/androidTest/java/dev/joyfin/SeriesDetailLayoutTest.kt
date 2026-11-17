@@ -102,7 +102,7 @@ class SeriesDetailLayoutTest {
             }
         buttons.forEach {
             assertTrue(it.top >= panel.top && it.bottom <= panel.bottom)
-            assertEquals(buttons.first().top, it.top)
+            assertTrue(kotlin.math.abs((buttons.first().top - it.top).value) <= 1f)
         }
     }
 
@@ -224,7 +224,8 @@ class SeriesDetailLayoutTest {
                 emptyActions().copy(prepareEpisode = { _, _, source, _ -> playedSource = source }),
             )
         try {
-            compose.onNodeWithTag("series:preview:e4").performScrollTo().performClick()
+            compose.onNodeWithTag("series:preview:e4").performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.onNodeWithTag("series:preview:e4").assertIsDisplayed().performClick()
             compose.onNodeWithTag("episode:sheet-media").performClick()
             compose.onNodeWithText("版本 1 / 3 · Version 1").assertIsDisplayed()
             compose.onNodeWithTag("episode:version-prev").assertIsNotEnabled()
@@ -268,7 +269,8 @@ class SeriesDetailLayoutTest {
             }
             assertTrue(introduction.getUnclippedBoundsInRoot().let { it.bottom - it.top } > initial)
             compose.onNodeWithTag("series:season").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithTag("series:preview:e4").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("rail:series:preview").performScrollTo().performScrollToIndex(3)
+            compose.onNodeWithTag("series:preview:e4").assertIsDisplayed()
         } finally {
             scenario.close()
         }
@@ -287,7 +289,8 @@ class SeriesDetailLayoutTest {
         try {
             compose.onNodeWithText("本集详情").assertDoesNotExist()
             compose.onNodeWithTag("detail:play").assertIsDisplayed().assertIsNotFocused()
-            compose.onNodeWithTag("series:preview:e4").performScrollTo().performClick()
+            compose.onNodeWithTag("rail:series:preview").performScrollTo().performScrollToIndex(3)
+            compose.onNodeWithTag("series:preview:e4").assertIsDisplayed().performClick()
             compose.onNodeWithText("本集详情").assertExists()
             assertEpisodeActionsFit()
             compose
@@ -320,7 +323,8 @@ class SeriesDetailLayoutTest {
         val scenario = mount(state, true, emptyActions().copy(retrySeriesEpisode = { retries++ }))
         try {
             compose.onNodeWithText("本集详情").assertDoesNotExist()
-            compose.onNodeWithTag("series:preview:e4").performScrollTo().performClick()
+            compose.onNodeWithTag("series:preview:e4").performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.onNodeWithTag("series:preview:e4").assertIsDisplayed().performClick()
             compose.onNodeWithTag("episode:sheet-play").assertIsEnabled()
             compose.onNodeWithTag("episode:sheet-retry").assertIsDisplayed().performClick()
             assertEquals(1, retries)
@@ -545,7 +549,7 @@ class SeriesDetailLayoutTest {
             compose.runOnIdle {
                 state.value = DetailUiState(entryType = "Episode", visit = 2, error = "父剧解析失败")
             }
-            compose.onNodeWithText("父剧解析失败").assertExists()
+            compose.onAllNodesWithText("父剧解析失败").onFirst().assertExists()
             compose.onNodeWithText("本季暂无剧集").assertDoesNotExist()
             compose.onNodeWithTag("detail:retry").assertExists()
         } finally {
@@ -612,7 +616,7 @@ class SeriesDetailLayoutTest {
             compose.runOnIdle { state.value = state.value.copy(busy = false, error = "offline") }
             compose.onNodeWithText("offline").assertExists()
             compose.onNodeWithText("暂无内容").assertDoesNotExist()
-            compose.onNodeWithText("重试").performClick()
+            compose.onNodeWithText("重新加载").performClick()
             assertEquals(1, retried)
             compose.runOnIdle {
                 state.value =

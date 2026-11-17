@@ -1265,20 +1265,29 @@ class PlaybackController(
     fun imageCacheNamespace(): String =
         dev.joyfin.artwork.ArtworkCacheIdentity.namespace(api.session)
 
-    fun handleMediaKey(code: Int): Boolean {
-        if (mutable.value.subtitleSearchOpen && code in setOf(
+    fun handleMediaKey(code: Int, down: Boolean = true, repeatCount: Int = 0): Boolean {
+        if (code !in setOf(
                 KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY,
                 KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
-                KeyEvent.KEYCODE_MEDIA_REWIND)) return true
+                KeyEvent.KEYCODE_MEDIA_REWIND)) return false
+        if (mutable.value.subtitleSearchOpen) return true
+        val direction = when (code) {
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> 1
+            KeyEvent.KEYCODE_MEDIA_REWIND -> -1
+            else -> 0
+        }
+        if (direction != 0) {
+            if (!down) seekPreview.remoteUp(direction)
+            else if (repeatCount == 0) seekPreview.remoteDown(direction)
+            return true
+        }
+        if (!down || repeatCount > 0) return true
         when (code) {
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> toggle()
             KeyEvent.KEYCODE_MEDIA_PLAY ->
                 if (player.playbackState == Player.STATE_ENDED) load(0, autoPlay = true, reason = PlaybackLoadReason.REPLAY)
                 else player.play()
             KeyEvent.KEYCODE_MEDIA_PAUSE -> player.pause()
-            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> seekPreview.adjust(10_000)
-            KeyEvent.KEYCODE_MEDIA_REWIND -> seekPreview.adjust(-10_000)
-            else -> return false
         }
         return true
     }

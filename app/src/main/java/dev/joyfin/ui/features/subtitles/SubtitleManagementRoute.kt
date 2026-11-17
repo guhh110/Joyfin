@@ -25,10 +25,12 @@ import dev.joyfin.ui.features.subtitles.tv.TvSubtitleSearchInput
 import dev.joyfin.ui.interaction.*
 import dev.joyfin.ui.theme.Palette
 import dev.joyfin.ui.model.ArtworkSource
+import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.features.subtitles.mobile.MobileSubtitleSearchInput
 
 @Composable
-fun SubtitleManagementRoute(controller: SubtitlePageController, images: ArtworkSource, onExit: () -> Unit) {
+fun SubtitleManagementRoute(controller: SubtitlePageController, images: ArtworkSource, onExit: () -> Unit,
+    browseActions: BrowseActions? = null) {
     val ui by controller.state.collectAsState()
     val pages = rememberSaveableStateHolder()
     pages.SaveableStateProvider(ui.screen.name) {
@@ -36,13 +38,14 @@ fun SubtitleManagementRoute(controller: SubtitlePageController, images: ArtworkS
             SubtitleScreen.MANAGEMENT -> "subtitles:back"
             SubtitleScreen.SEARCH -> "subtitles:query"
             SubtitleScreen.ORGANIZE -> "subtitles:work"
-        }) { SubtitleManagementScreen(controller, images, onExit) }
+        }) { SubtitleManagementScreen(controller, images, onExit, browseActions) }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SubtitleManagementScreen(controller: SubtitlePageController, images: ArtworkSource, onExit: () -> Unit) {
+private fun SubtitleManagementScreen(controller: SubtitlePageController, images: ArtworkSource, onExit: () -> Unit,
+    browseActions: BrowseActions?) {
     val ui by controller.state.collectAsState()
     val editor by controller.organizer.state.collectAsState()
     val upload by controller.uploader.state.collectAsState()
@@ -52,6 +55,7 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
     var group by rememberSaveable { mutableStateOf("all") }
     var source by rememberSaveable { mutableStateOf("assrt") }
     var dialog by remember { mutableStateOf<String?>(null) }
+    var pendingNavigation by remember { mutableStateOf<(() -> Unit)?>(null) }
     var pickedMedia by remember { mutableStateOf<Media?>(null) }
     var pickedVersion by remember { mutableStateOf<String?>(null) }
     var returnFocus by remember { mutableIntStateOf(0) }
@@ -63,10 +67,17 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
     val osScroll = rememberLazyListState()
     val managementScroll = rememberLazyListState()
     val filesScroll = rememberLazyListState()
-    fun dismiss() { dialog = null; returnFocus++ }
+    fun dismiss() { dialog = null; pendingNavigation = null; returnFocus++ }
     fun back() {
+        pendingNavigation = null
         if (editor.dirty && ui.screen == SubtitleScreen.ORGANIZE) dialog = "discard"
         else if (!controller.back()) onExit()
+    }
+    fun navigate(action: () -> Unit) {
+        if (editor.dirty && ui.screen == SubtitleScreen.ORGANIZE) {
+            pendingNavigation = action
+            dialog = "discard"
+        } else action()
     }
     fun chooseEpisode(media: Media) {
         pickedMedia = media
@@ -93,14 +104,14 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
     }
     val pack = editor.pack
     val visiblePacks = ui.packages.filter { !ui.filterWork || it.workId == ui.context?.work?.id }
-    val header: @Composable () -> Unit = {
-        PageHeader(when (ui.screen) {
+    val pageTitle = when (ui.screen) {
             SubtitleScreen.ORGANIZE -> pack?.takeIf { it.workName.isNotBlank() }?.let {
                 listOf(it.workName, it.seasonName).filter(String::isNotBlank).joinToString(" · ")
             } ?: "整理字幕"
             SubtitleScreen.SEARCH -> "搜索字幕"
             else -> "字幕管理"
-        }, onBack = ::back, backFocusKey = "subtitles:back") {
+        }
+    val tabs: @Composable RowScope.() -> Unit = {
             when (ui.screen) {
                 SubtitleScreen.MANAGEMENT -> {
                     TextTab("下载的字幕包", {}, true, Modifier.focusTarget("subtitles:manage-tab"), compact = !tv)
@@ -117,10 +128,22 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
                 SubtitleScreen.ORGANIZE -> IconButton("字幕包信息", Glyph.Info, { dialog = "package-info" },
                     Modifier.focusTarget("subtitles:package-info"))
             }
-        }
+    }
+    val header: @Composable () -> Unit = {
+        if (tv && browseActions != null) {
+            CinemaHeader(pageTitle, browseActions.copy(back = ::back,
+                home = { navigate(browseActions.home) }, tracking = { navigate(browseActions.tracking) },
+                library = { id, title -> navigate { browseActions.library(id, title) } },
+                subtitleManager = { navigate(browseActions.subtitleManager) },
+                search = { navigate(browseActions.search) }, settings = { navigate(browseActions.settings) }),
+                active = "subtitles", backFocusKey = "subtitles:back")
+        } else PageHeader(pageTitle, onBack = ::back, backFocusKey = "subtitles:back", actions = tabs)
     }
     val controls: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (tv && browseActions != null) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
+                content = tabs)
             when (ui.screen) {
                 SubtitleScreen.MANAGEMENT -> {
                     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -297,9 +320,14 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
             }
         }
         "discard" -> RememberSelectionFocus("subtitles:stay") {
-            Sheet("尚有未保存的对应关系", ::dismiss) {
+            Sheet("尚有未保存的对应关系", ::dismiss, side = false) {
                 ActionButton("继续整理", ::dismiss, Modifier.focusTarget("subtitles:stay"), primary = true)
-                ActionButton("放弃本次修改并返回", { dismiss(); controller.management() })
+                ActionButton("放弃本次修改并返回", {
+                    val navigation = pendingNavigation
+                    dismiss()
+                    controller.management()
+                    navigation?.invoke()
+                })
             }
         }
     }

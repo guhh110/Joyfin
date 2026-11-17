@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,12 +61,13 @@ import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.rememberMotionDuration
 import dev.joyfin.ui.theme.rememberMotionSpec
+import dev.joyfin.ui.theme.CinemaStyle
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-private val CinemaBlack = Color(0xFF020204)
-private val CinemaMuted = Color(0xFF9BA3B2)
-private val CinemaAccents = listOf(Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFFA855F7))
+private val CinemaBlack = CinemaStyle.Background
+private val CinemaMuted = CinemaStyle.Muted
+private val CinemaAccents = listOf(CinemaStyle.Accent, Color(0xFF3B82F6), Color(0xFFA855F7))
 
 /** Native TV stage: a wide screen, two folded previews and floating controls. */
 @Composable
@@ -284,8 +286,10 @@ private fun CinemaHud(
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             MicroText("JOYFIN / CINERAMA", CinemaMuted.copy(alpha = .45f), spacing = 2f)
             Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                CinemaAction("首页", Glyph.Home, actions.home, stageNavigation.focusTarget("header:home"), selected = true)
                 CinemaAction("追剧", Glyph.Heart, actions.tracking, stageNavigation.focusTarget("header:tracking"))
                 CinemaAction("媒体库", Glyph.Library, { actions.library(null, "媒体库") }, stageNavigation.focusTarget("header:library"))
+                CinemaAction("字幕", Glyph.Subtitle, actions.subtitleManager, stageNavigation.focusTarget("header:subtitles"))
                 CinemaAction("搜索", Glyph.Search, actions.search, stageNavigation.focusTarget("header:search"))
                 CinemaAction("设置", Glyph.Settings, actions.settings, stageNavigation.focusTarget("header:account"))
             }
@@ -447,24 +451,25 @@ private fun CinemaActions(label: String, play: () -> Unit, details: () -> Unit, 
 @Composable
 private fun CinemaAction(
     label: String, icon: Glyph, onClick: () -> Unit, modifier: Modifier = Modifier,
-    primary: Boolean = false, showLabel: Boolean = false,
+    primary: Boolean = false, showLabel: Boolean = false, selected: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusAmount by animateFloatAsState(if (focused) 1f else 0f, rememberMotionSpec(160), label = "cinemaActionFocus")
     val shape = RoundedCornerShape(4.dp)
-    val foreground = if (primary) CinemaBlack else Color.White.copy(alpha = .6f + .4f * focusAmount)
+    val foreground = if (primary) CinemaBlack else if (selected) CinemaStyle.Accent else Color.White.copy(alpha = .6f + .4f * focusAmount)
+    val labelVisible = showLabel || selected || focused
     Row(modifier
         .onFocusChanged { focused = it.isFocused }
-        .semantics { contentDescription = label; role = Role.Button }
+        .semantics { contentDescription = label; role = Role.Button; this.selected = selected }
         .graphicsLayer { scaleX = 1f + .04f * focusAmount; scaleY = scaleX }
         .background(if (primary) Color(0xFFECEEEB) else Color.White.copy(alpha = .08f * focusAmount), shape)
         .border(1.dp, Color.White.copy(alpha = .8f * focusAmount), shape)
         .stableAction(enabled = true, onClick = onClick)
         .height(23.dp)
-        .then(if (showLabel) Modifier.padding(horizontal = if (primary) 12.dp else 7.dp) else Modifier.width(23.dp)),
+        .then(if (labelVisible) Modifier.padding(horizontal = if (primary) 12.dp else 7.dp) else Modifier.width(23.dp)),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)) {
-        AppIcon(icon, Modifier.size(if (showLabel) 8.dp else 10.dp), foreground)
-        if (showLabel) Text(label, color = foreground, fontSize = 6.5.sp,
+        AppIcon(icon, Modifier.size(if (labelVisible) 8.dp else 10.dp), foreground)
+        if (labelVisible) Text(label, color = foreground, fontSize = 6.5.sp,
             fontWeight = if (primary) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
     }
 }

@@ -16,15 +16,16 @@ import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.Palette
 import dev.joyfin.ui.interaction.focusTarget
+import dev.joyfin.ui.device.LocalDeviceLayout
 
 @Composable
 fun PersonRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSource) {
     val person = ui.person ?: return
     var information by remember(person.id) { mutableStateOf(false) }
+    val tv = LocalDeviceLayout.current.television
     MediaCollection(ui, actions, images) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
-            PageHeader(person.name, leading = {
+            val portrait: @Composable () -> Unit = {
                 Box(
                     Modifier
                         .size(36.dp)
@@ -40,9 +41,15 @@ fun PersonRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
                         person.name.take(1),
                     )
                 }
-            }) {
+            }
+            val tools: @Composable RowScope.() -> Unit = {
                 Caption(if (ui.busy && ui.media.isEmpty()) "参演作品" else "参演作品 · ${ui.total}", maxLines = 1)
                 IconButton("人物介绍", Glyph.Info, { information = true }, Modifier.focusTarget("person:information"))
+            }
+            if (tv) CinemaHeader(person.name, actions, leading = portrait, tools = tools)
+            else {
+                AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
+                PageHeader(person.name, leading = portrait, actions = tools)
             }
         }
     }

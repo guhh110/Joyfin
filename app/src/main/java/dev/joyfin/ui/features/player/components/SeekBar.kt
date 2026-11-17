@@ -35,6 +35,8 @@ fun SeekBar(
     modifier: Modifier = Modifier,
     skipRanges: List<SkipRange> = emptyList(),
 ) {
+    val canvasText = Palette.Text
+    val canvasMuted = Palette.Muted
     val tv = LocalDeviceLayout.current.television
     var width by remember { mutableIntStateOf(1) }
     var focused by remember { mutableStateOf(false) }
@@ -46,7 +48,7 @@ fun SeekBar(
     val rangeDescription = if (knownDuration) skipTimelineDescription(skipRanges) else ""
     Column(modifier) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Caption(timeLabel(preview?.targetMs ?: positionMs), color = Palette.Text)
+            Caption(timeLabel(preview?.targetMs ?: positionMs), color = canvasText)
             Caption(if (knownDuration) timeLabel(durationMs) else "--:--")
         }
         Canvas(
@@ -70,12 +72,14 @@ fun SeekBar(
                 .onFocusChanged { focused = it.isFocused }
                 .onPreviewKeyEvent { e ->
                     if (
-                        e.type == KeyEventType.KeyDown &&
-                            enabled &&
+                        enabled &&
                             durationMs > 0 &&
                             (e.key == Key.DirectionLeft || e.key == Key.DirectionRight)
                     ) {
-                        currentActions.adjust(if (e.key == Key.DirectionLeft) -10_000 else 10_000)
+                        val direction = if (e.key == Key.DirectionLeft) -1 else 1
+                        if (e.type == KeyEventType.KeyUp) currentActions.remoteUp(direction)
+                        else if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.repeatCount == 0)
+                            currentActions.remoteDown(direction)
                         true
                     } else false
                 }
@@ -130,7 +134,7 @@ fun SeekBar(
             val bufferedEnd = (end * (bufferedMs.toFloat() / durationMs.coerceAtLeast(1))).coerceIn(radius, end - radius)
             if (bufferedEnd > radius) {
                 drawLine(
-                    Palette.Muted.copy(alpha = 0.40f),
+                    canvasMuted.copy(alpha = 0.40f),
                     Offset(radius, y),
                     Offset(bufferedEnd, y),
                     trackHeight,
@@ -143,7 +147,7 @@ fun SeekBar(
             val currentX = (end * currentFrac).coerceIn(radius, end - radius)
             if (currentX > radius) {
                 drawLine(
-                    Palette.Text,
+                    canvasText,
                     Offset(radius, y),
                     Offset(currentX, y),
                     trackHeight,
@@ -157,16 +161,16 @@ fun SeekBar(
             // 微光滑块
             if (focused) {
                 // 外层发光晕环
-                drawCircle(Palette.Text.copy(alpha = 0.16f), 10.dp.toPx(), Offset(currentX, y))
+                drawCircle(canvasText.copy(alpha = 0.16f), 10.dp.toPx(), Offset(currentX, y))
                 // 中层光圈
-                drawCircle(Palette.Text, 6.dp.toPx(), Offset(currentX, y))
+                drawCircle(canvasText, 6.dp.toPx(), Offset(currentX, y))
                 // 核心纯白实心
-                drawCircle(Palette.Text, 3.5.dp.toPx(), Offset(currentX, y))
+                drawCircle(canvasText, 3.5.dp.toPx(), Offset(currentX, y))
             } else if (preview != null) {
-                drawCircle(Palette.Text.copy(alpha = 0.40f), 7.dp.toPx(), Offset(currentX, y))
-                drawCircle(Palette.Text, 4.5.dp.toPx(), Offset(currentX, y))
+                drawCircle(canvasText.copy(alpha = 0.40f), 7.dp.toPx(), Offset(currentX, y))
+                drawCircle(canvasText, 4.5.dp.toPx(), Offset(currentX, y))
             } else {
-                drawCircle(Palette.Text, 4.dp.toPx(), Offset(currentX, y))
+                drawCircle(canvasText, 4.dp.toPx(), Offset(currentX, y))
             }
         }
     }

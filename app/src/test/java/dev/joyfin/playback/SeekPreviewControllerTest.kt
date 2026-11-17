@@ -8,6 +8,160 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SeekPreviewControllerTest {
     @Test
+    fun remoteTapKeepsTenSecondStepAndCommitsOneSecondAfterRelease() = runTest {
+        val seeks = mutableListOf<Long>()
+        val controller = SeekPreviewController(this, { SeekEnvironment(50_000, 500_000, true) }, {}, seeks::add)
+        controller.actions.remoteDown(1)
+        advanceTimeBy(100)
+        controller.actions.remoteUp(1)
+        assertEquals(60_000, controller.state!!.targetMs)
+        assertNull(controller.state!!.remoteStepMs)
+        assertFalse(controller.state!!.requiresConfirmation)
+        advanceTimeBy(999)
+        runCurrent()
+        assertTrue(seeks.isEmpty())
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(listOf(60_000L), seeks)
+    }
+
+    @Test
+    fun remoteHoldAcceleratesWithoutSeekingAndReleaseRequiresConfirmation() = runTest {
+        val seeks = mutableListOf<Long>()
+        val controller = SeekPreviewController(this, { SeekEnvironment(50_000, 5_000_000, true) }, {}, seeks::add)
+        controller.remoteDown(1)
+        assertEquals(60_000, controller.state!!.targetMs)
+        advanceTimeBy(1499)
+        runCurrent()
+        assertEquals(100_000, controller.state!!.targetMs)
+        assertEquals(10_000L, controller.state!!.remoteStepMs)
+        advanceTimeBy(1)
+        runCurrent()
+        assertEquals(130_000, controller.state!!.targetMs)
+        assertEquals(30_000L, controller.state!!.remoteStepMs)
+        advanceTimeBy(1500)
+        runCurrent()
+        assertEquals(340_000, controller.state!!.targetMs)
+        assertEquals(60_000L, controller.state!!.remoteStepMs)
+        assertTrue(seeks.isEmpty())
+        controller.remoteUp(1)
+        val released = controller.state!!
+        assertTrue(released.requiresConfirmation)
+        assertNull(released.remoteStepMs)
+        advanceTimeBy(10_000)
+        runCurrent()
+        assertEquals(released, controller.state)
+        assertTrue(seeks.isEmpty())
+        controller.commit()
+        controller.commit()
+        assertEquals(listOf(340_000L), seeks)
+    }
+
+    @Test
+    fun duplicateNativeDownsDoNotMultiplyRepeatsOrResetAcceleration() = runTest {
+        val controller = SeekPreviewController(this, { SeekEnvironment(50_000, 5_000_000, true) }, {}, {})
+        controller.remoteDown(1)
+        repeat(15) {
+            advanceTimeBy(100)
+            controller.remoteDown(1)
+        }
+        runCurrent()
+        assertEquals(130_000, controller.state!!.targetMs)
+        assertEquals(30_000L, controller.state!!.remoteStepMs)
+        controller.cancel()
+    }
+
+    @Test
+    fun reversedHoldResetsSpeedAndIgnoresLateReleaseOfOldDirection() = runTest {
+        val controller = SeekPreviewController(this, { SeekEnvironment(500_000, 5_000_000, true) }, {}, {})
+        controller.remoteDown(1)
+        advanceTimeBy(3000)
+        runCurrent()
+        val forwardTarget = controller.state!!.targetMs
+        controller.remoteDown(-1)
+        assertEquals(forwardTarget - 10_000, controller.state!!.targetMs)
+        assertEquals(10_000L, controller.state!!.remoteStepMs)
+        controller.remoteUp(1)
+        advanceTimeBy(500)
+        runCurrent()
+        assertEquals(forwardTarget - 20_000, controller.state!!.targetMs)
+        controller.remoteUp(-1)
+        advanceUntilIdle()
+        assertTrue(controller.state!!.active)
+        assertTrue(controller.state!!.requiresConfirmation)
+    }
+
+    @Test
+    fun tappingAfterHoldFineTunesWithoutDroppingConfirmation() = runTest {
+        val seeks = mutableListOf<Long>()
+        val controller = SeekPreviewController(this, { SeekEnvironment(500_000, 5_000_000, true) }, {}, seeks::add)
+        controller.remoteDown(1)
+        advanceTimeBy(1500)
+        runCurrent()
+        controller.remoteUp(1)
+        val target = controller.state!!.targetMs
+        controller.remoteDown(-1)
+        controller.remoteUp(-1)
+        assertEquals(target - 10_000, controller.state!!.targetMs)
+        advanceUntilIdle()
+        assertTrue(seeks.isEmpty())
+        assertTrue(controller.state!!.requiresConfirmation)
+        controller.cancel()
+    }
+
+    @Test
+    fun heldSeekClampsBothEndsAndCancelStopsRepeating() = runTest {
+        val seeks = mutableListOf<Long>()
+        val controller = SeekPreviewController(this, { SeekEnvironment(5000, 25_000, true) }, {}, seeks::add)
+        controller.remoteDown(-1)
+        advanceTimeBy(4000)
+        runCurrent()
+        assertEquals(0, controller.state!!.targetMs)
+        controller.remoteDown(1)
+        advanceTimeBy(4000)
+        runCurrent()
+        assertEquals(25_000, controller.state!!.targetMs)
+        controller.cancel()
+        controller.remoteUp(1)
+        advanceUntilIdle()
+        assertNull(controller.state)
+        assertTrue(seeks.isEmpty())
+    }
+
+    @Test
+    fun loadingCancelsHoldAndUnknownDurationNeverStartsOne() = runTest {
+        var env = SeekEnvironment(50_000, 0, true)
+        val seeks = mutableListOf<Long>()
+        val controller = SeekPreviewController(this, { env }, {}, seeks::add)
+        controller.remoteDown(1)
+        assertNull(controller.state)
+        env = env.copy(durationMs = 500_000)
+        controller.remoteDown(1)
+        env = env.copy(allowed = false)
+        advanceUntilIdle()
+        assertNull(controller.state)
+        assertTrue(seeks.isEmpty())
+    }
+
+    @Test
+    fun switchingToTouchCancelsRemoteRepeatAndUsesTouchCommitRules() = runTest {
+        val seeks = mutableListOf<Long>()
+        val controller = SeekPreviewController(this, { SeekEnvironment(50_000, 500_000, true) }, {}, seeks::add)
+        controller.remoteDown(1)
+        advanceTimeBy(1500)
+        runCurrent()
+        controller.absolute(200_000)
+        controller.remoteUp(1)
+        advanceTimeBy(3000)
+        runCurrent()
+        assertEquals(SeekInput.TIMELINE, controller.state!!.input)
+        assertFalse(controller.state!!.requiresConfirmation)
+        assertTrue(seeks.isEmpty())
+        controller.commit()
+        assertEquals(listOf(200_000L), seeks)
+    }
+
+    @Test
     fun remoteAccumulatesAndResetsOneSecondDeadline() = runTest {
         val seeks = mutableListOf<Long>()
         val controller =

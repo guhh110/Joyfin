@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionUiState
 import dev.joyfin.ui.components.*
@@ -39,8 +40,9 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
     }
     MediaCollection(ui, actions, images) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
-            PageHeader(ui.title.ifBlank { "媒体库" }) {
+            if (tv) CinemaHeader(ui.title.ifBlank { "媒体库" }, actions, active = "library")
+            else AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
+            val tools: @Composable RowScope.() -> Unit = {
                 if (!((ui.busy || ui.error != null) && ui.media.isEmpty())) {
                     Caption(if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品", maxLines = 1)
                 }
@@ -54,6 +56,9 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
                     { actions.libraryAudit(ui.parent, if (ui.parent == null) "全部电影与剧集" else ui.title) },
                     Modifier.focusTarget("library:audit"))
             }
+            if (tv) Row(Modifier.fillMaxWidth().testTag("library:toolbar"), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp), content = tools)
+            else PageHeader(ui.title.ifBlank { "媒体库" }, actions = tools)
         }
     }
     panel?.let { LibraryOptionsSheet(it, ui.libraryOptions, actions.arrangeLibrary) { panel = null } }

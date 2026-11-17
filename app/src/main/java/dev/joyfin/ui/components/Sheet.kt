@@ -20,7 +20,7 @@ import dev.joyfin.ui.theme.Palette
 fun Sheet(
     title: String,
     onDismiss: () -> Unit,
-    side: Boolean = false,
+    side: Boolean = LocalDeviceLayout.current.television,
     bottom: Boolean = false,
     modifier: Modifier = Modifier,
     actions: (@Composable ColumnScope.() -> Unit)? = null,
@@ -36,7 +36,7 @@ fun Sheet(
     ) {
         val layout: @Composable () -> Unit = {
             if (LocalDeviceLayout.current.television)
-                TvSheetLayout(title, onDismiss, side, bottom, modifier, actions, scrollContent, preferredWidth, header, content)
+                TvSheetLayout(title, onDismiss, side && !bottom, bottom, modifier, actions, scrollContent, preferredWidth, header, content)
             else MobileSheetLayout(title, onDismiss, side, modifier, actions, scrollContent, header, content)
         }
         // Request focus from the dialog window, and keep its close button in the same focus scope.
@@ -64,8 +64,8 @@ fun ChoiceRow(
             .then(
                 if (selected) {
                     Modifier
-                        .background(androidx.compose.ui.graphics.Color(0xFF161A26), rowShape)
-                        .border(0.5.dp, Palette.Line, rowShape)
+                        .background(if (LocalDeviceLayout.current.television) Palette.Selected else androidx.compose.ui.graphics.Color(0xFF161A26), rowShape)
+                        .border(0.5.dp, if (LocalDeviceLayout.current.television) Palette.Accent.copy(alpha = .35f) else Palette.Line, rowShape)
                 } else Modifier
             ),
         selected = selected,
@@ -87,7 +87,7 @@ fun ChoiceRow(
                 )
                 if (subtitle.isNotBlank()) Caption(subtitle)
             }
-            if (selected) AppIcon(Glyph.CheckCircle, Modifier.size(20.dp), color = Palette.Text)
+            if (selected) AppIcon(Glyph.CheckCircle, Modifier.size(20.dp), color = Palette.Accent)
             else if (chevron) AppIcon(Glyph.Next, Modifier.size(18.dp), color = Palette.Muted)
         }
     }
@@ -101,7 +101,7 @@ fun ConfirmDialog(
     confirmInitiallyFocused: Boolean = false,
 ) {
     RememberSelectionFocus(if (confirmInitiallyFocused) "confirm:confirm" else "confirm:cancel") {
-        Sheet(title, onDismiss, actions = {
+        Sheet(title, onDismiss, side = false, actions = {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 ActionButton("取消", onDismiss, Modifier.weight(1f).focusTarget("confirm:cancel"))
                 ActionButton("确认", onConfirm, Modifier.weight(1f).focusTarget("confirm:confirm"), primary = true)

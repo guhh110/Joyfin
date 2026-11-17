@@ -66,7 +66,8 @@ fun LibraryAuditRoute(controller: LibraryAuditController, actions: BrowseActions
     }
     val counts = ui.report.findings.filter { ui.showIgnored || it.fingerprint !in ui.ignored }.groupingBy { it.category }.eachCount()
     val header: @Composable () -> Unit = {
-        PageHeader("片库体检", onBack = actions.back, backFocusKey = "audit:back")
+        if (tv) CinemaHeader("片库体检", actions, backFocusKey = "audit:back")
+        else PageHeader("片库体检", onBack = actions.back, backFocusKey = "audit:back")
     }
     val controls: @Composable () -> Unit = {
         AuditControls(ui, counts,

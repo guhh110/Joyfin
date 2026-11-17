@@ -3,6 +3,7 @@ package dev.joyfin
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -27,7 +28,7 @@ class HomeLayoutTest {
     @get:Rule val compose = createEmptyComposeRule()
 
     @Test
-    fun tvFirstScreenIncludesResumeAndFocusDoesNotMoveIt() {
+    fun tvStageKeepsBoundsAcrossActionFocusAndLibraryChanges() {
         val home =
             Home(
                 resume = listOf(Media("resume", "继续的影片", "Movie", resumeTicks = 10)),
@@ -70,21 +71,34 @@ class HomeLayoutTest {
                     }
                 }
             }
-            val viewport = compose.onNodeWithTag("home:scroll").getUnclippedBoundsInRoot()
-            val hero = compose.onNodeWithTag("home:hero").getUnclippedBoundsInRoot()
-            assertEquals(viewport.bottom - viewport.top, hero.bottom - hero.top)
-            for (target in listOf("hero:play", "hero:detail", "继续观看:resume")) {
+            val viewport = compose.onNodeWithTag("home:cinerama").getUnclippedBoundsInRoot()
+            val stage = compose.onNodeWithTag("tunnel:stage").getUnclippedBoundsInRoot()
+            assertEquals(viewport, stage)
+            compose.onNodeWithTag("tunnel:screen")
+                .assertIsFocused().assertContentDescriptionEquals("继续观看，继续的影片")
+            for (target in listOf("cinema:play", "cinema:detail")) {
                 compose
                     .onNodeWithTag(target)
                     .assertIsDisplayed()
                     .performSemanticsAction(SemanticsActions.RequestFocus)
                 compose.mainClock.advanceTimeBy(1_000)
-                assertEquals(hero, compose.onNodeWithTag("home:hero").getUnclippedBoundsInRoot())
+                assertEquals(stage, compose.onNodeWithTag("tunnel:stage").getUnclippedBoundsInRoot())
                 val bounds = compose.onNodeWithTag(target).getUnclippedBoundsInRoot()
-                assertTrue(bounds.top >= hero.top && bounds.bottom <= hero.bottom)
+                assertTrue(bounds.top >= stage.top && bounds.bottom <= stage.bottom)
             }
-            compose.onNodeWithTag("home:scroll").performScrollToIndex(1)
-            compose.onNodeWithTag("最近加入:latest").assertIsDisplayed()
+            compose.onNodeWithTag("tunnel:screen")
+                .performSemanticsAction(SemanticsActions.RequestFocus)
+                .performKeyInput { pressKey(Key.DirectionDown) }
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.onNodeWithTag("tunnel:screen")
+                .assertIsFocused().assertContentDescriptionEquals("最近加入，最近的影片")
+            assertEquals(stage, compose.onNodeWithTag("tunnel:stage").getUnclippedBoundsInRoot())
+            androidx.test.uiautomator.UiDevice.getInstance(
+                androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            ).pressBack()
+            compose.onNodeWithTag("header:tracking").assertIsFocused()
+            compose.onNodeWithTag("header:tracking").performKeyInput { pressKey(Key.DirectionDown) }
+            compose.onNodeWithTag("cinema:play").assertIsFocused()
         } finally {
             scenario.close()
         }

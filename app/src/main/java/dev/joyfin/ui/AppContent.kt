@@ -13,6 +13,7 @@ import dev.joyfin.ui.components.MobileBrowseNavigation
 import dev.joyfin.subtitles.SubtitleScreen
 import dev.joyfin.ui.components.PageFadeHost
 import dev.joyfin.ui.components.RequestStatus
+import dev.joyfin.ui.components.cinemaBackground
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.features.detail.DetailRoute
 import dev.joyfin.ui.features.entry.ConnectionRoute
@@ -60,12 +61,12 @@ fun AppContent(
             Page.LOGIN -> if (ui.entry.userName.isBlank()) "auth:input" else "auth:password"
             Page.RESTORE -> "auth:change-server"
             Page.HOME -> if (LocalDeviceLayout.current.television) "tunnel:screen" else "hero:play"
-            Page.TRACKING -> "header:tracking"
-            Page.DETAIL ->
-                if (ui.detail.entryType in setOf("Series", "Season", "Episode")) "header:back"
-                else "detail:play"
+            Page.TRACKING -> if (LocalDeviceLayout.current.television) "tracking:initial" else "header:tracking"
+            Page.DETAIL -> if (!LocalDeviceLayout.current.television && ui.detail.entryType in setOf("Series", "Season", "Episode"))
+                "header:back" else "detail:play"
+            Page.LIBRARY, Page.PERSON -> if (LocalDeviceLayout.current.television) "collection:initial" else "header:back"
             Page.SEARCH -> "search:input"
-            Page.SETTINGS -> "settings:back"
+            Page.SETTINGS -> if (LocalDeviceLayout.current.television) "settings:category:account" else "settings:back"
             Page.SUBTITLES -> "subtitles:back"
             Page.AUDIT -> "audit:back"
             else -> "header:back"
@@ -89,6 +90,7 @@ fun AppContent(
         Modifier
             .fillMaxSize()
             .background(Palette.Background)
+            .then(if (LocalDeviceLayout.current.television && !immersiveBrowse) Modifier.cinemaBackground() else Modifier)
             .then(
                 if (LocalDeviceLayout.current.television || entry) Modifier
                 else Modifier.windowInsetsPadding(
@@ -134,7 +136,7 @@ fun AppContent(
                                     Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings, audioOutputMode,
                                         homeLayout, ui.home.content?.libraries.orEmpty(), updates)
                                     Page.SUBTITLES -> subtitles?.let {
-                                        dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, images, actions.back)
+                                        dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, images, actions.back, actions)
                                     }
                                     Page.AUDIT -> audit?.let {
                                         dev.joyfin.ui.features.audit.LibraryAuditRoute(it, actions, ui.home.content?.libraries.orEmpty())

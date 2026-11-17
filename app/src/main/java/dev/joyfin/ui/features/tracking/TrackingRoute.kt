@@ -49,7 +49,7 @@ fun TrackingRoute(ui: TrackingUiState, actions: BrowseActions, images: ArtworkSo
     val ids = sorted.map { it.series.id }
     LaunchedEffect(ids) {
         val target = focus?.target?.invoke().orEmpty()
-        if (target.substringBeforeLast(':') in setOf("tracking:detail", "tracking:play", "tracking:remove", "tracking:retry") &&
+        if (!device.television && target.substringBeforeLast(':') in setOf("tracking:detail", "tracking:play", "tracking:remove", "tracking:retry") &&
             target.substringAfterLast(':') !in ids) {
             focus?.rememberTarget?.invoke("tracking:filter:$filter")
             withFrameNanos { }
@@ -84,14 +84,16 @@ fun TrackingRoute(ui: TrackingUiState, actions: BrowseActions, images: ArtworkSo
         }
     } }
     Column(Modifier.fillMaxSize()) {
-        AppHeader(actions, active = "tracking")
+        if (device.television) CinemaHeader("我的追剧", actions,
+            Modifier.padding(horizontal = device.gutter), active = "tracking")
+        else AppHeader(actions, active = "tracking")
         Row(
             Modifier.fillMaxWidth().padding(horizontal = device.gutter, vertical = 4.dp)
                 .testTag("tracking:toolbar"),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (device.television) SectionTitle("我的追剧", Modifier.weight(1f))
+            if (device.television) Spacer(Modifier.width(0.dp))
             Row(
                 (if (device.television) Modifier else Modifier.weight(1f)).horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),

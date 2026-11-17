@@ -150,7 +150,9 @@ class UiScenarioActivity : ComponentActivity() {
                         }
                     }
                 }
-                if (showPlayer) {
+                val entryPage = intent.getStringExtra("page")?.takeIf { it in setOf("connect", "login", "restore") }
+                if (entryPage != null) ScenarioEntry(entryPage, scenario)
+                else if (showPlayer) {
                     ScenarioPlayer(scenario, initialPanel, intent.getStringExtra("skipOffer"),
                         intent.getIntExtra("episodeCount", 6), intent.getStringExtra("episodeState"),
                         intent.getIntExtra("seasonCount", 2), playbackTarget) { showPlayer = false }

@@ -1,6 +1,8 @@
 package dev.joyfin.ui.features.subtitles.tv
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,7 +21,10 @@ internal fun TvSubtitleManagementLayout(header: @Composable () -> Unit, controls
             verticalArrangement = Arrangement.spacedBy(6.dp)) { header(); controls() }
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = gutter)) { content() }
         if (hasActions) FixedActionArea {
-            Box(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = gutter, vertical = 10.dp)) { actions() }
+            Box(Modifier.fillMaxWidth().padding(horizontal = gutter, vertical = 12.dp)
+                .background(Palette.Surface, RoundedCornerShape(12.dp))
+                .border(.5.dp, Palette.Line, RoundedCornerShape(12.dp))
+                .padding(horizontal = 20.dp, vertical = 12.dp)) { actions() }
         }
     }
 }

@@ -45,7 +45,6 @@ internal fun TvMovieDetailLayout(
 ) {
     val scroll = rememberScrollState()
     val media = ui.item
-    val entryFocus = remember(ui.visit) { FocusRequester() }
     var focusedKey by remember(ui.visit) { mutableStateOf("") }
     val playRequester = remember { FocusRequester() }
     val playAgainRequester = remember { FocusRequester() }
@@ -55,7 +54,7 @@ internal fun TvMovieDetailLayout(
     val platformScroll = LocalBringIntoViewSpec.current
     val visibilityScroll = remember(platformScroll, scroll, focusedKey) {
         FirstViewportScrollSpec(platformScroll) {
-            scroll.value == 0 && focusedKey in setOf(
+            scroll.value == 0 && (focusedKey.startsWith("header:") || focusedKey in setOf(
                 "movie:entry",
                 "header:back",
                 "header:subtitles",
@@ -65,57 +64,16 @@ internal fun TvMovieDetailLayout(
                 "detail:play",
                 "detail:play-again",
                 "favorite",
-            )
+            ))
         }
     }
 
-    LaunchedEffect(ui.visit) {
-        withFrameNanos {}
-        try { entryFocus.requestFocus() } catch (_: Throwable) {}
-    }
-
-    val rootModifier = modifier
-        .fillMaxSize()
-        .testTag("movie-detail")
-        .onPreviewKeyEvent { event ->
-            if (event.type != KeyEventType.KeyDown || scroll.value != 0) false
-            else {
-                if (focusedKey.isBlank() || focusedKey == "movie:entry") {
-                    when (event.key) {
-                        Key.DirectionUp -> {
-                            try { backRequester.requestFocus() } catch (_: Throwable) {}
-                            true
-                        }
-                        Key.DirectionDown, Key.DirectionLeft, Key.DirectionRight -> {
-                            try { playRequester.requestFocus() } catch (_: Throwable) {}
-                            true
-                        }
-                        else -> false
-                    }
-                } else false
-            }
-        }
+    val rootModifier = modifier.fillMaxSize().testTag("movie-detail")
 
     CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
         BoxWithConstraints(rootModifier) {
             val height = maxHeight
             val gutter = LocalDeviceLayout.current.gutter
-            val posterWidth = (maxWidth * .20f).coerceIn(140.dp, 230.dp)
-
-            Box(
-                Modifier
-                    .size(1.dp)
-                    .focusRequester(entryFocus)
-                    .focusable()
-                    .focusProperties {
-                        down = playRequester
-                        right = playRequester
-                        left = playRequester
-                        up = backRequester
-                    }
-                    .onFocusChanged { if (it.isFocused) focusedKey = "movie:entry" }
-                    .focusTarget("movie:entry")
-            )
 
             Column(Modifier.fillMaxSize().verticalScroll(scroll).testTag("detail:scroll")) {
                 HeroBackdrop(
@@ -139,29 +97,12 @@ internal fun TvMovieDetailLayout(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             BoxWithConstraints(
-                                Modifier.width(posterWidth).fillMaxHeight(),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                val width = minOf(maxWidth, maxHeight / 1.5f)
-                                if (media == null) {
-                                    SkeletonBlock(Modifier.width(width).aspectRatio(2f / 3f))
-                                } else {
-                                    Artwork(
-                                        images.poster(media),
-                                        images,
-                                        Modifier.width(width).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)),
-                                        media.name,
-                                        contentScale = ContentScale.Fit,
-                                    )
-                                }
-                            }
-                            BoxWithConstraints(
-                                Modifier.weight(1f).fillMaxHeight(),
+                                Modifier.fillMaxWidth(.48f).fillMaxHeight(),
                                 contentAlignment = Alignment.CenterStart,
                             ) {
                                 val available = maxHeight / LocalDensity.current.fontScale
                                 Column(
-                                    Modifier.widthIn(max = 640.dp),
+                                    Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
                                 ) {
                                     TvMovieIntroduction(ui, images, available)
@@ -228,64 +169,18 @@ private fun TvMovieHeader(
     playRequester: FocusRequester,
     onFocused: (String) -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(
-            "返回",
-            Glyph.Back,
-            actions.back,
-            Modifier
-                .focusRequester(backRequester)
-                .focusProperties { down = playRequester }
-                .onFocusChanged { if (it.isFocused) onFocused("header:back") }
-                .focusTarget("header:back"),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            ActionButton(
-                "字幕管理",
-                actions.subtitles,
-                Modifier
-                    .focusProperties { down = playRequester }
-                    .onFocusChanged { if (it.isFocused) onFocused("header:subtitles") }
-                    .focusTarget("header:subtitles"),
-                icon = Glyph.Subtitle,
-                quiet = true,
-            )
+    CinemaHeader("电影详情", actions, tools = {
+            IconButton("本片字幕", Glyph.Subtitle, actions.subtitles,
+                Modifier.focusProperties { down = playRequester }.focusTarget("detail:subtitles"))
             if (hasMediaSources) {
-                ActionButton(
-                    "版本信息",
-                    onInformation,
-                    Modifier
-                        .focusProperties { down = playRequester }
-                        .onFocusChanged { if (it.isFocused) onFocused("header:media-info") }
-                        .focusTarget("header:media-info"),
-                    icon = Glyph.Info,
-                    quiet = true,
-                )
+                IconButton("版本信息", Glyph.Info, onInformation,
+                    Modifier.focusProperties { down = playRequester }.focusTarget("header:media-info"))
             }
-            IconButton(
-                "搜索",
-                Glyph.Search,
-                actions.search,
-                Modifier
-                    .focusProperties { down = playRequester }
-                    .onFocusChanged { if (it.isFocused) onFocused("header:search") }
-                    .focusTarget("header:search"),
-            )
-            IconButton(
-                "账号与设置",
-                Glyph.Settings,
-                actions.settings,
-                Modifier
-                    .focusProperties { down = playRequester }
-                    .onFocusChanged { if (it.isFocused) onFocused("header:account") }
-                    .focusTarget("header:account"),
-            )
-        }
-    }
+        }, focusModifier = { modifier, key ->
+            modifier.then(if (key == "header:back") Modifier.focusRequester(backRequester) else Modifier)
+                .focusProperties { down = playRequester }
+                .onFocusChanged { if (it.isFocused) onFocused(key) }.focusTarget(key)
+        })
 }
 
 @Composable
@@ -321,6 +216,7 @@ private fun TvMovieIntroduction(ui: DetailUiState, images: ArtworkSource, availa
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TvMovieActions(
     ui: DetailUiState,
@@ -336,23 +232,22 @@ private fun TvMovieActions(
     val isResume = (media?.resumeTicks ?: 0L) > 0L
     val playLabel = if (isResume) "继续播放" else "播放电影"
 
-    Row(
-        Modifier.height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ActionButton(
             playLabel,
             { media?.let { actions.play(it, false, null) } },
             Modifier
-                .widthIn(min = 180.dp)
-                .fillMaxHeight()
+                .widthIn(min = 144.dp)
                 .focusRequester(playRequester)
                 .focusProperties {
                     up = backRequester
                     right = if (isResume) playAgainRequester else favRequester
                 }
                 .onFocusChanged { if (it.isFocused) onFocused("detail:play") }
-                .focusTarget("detail:play"),
+                .focusTarget("detail:play", enabled = ui.ready),
             icon = Glyph.Play,
             primary = true,
             enabled = media != null && ui.ready,
@@ -364,8 +259,7 @@ private fun TvMovieActions(
                 "从头播放",
                 { media?.let { actions.play(it, true, null) } },
                 Modifier
-                    .fillMaxHeight()
-                    .focusRequester(playAgainRequester)
+                        .focusRequester(playAgainRequester)
                     .focusProperties {
                         up = backRequester
                         left = playRequester
@@ -383,7 +277,6 @@ private fun TvMovieActions(
             if (media?.favorite == true) "已收藏" else "收藏",
             actions.favorite,
             Modifier
-                .fillMaxHeight()
                 .focusRequester(favRequester)
                 .focusProperties {
                     up = backRequester

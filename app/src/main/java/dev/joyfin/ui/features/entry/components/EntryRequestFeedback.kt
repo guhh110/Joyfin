@@ -34,10 +34,12 @@ internal fun EntryError(message: String) {
 internal fun EntryRequestFeedback(busy: Boolean, error: String?, modifier: Modifier = Modifier) {
     val tv = LocalDeviceLayout.current.television
     val message = if (!busy) error?.let(::browseErrorText) else null
+    val statusHeight = with(androidx.compose.ui.platform.LocalDensity.current) { 36.sp.toDp() } + 16.dp
     if (message != null) {
         Row(
             modifier = modifier
                 .fillMaxWidth()
+                .then(if (tv) Modifier.height(statusHeight) else Modifier)
                 .background(Palette.Surface, RoundedCornerShape(8.dp))
                 .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -57,6 +59,6 @@ internal fun EntryRequestFeedback(busy: Boolean, error: String?, modifier: Modif
             )
         }
     } else {
-        Spacer(modifier.fillMaxWidth().height(if (tv) 22.dp else 21.dp))
+        Spacer(modifier.fillMaxWidth().height(if (tv) statusHeight else 21.dp))
     }
 }

@@ -32,10 +32,10 @@ internal fun TvMediaCollectionLayout(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val columns =
-            floor(((maxWidth - 96.dp + 14.dp) / (150.dp + 14.dp)).toDouble())
+            floor(((maxWidth - 64.dp + 14.dp) / (150.dp * LocalDensity.current.fontScale.coerceAtLeast(1f) + 14.dp)).toDouble())
                 .toInt()
                 .coerceAtLeast(1)
-        val cardWidth = (maxWidth - 96.dp - 14.dp * (columns - 1)) / columns
+        val cardWidth = (maxWidth - 64.dp - 14.dp * (columns - 1)) / columns
         val directories = ui.directoryGrid
         val cardHeight = (cardWidth - 12.dp) / MediaCardLayout.ratio(directories) +
             (if (directories) 53.dp else 81.dp)
@@ -47,6 +47,9 @@ internal fun TvMediaCollectionLayout(
             rememberSkeletonVisible(ui.busy, listOf(ui.parent, ui.query, ui.person?.name, ui.libraryOptions, ui.worksOnly))
         val platformScroll = LocalBringIntoViewSpec.current
         val gridState = rememberCollectionGridState(ui)
+        CinemaGridFocus(ui.media.map { it.id }, "collection", ui.busy, gridState,
+            headerItems = if (ui.media.isNotEmpty() && (ui.busy || ui.error != null)) 1 else 0,
+            fallback = if (ui.canArrangeLibrary) "library:watched" else "header:back")
         val focusInset = with(LocalDensity.current) { 12.dp.toPx() }
         val gridScroll = remember(platformScroll, gridState, focusInset) {
             object : BringIntoViewSpec {
@@ -66,15 +69,18 @@ internal fun TvMediaCollectionLayout(
             }
         }
         CompositionLocalProvider(LocalBringIntoViewSpec provides gridScroll) {
+            Column(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 8.dp)) { header() }
             LazyVerticalGrid(
                 GridCells.Fixed(columns),
-                Modifier.fillMaxSize().semantics { if (ui.busy) stateDescription = "正在加载" },
+                Modifier.weight(1f).fillMaxWidth().semantics { if (ui.busy) stateDescription = "正在加载" },
                 state = gridState,
-                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible)
+                mediaCollectionItems(ui, actions, images, header, columns * rows, skeletonVisible, includeHeader = false)
+            }
             }
         }
     }

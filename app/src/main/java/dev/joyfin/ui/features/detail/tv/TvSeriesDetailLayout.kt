@@ -28,15 +28,14 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
     val platformScroll = LocalBringIntoViewSpec.current
     val visibilityScroll = remember(platformScroll, content.scroll, content.focus) {
         FirstViewportScrollSpec(platformScroll) {
-            content.scroll.value == 0 && (content.focus.pending ?: content.focus.target) in
-                setOf("header:back", "header:search", "header:account", "detail:play", "favorite")
+            val target = content.focus.pending ?: content.focus.target
+            content.scroll.value == 0 && (target.startsWith("header:") || target in setOf("detail:play", "favorite"))
         }
     }
     CompositionLocalProvider(LocalBringIntoViewSpec provides visibilityScroll) {
         BoxWithConstraints(modifier.fillMaxSize()) {
             val height = maxHeight
             val gutter = LocalDeviceLayout.current.gutter
-            val posterWidth = (maxWidth * .20f).coerceIn(140.dp, 230.dp)
             Column(Modifier.fillMaxSize().verticalScroll(content.scroll).testTag("detail:scroll")) {
                 HeroBackdrop(content.ui.item, content.images, 0.dp,
                     Modifier.height(height).testTag("detail:hero")) {
@@ -45,22 +44,13 @@ internal fun TvSeriesDetailLayout(content: SeriesOverviewContent, modifier: Modi
                         Row(Modifier.weight(1f).fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(36.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            BoxWithConstraints(Modifier.width(posterWidth).fillMaxHeight(),
-                                contentAlignment = Alignment.Center) {
-                                val width = minOf(maxWidth, maxHeight / 1.5f)
-                                val media = content.ui.item
-                                if (media == null) SkeletonBlock(Modifier.width(width).aspectRatio(2f / 3f))
-                                else Artwork(content.images.poster(media), content.images,
-                                    Modifier.width(width).aspectRatio(2f / 3f).clip(RoundedCornerShape(8.dp)),
-                                    media.name, contentScale = ContentScale.Fit)
-                            }
-                            BoxWithConstraints(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                            BoxWithConstraints(Modifier.fillMaxWidth(.46f).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
                                 val available = maxHeight / LocalDensity.current.fontScale
-                                Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     TvSeriesIntroduction(content.ui, content.images, available)
                                     if (content.feedback.isNotBlank()) SeriesOverviewFeedback(content)
                                     Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        SeriesPlayAction(content, Modifier.widthIn(min = 180.dp).fillMaxHeight(), Glyph.Play)
+                                        SeriesPlayAction(content, Modifier.widthIn(min = 144.dp).fillMaxHeight(), Glyph.Play)
                                         SeriesFavoriteAction(content, Modifier.fillMaxHeight())
                                     }
                                 }

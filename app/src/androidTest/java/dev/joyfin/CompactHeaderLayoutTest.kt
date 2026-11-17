@@ -3,6 +3,7 @@ package dev.joyfin
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.platform.LocalDensity
@@ -46,12 +47,14 @@ class CompactHeaderLayoutTest {
                 media = listOf(film), total = 1, nextOffset = 1), actions(), images)
         }
         try {
-            val header = compose.onNodeWithTag("page:header").getUnclippedBoundsInRoot()
-            assertTrue(header.bottom - header.top <= 56.dp)
+            val header = compose.onNodeWithTag("cinema:header").getUnclippedBoundsInRoot()
+            val toolbar = compose.onNodeWithTag("library:toolbar").getUnclippedBoundsInRoot()
+            assertTrue(header.bottom - header.top <= 60.dp)
             listOf("library:sort", "library:watched", "library:audit").forEach {
                 val tool = compose.onNodeWithTag(it).assertIsDisplayed().getUnclippedBoundsInRoot()
-                assertTrue(tool.top >= header.top && tool.bottom <= header.bottom)
+                assertTrue(tool.top >= toolbar.top && tool.bottom <= toolbar.bottom)
             }
+            assertTrue(toolbar.top >= header.bottom)
             compose.onNodeWithTag("collection:film").assertIsDisplayed()
             assertTrue(compose.onNodeWithTag("collection:film").getUnclippedBoundsInRoot().top < 180.dp)
         } finally { scenario.close() }
@@ -64,14 +67,14 @@ class CompactHeaderLayoutTest {
                 actions().copy(submitSearch = { query = it }), images)
         }
         try {
-            val header = compose.onNodeWithTag("page:header").getUnclippedBoundsInRoot()
+            val header = compose.onNodeWithTag("search:toolbar").getUnclippedBoundsInRoot()
             val field = compose.onNodeWithTag("search:input").assertIsDisplayed().getUnclippedBoundsInRoot()
             assertTrue(header.bottom - header.top <= 60.dp)
             assertTrue(field.right - field.left >= 240.dp)
-            val submit = compose.onNodeWithText("搜索", substring = false).getUnclippedBoundsInRoot()
+            val submit = compose.onNodeWithTag("search:submit").getUnclippedBoundsInRoot()
             assertTrue(submit.top >= header.top && submit.bottom <= header.bottom)
             compose.onNodeWithTag("search:input").performTextInput("灯塔")
-            compose.onNodeWithText("搜索", substring = false).performClick()
+            compose.onNodeWithTag("search:submit").performClick()
             assertEquals("灯塔", query)
         } finally { scenario.close() }
     }
@@ -128,6 +131,70 @@ class CompactHeaderLayoutTest {
                 compose.onAllNodes(hasTestTag("person:information") and isFocused()).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNodeWithTag("person:information").assertIsFocused()
+        } finally { scenario.close() }
+    }
+
+    @Test fun tvGridRestoresScrolledCardAfterReturningFromDetails() {
+        var browsing by mutableStateOf(true)
+        val films = (1..40).map { Media("film$it", "影片 $it", "Movie") }
+        val scenario = mount {
+            val pages = rememberSaveableStateHolder()
+            if (browsing) pages.SaveableStateProvider("library") {
+                RememberScreenFocus("collection:initial") {
+                    LibraryRoute(CollectionUiState(parent = "library", media = films, total = films.size, nextOffset = films.size),
+                        actions().copy(open = { browsing = false }), images)
+                }
+            } else ActionButton("返回片库", { browsing = true }, Modifier.focusTarget("return"))
+        }
+        try {
+            compose.onNodeWithTag("collection:film1").assertIsFocused()
+            compose.onNode(hasScrollToIndexAction()).performScrollToIndex(25)
+            val card = compose.onNodeWithTag("collection:film26")
+            card.performSemanticsAction(SemanticsActions.RequestFocus)
+            val before = card.getUnclippedBoundsInRoot()
+            card.assertIsFocused().performClick()
+            compose.onNodeWithTag("return").performClick()
+            compose.onNodeWithTag("collection:film26").assertIsDisplayed().assertIsFocused()
+            assertEquals(before, compose.onNodeWithTag("collection:film26").getUnclippedBoundsInRoot())
+        } finally { scenario.close() }
+    }
+
+    @Test fun tvGridRemovalUsesAdjacentCardThenEmptyFilterAndRefreshNeverStealsFocus() {
+        val films = (1..3).map { Media("film$it", "影片 $it", "Movie") }
+        var ui by mutableStateOf(CollectionUiState(parent = "library", media = films, total = 3, nextOffset = 3))
+        val scenario = mount {
+            RememberScreenFocus("collection:initial") { LibraryRoute(ui, actions(), images) }
+        }
+        try {
+            compose.onNodeWithTag("collection:film1").assertIsFocused()
+            compose.onNodeWithTag("collection:film2").performSemanticsAction(SemanticsActions.RequestFocus)
+            compose.runOnIdle { ui = ui.copy(media = films.filter { it.id != "film2" }, total = 2, nextOffset = 2) }
+            compose.waitUntil(3_000) { compose.onAllNodes(hasTestTag("collection:film3") and isFocused()).fetchSemanticsNodes().isNotEmpty() }
+            compose.runOnIdle { ui = ui.copy(busy = true) }
+            compose.onNodeWithTag("collection:film3").assertIsFocused()
+            compose.runOnIdle { ui = ui.copy(busy = false, error = "刷新失败") }
+            compose.onNodeWithTag("collection:film3").assertIsFocused()
+            compose.runOnIdle { ui = ui.copy(error = null, media = ui.media + Media("film4", "新影片", "Movie"), total = 3, nextOffset = 3) }
+            compose.onNodeWithTag("collection:film3").assertIsFocused()
+            compose.runOnIdle { ui = ui.copy(media = emptyList(), total = 0, nextOffset = 0) }
+            compose.waitUntil(3_000) { compose.onAllNodes(hasTestTag("library:watched") and isFocused()).fetchSemanticsNodes().isNotEmpty() }
+        } finally { scenario.close() }
+    }
+
+    @Test fun tvLargeFontKeepsGlobalNavigationAndSearchOnSingleRows() {
+        val scenario = mount(fontScale = 1.5f) {
+            SearchRoute(CollectionUiState(kind = CollectionKind.SEARCH), actions(), images)
+        }
+        try {
+            val header = compose.onNodeWithTag("cinema:header").getUnclippedBoundsInRoot()
+            listOf("home", "tracking", "library", "subtitles", "search", "account").forEach {
+                val nav = compose.onNodeWithTag("header:$it").assertIsDisplayed().getUnclippedBoundsInRoot()
+                assertTrue(nav.top >= header.top && nav.bottom <= header.bottom)
+            }
+            val field = compose.onNodeWithTag("search:input").getUnclippedBoundsInRoot()
+            val submit = compose.onNodeWithTag("search:submit").assertIsDisplayed().getUnclippedBoundsInRoot()
+            assertTrue(submit.left >= field.right)
+            assertTrue(submit.top < field.bottom && field.top < submit.bottom)
         } finally { scenario.close() }
     }
 

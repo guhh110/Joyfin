@@ -33,6 +33,12 @@ import dev.joyfin.ui.theme.Palette
 fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boolean = false,
     horizontalInset: androidx.compose.ui.unit.Dp? = null, active: String? = null) {
     val device = LocalDeviceLayout.current
+    if (device.television) {
+        CinemaHeader(when (active) {
+            "tracking" -> "我的追剧"; "library" -> "媒体库"; "subtitles" -> "字幕"; else -> "私人放映厅"
+        }, actions, Modifier.padding(horizontal = horizontalInset ?: device.gutter), back, active)
+        return
+    }
     Row(
         Modifier.fillMaxWidth()
             .then(if (statusBarInset && !device.television) Modifier.statusBarsPadding() else Modifier)
@@ -172,6 +178,7 @@ fun TextTab(
     compact: Boolean = false,
 ) {
     val active = selected
+    val tv = LocalDeviceLayout.current.television
     val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(if (compact) 14.dp else 20.dp)
     FocusSurface(
         onClick,
@@ -190,8 +197,8 @@ fun TextTab(
                 .then(
                     if (active) {
                         Modifier
-                            .background(Color(0xFF1B202D), pillShape)
-                            .border(0.5.dp, Palette.Line, pillShape)
+                            .background(if (tv) Palette.Selected else Color(0xFF1B202D), pillShape)
+                            .border(0.5.dp, if (tv) Palette.Accent.copy(alpha = .4f) else Palette.Line, pillShape)
                     } else if (compact) {
                         Modifier
                             .background(Color(0xFF0F1118), pillShape)
@@ -206,7 +213,7 @@ fun TextTab(
         ) {
             Text(
                 text,
-                color = if (active) Palette.Text else Palette.Muted,
+                color = if (active && tv) Palette.Accent else if (active) Palette.Text else Palette.Muted,
                 fontSize = if (compact) 12.sp else 14.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,

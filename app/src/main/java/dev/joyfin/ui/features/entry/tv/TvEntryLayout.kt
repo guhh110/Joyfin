@@ -32,6 +32,7 @@ internal fun TvEntryLayout(
             .testTag("entry:screen")
     ) {
         val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        val compact = LocalDensity.current.fontScale > 1.15f
 
         // 纯 Compose 渲染无界影院微光漫反射背景
         EntryArtwork(isTelevision = true)
@@ -41,7 +42,7 @@ internal fun TvEntryLayout(
                 .fillMaxSize()
                 .safeDrawingPadding()
                 .imePadding()
-                .padding(horizontal = 56.dp, vertical = 28.dp),
+                .padding(horizontal = 32.dp, vertical = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 左翼：品牌核心与影院纯粹视听定位 (不堆砌多余口号)
@@ -72,12 +73,12 @@ internal fun TvEntryLayout(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF12151F))
+                            .background(Palette.Surface)
                             .border(0.5.dp, Palette.Line, RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp, vertical = 5.dp),
                     ) {
                         Text(
-                            "BOUNDLESS CINEMA",
+                            "CINERAMA",
                             color = Palette.Muted,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -106,25 +107,25 @@ internal fun TvEntryLayout(
             Spacer(Modifier.width(36.dp))
 
             // 右翼：460dp 悬浮玻璃控制台
-            val consoleShape = RoundedCornerShape(24.dp)
+            val consoleShape = RoundedCornerShape(12.dp)
             Column(
                 Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(consoleShape)
-                    .background(Color(0xFF0C0E15).copy(alpha = 0.85f))
+                    .background(Palette.Surface.copy(alpha = 0.94f))
                     .border(0.5.dp, Palette.Line, consoleShape)
-                    .padding(horizontal = 32.dp, vertical = 24.dp),
+                    .padding(horizontal = 32.dp, vertical = if (compact) 16.dp else 20.dp),
             ) {
                 if (title != null) {
                     Text(
                         title,
                         color = Palette.Text,
-                        fontSize = 30.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = (-0.5).sp,
                     )
-                    if (subtitle != null) {
+                    if (subtitle != null && !compact) {
                         Spacer(Modifier.height(6.dp))
                         Text(
                             subtitle,

@@ -20,11 +20,12 @@ internal fun LazyGridScope.mediaCollectionItems(
     header: @Composable () -> Unit,
     skeletonCount: Int,
     skeletonVisible: Boolean,
+    includeHeader: Boolean = true,
 ) {
     val directories = ui.directoryGrid
-    item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
+    if (includeHeader || ui.media.isNotEmpty() && (ui.busy || ui.error != null)) item(span = { GridItemSpan(maxLineSpan) }, key = "header") {
         Column {
-            header()
+            if (includeHeader) header()
             if (ui.media.isNotEmpty()) {
                 RegionLoadFeedback(
                     ui.busy && !ui.appending,

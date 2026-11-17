@@ -117,27 +117,30 @@ class LoadingPresentationTest {
     }
 
     @Test
-    fun posterAndEpisodeSkeletonsMatchRealCardBoundsAtLargeFontScale() {
+    fun tvPosterAndEpisodeSkeletonsMatchRealCardBoundsAtLargeFontScale() {
         val images = ArtworkSource({ "" }, { "" }, { null }, { null }, "")
         var skeleton by mutableStateOf(true)
         var wide by mutableStateOf(false)
         val scenario =
-            mount(false) {
+            mount(true) {
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 CompositionLocalProvider(
                     androidx.compose.ui.platform.LocalDensity provides
                         androidx.compose.ui.unit.Density(density.density, 1.4f)
                 ) {
-                    if (skeleton) MediaCardSkeleton(Modifier.width(232.dp).testTag("card"), wide)
-                    else
-                        MediaCard(
-                            Media("movie", "A very long title", "Movie", genres = listOf("Drama")),
-                            images,
-                            {},
-                            Modifier.width(232.dp).testTag("card"),
-                            wide = wide,
-                            cardWidth = 232.dp,
-                        )
+                    // Compare layout slots, including the non-clickable focus reserve.
+                    androidx.compose.foundation.layout.Box(Modifier.testTag("card")) {
+                        if (skeleton) MediaCardSkeleton(Modifier.width(232.dp), wide)
+                        else
+                            MediaCard(
+                                Media("movie", "A very long title", "Movie", genres = listOf("Drama")),
+                                images,
+                                {},
+                                Modifier.width(232.dp),
+                                wide = wide,
+                                cardWidth = 232.dp,
+                            )
+                    }
                 }
             }
         try {

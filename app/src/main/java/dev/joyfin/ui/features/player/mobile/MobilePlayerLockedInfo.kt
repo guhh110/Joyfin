@@ -30,6 +30,7 @@ import dev.joyfin.ui.theme.Palette
 /** Read-only information; taps pass through to the locked video surface. */
 @Composable
 internal fun MobilePlayerLockedInfo(ui: PlayerUiState, modifier: Modifier = Modifier) {
+    val canvasText = Palette.Text
     val fraction = if (ui.durationMs > 0)
         (ui.positionMs.toFloat() / ui.durationMs).coerceIn(0f, 1f) else 0f
     Box(
@@ -45,7 +46,7 @@ internal fun MobilePlayerLockedInfo(ui: PlayerUiState, modifier: Modifier = Modi
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Caption(ui.title, color = Palette.Text, maxLines = 1)
+                Caption(ui.title, color = canvasText, maxLines = 1)
                 if (ui.subtitle.isNotBlank()) Caption(ui.subtitle, maxLines = 1)
             }
             PlayerClock()
@@ -70,7 +71,7 @@ internal fun MobilePlayerLockedInfo(ui: PlayerUiState, modifier: Modifier = Modi
                 Caption(status, Modifier.weight(1f), maxLines = 1)
                 Caption(
                     "${timeLabel(ui.positionMs)} / ${if (ui.durationMs > 0) timeLabel(ui.durationMs) else "--:--"}",
-                    color = Palette.Text,
+                    color = canvasText,
                     maxLines = 1,
                 )
             }
@@ -84,9 +85,9 @@ internal fun MobilePlayerLockedInfo(ui: PlayerUiState, modifier: Modifier = Modi
                     },
             ) {
                 val y = size.height / 2
-                drawLine(Palette.Text.copy(alpha = .2f), Offset(0f, y), Offset(size.width, y),
+                drawLine(canvasText.copy(alpha = .2f), Offset(0f, y), Offset(size.width, y),
                     3.dp.toPx(), StrokeCap.Round)
-                if (fraction > 0f) drawLine(Palette.Text, Offset(0f, y), Offset(size.width * fraction, y),
+                if (fraction > 0f) drawLine(canvasText, Offset(0f, y), Offset(size.width * fraction, y),
                     3.dp.toPx(), StrokeCap.Round)
                 drawSkipTimeline(ui.navigation.ranges, ui.durationMs, ui.positionMs, y, 3.dp.toPx())
             }

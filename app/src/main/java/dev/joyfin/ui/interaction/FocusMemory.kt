@@ -7,6 +7,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalWindowInfo
 import dev.joyfin.ui.device.LocalDeviceLayout
 
 class ScreenFocus(val target: () -> String, val rememberTarget: (String) -> Unit) {
@@ -23,6 +24,14 @@ val LocalScreenFocus = staticCompositionLocalOf<ScreenFocus?> { null }
 fun RememberScreenFocus(initial: String, content: @Composable () -> Unit) {
     var target by rememberSaveable { mutableStateOf(initial) }
     val memory = remember { ScreenFocus({ target }) { target = it } }
+    val window = LocalWindowInfo.current
+    val tv = LocalDeviceLayout.current.television
+    LaunchedEffect(window.isWindowFocused) {
+        if (tv && window.isWindowFocused) {
+            withFrameNanos { }
+            memory.restore()
+        }
+    }
     CompositionLocalProvider(LocalScreenFocus provides memory, content = content)
 }
 
