@@ -259,40 +259,6 @@ internal fun CineramaHome(
                 CinemaFooter(cursor, collection.items.size, accent,
                     Modifier.align(Alignment.BottomCenter))
             }
-            CinemaHud(collection?.title ?: "私人放映厅", accent, actions,
-                Modifier.align(Alignment.TopCenter))
-        }
-    }
-}
-
-@Composable
-private fun CinemaHud(
-    title: String, accent: Color, actions: BrowseActions, modifier: Modifier,
-) {
-    val memory = LocalScreenFocus.current
-    val stageNavigation = Modifier.focusProperties {
-        down = memory?.requesters?.get("cinema:play") ?: memory?.requesters?.get("tunnel:screen") ?: FocusRequester.Default
-    }
-    Row(modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 18.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                Box(Modifier.size(3.dp).background(accent, CircleShape))
-                MicroText("ACTIVE MATRIX", CinemaMuted.copy(alpha = .55f), spacing = 2.5f)
-            }
-            Text(title, color = Color.White.copy(alpha = .88f), fontSize = 11.sp, fontWeight = FontWeight.Medium,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            MicroText("JOYFIN / CINERAMA", CinemaMuted.copy(alpha = .45f), spacing = 2f)
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                CinemaAction("首页", Glyph.Home, actions.home, stageNavigation.focusTarget("header:home"), selected = true)
-                CinemaAction("追剧", Glyph.Heart, actions.tracking, stageNavigation.focusTarget("header:tracking"))
-                CinemaAction("媒体库", Glyph.Library, { actions.library(null, "媒体库") }, stageNavigation.focusTarget("header:library"))
-                CinemaAction("字幕", Glyph.Subtitle, actions.subtitleManager, stageNavigation.focusTarget("header:subtitles"))
-                CinemaAction("搜索", Glyph.Search, actions.search, stageNavigation.focusTarget("header:search"))
-                CinemaAction("设置", Glyph.Settings, actions.settings, stageNavigation.focusTarget("header:account"))
-            }
         }
     }
 }

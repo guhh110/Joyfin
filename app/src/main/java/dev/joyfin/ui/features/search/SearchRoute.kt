@@ -45,10 +45,7 @@ fun SearchRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
             else if (ui.busy && ui.media.isEmpty()) "“${ui.query}”"
             else "“${ui.query}” · ${ui.total} 个结果"
         if (LocalDeviceLayout.current.television) {
-            androidx.compose.foundation.layout.Column {
-                CinemaHeader("搜索", actions, active = "search")
-                TvSearchHeader(actions.back, summary, field, submit)
-            }
+            TvSearchHeader(actions.back, summary, field, submit)
         }
         else MobileSearchHeader(actions.back, summary, field, submit)
     }

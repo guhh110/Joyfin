@@ -130,14 +130,7 @@ private fun SubtitleManagementScreen(controller: SubtitlePageController, images:
             }
     }
     val header: @Composable () -> Unit = {
-        if (tv && browseActions != null) {
-            CinemaHeader(pageTitle, browseActions.copy(back = ::back,
-                home = { navigate(browseActions.home) }, tracking = { navigate(browseActions.tracking) },
-                library = { id, title -> navigate { browseActions.library(id, title) } },
-                subtitleManager = { navigate(browseActions.subtitleManager) },
-                search = { navigate(browseActions.search) }, settings = { navigate(browseActions.settings) }),
-                active = "subtitles", backFocusKey = "subtitles:back")
-        } else PageHeader(pageTitle, onBack = ::back, backFocusKey = "subtitles:back", actions = tabs)
+        if (!tv) PageHeader(pageTitle, onBack = ::back, backFocusKey = "subtitles:back", actions = tabs)
     }
     val controls: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

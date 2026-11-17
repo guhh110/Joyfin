@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import dev.joyfin.browse.CollectionUiState
@@ -46,8 +47,16 @@ fun PersonRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
                 Caption(if (ui.busy && ui.media.isEmpty()) "参演作品" else "参演作品 · ${ui.total}", maxLines = 1)
                 IconButton("人物介绍", Glyph.Info, { information = true }, Modifier.focusTarget("person:information"))
             }
-            if (tv) CinemaHeader(person.name, actions, leading = portrait, tools = tools)
-            else {
+            if (tv) {
+                Row(
+                    Modifier.fillMaxWidth().testTag("person:toolbar"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    portrait()
+                    tools()
+                }
+            } else {
                 AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
                 PageHeader(person.name, leading = portrait, actions = tools)
             }

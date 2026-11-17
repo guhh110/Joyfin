@@ -20,7 +20,6 @@ internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
     val actions = content.actions
     val focus = content.focus
     if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) {
-        CinemaHeader("剧集详情", actions, focusModifier = { modifier, key -> modifier.seriesFocus(key, focus) })
         return
     }
     Row(

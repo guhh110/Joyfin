@@ -32,9 +32,7 @@ internal fun TvSettingsLayout(
 ) {
     var category by rememberSaveable { mutableStateOf("account") }
     val categories = listOf("account" to "账号", "playback" to "播放", "library" to "媒体库与首页", "support" to "应用与支持")
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        CinemaHeader("设置", actions, active = "settings")
+    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 8.dp)) {
         Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Column(Modifier.fillMaxWidth(.22f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {

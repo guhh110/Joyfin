@@ -84,9 +84,7 @@ fun TrackingRoute(ui: TrackingUiState, actions: BrowseActions, images: ArtworkSo
         }
     } }
     Column(Modifier.fillMaxSize()) {
-        if (device.television) CinemaHeader("我的追剧", actions,
-            Modifier.padding(horizontal = device.gutter), active = "tracking")
-        else AppHeader(actions, active = "tracking")
+        if (!device.television) AppHeader(actions, active = "tracking")
         Row(
             Modifier.fillMaxWidth().padding(horizontal = device.gutter, vertical = 4.dp)
                 .testTag("tracking:toolbar"),

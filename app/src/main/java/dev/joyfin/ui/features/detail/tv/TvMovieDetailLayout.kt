@@ -87,7 +87,6 @@ internal fun TvMovieDetailLayout(
                             actions = actions,
                             onInformation = onInformation,
                             hasMediaSources = media?.sources?.isNotEmpty() == true,
-                            backRequester = backRequester,
                             playRequester = playRequester,
                             onFocused = { focusedKey = it },
                         )
@@ -165,22 +164,26 @@ private fun TvMovieHeader(
     actions: BrowseActions,
     onInformation: () -> Unit,
     hasMediaSources: Boolean,
-    backRequester: FocusRequester,
     playRequester: FocusRequester,
     onFocused: (String) -> Unit,
 ) {
-    CinemaHeader("电影详情", actions, tools = {
-            IconButton("本片字幕", Glyph.Subtitle, actions.subtitles,
-                Modifier.focusProperties { down = playRequester }.focusTarget("detail:subtitles"))
-            if (hasMediaSources) {
-                IconButton("版本信息", Glyph.Info, onInformation,
-                    Modifier.focusProperties { down = playRequester }.focusTarget("header:media-info"))
-            }
-        }, focusModifier = { modifier, key ->
-            modifier.then(if (key == "header:back") Modifier.focusRequester(backRequester) else Modifier)
-                .focusProperties { down = playRequester }
-                .onFocusChanged { if (it.isFocused) onFocused(key) }.focusTarget(key)
-        })
+    Row(
+        Modifier.fillMaxWidth().testTag("movie:toolbar"),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton("本片字幕", Glyph.Subtitle, actions.subtitles,
+            Modifier.focusProperties { down = playRequester }
+                .onFocusChanged { if (it.isFocused) onFocused("detail:subtitles") }
+                .focusTarget("detail:subtitles"))
+        if (hasMediaSources) {
+            Spacer(Modifier.width(8.dp))
+            IconButton("版本信息", Glyph.Info, onInformation,
+                Modifier.focusProperties { down = playRequester }
+                    .onFocusChanged { if (it.isFocused) onFocused("header:media-info") }
+                    .focusTarget("header:media-info"))
+        }
+    }
 }
 
 @Composable

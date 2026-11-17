@@ -40,8 +40,7 @@ fun LibraryRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkS
     }
     MediaCollection(ui, actions, images) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (tv) CinemaHeader(ui.title.ifBlank { "媒体库" }, actions, active = "library")
-            else AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
+            if (!tv) AppHeader(actions, true, horizontalInset = 0.dp, active = "library")
             val tools: @Composable RowScope.() -> Unit = {
                 if (!((ui.busy || ui.error != null) && ui.media.isEmpty())) {
                     Caption(if (ui.directoryGrid) "${ui.total} 个媒体库" else "${ui.total} 部作品", maxLines = 1)

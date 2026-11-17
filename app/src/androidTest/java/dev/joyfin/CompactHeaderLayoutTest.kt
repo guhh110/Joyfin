@@ -42,7 +42,7 @@ class CompactHeaderLayoutTest {
     private val film = Media("film", "演示影片", "Movie")
 
     @Test fun libraryToolsShareOneTitleRowAndLeaveTheGridVisible() {
-        val scenario = mount {
+        val scenario = mount(headerTitle = "名称很长的电影与剧集媒体库", activeNav = "library") {
             LibraryRoute(CollectionUiState(title = "名称很长的电影与剧集媒体库", parent = "library",
                 media = listOf(film), total = 1, nextOffset = 1), actions(), images)
         }
@@ -182,7 +182,7 @@ class CompactHeaderLayoutTest {
     }
 
     @Test fun tvLargeFontKeepsGlobalNavigationAndSearchOnSingleRows() {
-        val scenario = mount(fontScale = 1.5f) {
+        val scenario = mount(fontScale = 1.5f, headerTitle = "搜索", activeNav = "search") {
             SearchRoute(CollectionUiState(kind = CollectionKind.SEARCH), actions(), images)
         }
         try {
@@ -198,7 +198,13 @@ class CompactHeaderLayoutTest {
         } finally { scenario.close() }
     }
 
-    private fun mount(tv: Boolean = true, fontScale: Float = 1f, content: @Composable () -> Unit): ActivityScenario<MainActivity> {
+    private fun mount(
+        tv: Boolean = true,
+        fontScale: Float = 1f,
+        headerTitle: String? = null,
+        activeNav: String? = null,
+        content: @Composable () -> Unit,
+    ): ActivityScenario<MainActivity> {
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity { activity -> activity.setContent {
             BoundlessTheme {
@@ -208,7 +214,14 @@ class CompactHeaderLayoutTest {
                 CompositionLocalProvider(LocalDeviceLayout provides DeviceLayout(tv, if (tv) 960 else 360),
                     LocalDensity provides Density(density.density, fontScale)) {
                     Box(if (tv) Modifier.fillMaxSize() else Modifier.width(360.dp).fillMaxHeight()) {
-                        RememberScreenFocus("header:back", content)
+                        RememberScreenFocus("header:back") {
+                            if (tv && headerTitle != null) {
+                                Column(Modifier.fillMaxSize()) {
+                                    CinemaHeader(headerTitle, actions(), active = activeNav)
+                                    Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+                                }
+                            } else content()
+                        }
                     }
                 }
             }
