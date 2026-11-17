@@ -13,7 +13,8 @@ internal val LocalResumeQuickAction = staticCompositionLocalOf<(Media) -> Unit> 
 
 /** The dialog outlives its rail, including removal of the final resume item. */
 @Composable
-internal fun HomeResumeActionsHost(ui: HomeUiState, actions: BrowseActions, content: @Composable () -> Unit) {
+internal fun HomeResumeActionsHost(ui: HomeUiState, actions: BrowseActions, restoreFocusKey: String? = null,
+    content: @Composable () -> Unit) {
     var item by remember { mutableStateOf<Media?>(null) }
     var itemIndex by remember { mutableIntStateOf(0) }
     var restoreTarget by remember { mutableStateOf<String?>(null) }
@@ -24,7 +25,7 @@ internal fun HomeResumeActionsHost(ui: HomeUiState, actions: BrowseActions, cont
         val resume = ui.content?.resume.orEmpty()
         val target = resume.firstOrNull { it.id == item?.id }
             ?: resume.getOrNull(itemIndex.coerceAtMost((resume.size - 1).coerceAtLeast(0)))
-        restoreTarget = target?.let { "继续观看:${it.id}" }
+        restoreTarget = restoreFocusKey ?: target?.let { "继续观看:${it.id}" }
             ?: if (ui.content?.latest?.isNotEmpty() == true) "hero:play" else "header:account"
         item = null
         actions.cancelResumeAction()
