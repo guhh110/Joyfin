@@ -9,7 +9,7 @@ adb shell am start -S -W -n dev.joyfin/.scenario.UiScenarioActivity --es scenari
 ```
 
 - `scenario`：`normal`、`empty`、`error`。页面顶部也可切换，切换会刷新当前页面。
-- `page`：`home`、`tracking`（追剧）、`detail`（剧集）、`movie`（电影）、`library`、`library-grid`（直接进入作品网格）、`search`、`subtitles`、`person`、`settings`、`audit`（片库体检）、`player`、`player-sidebar`。
+- `page`：`home`、`tracking`（追剧）、`detail`（剧集）、`movie`（电影）、`library`、`library-grid`（直接进入作品网格）、`search`、`person`、`settings`、`audit`（片库体检）、`player`、`player-sidebar`。
 - `--el delayMs 1200`：每次响应延迟，范围 0–5000ms，用来人工查看按钮内加载和静态骨架。
 - `--ez controls false`：隐藏顶部模拟场景切换栏，用完整屏幕检查正式页面布局。
 - `-S` 停止当前应用进程后进入独立场景，保留真实数据；每次冷启动可检查不含旧内容的结果状态。
@@ -17,7 +17,7 @@ adb shell am start -S -W -n dev.joyfin/.scenario.UiScenarioActivity --es scenari
 
 独立进程使用带前缀的模拟偏好和独立文件目录。只接受虚构主机 `ui-scenario.invalid`，所有请求在本地返回，不发送到真实服务器；作品、用户和令牌均为演示数据。
 图片默认复用应用内港湾素材，部分剧集／人物故意无图。长作品名、长单集标题、两季剧集用于人工检查排布、边缘绘制和焦点恢复。
-播放出口进入本地模拟播放器，复用正式播放器 UI，以港湾素材作为静态画面。可操作播放／暂停、进度、选集、音轨、字幕、画质上限、倍速、画面缩放和控制栏；所有选择只保留在本次场景内。收藏等 HTTP 写入只在模拟响应中完成。字幕页复用隔离的本地目录，默认没有下载包；字幕站搜索、包下载和本地整理不属于 Jellyfin Retrofit 三状态模拟范围。
+播放出口进入本地模拟播放器，复用正式播放器 UI，以港湾素材作为静态画面。可操作播放／暂停、进度、选集、音轨、字幕、画质上限、倍速、画面缩放和控制栏；所有选择只保留在本次场景内。收藏等 HTTP 写入只在模拟响应中完成。模拟播放器不执行在线字幕请求；在线字幕需要在正式播放器连接字幕站验收。
 
 ## 图片与列表加载性能复核
 

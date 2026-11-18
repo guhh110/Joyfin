@@ -139,7 +139,6 @@ fun LibraryAuditRoute(controller: LibraryAuditController, actions: BrowseActions
         Sheet("检查依据", { selected = null }, side = true, scrollContent = false, preferredWidth = 440.dp) {
             AuditFindingDetails(finding, ui,
                 onOpen = { selected = null; actions.openAuditItem(finding) },
-                onSubtitles = { selected = null; actions.auditSubtitles(finding) },
                 onRecheck = { controller.recheck(finding) },
                 onIgnore = { controller.ignore(finding); selected = null })
         }

@@ -35,7 +35,7 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
     val device = LocalDeviceLayout.current
     if (device.television) {
         CinemaHeader(when (active) {
-            "tracking" -> "我的追剧"; "library" -> "媒体库"; "subtitles" -> "字幕"; else -> "私人放映厅"
+            "tracking" -> "我的追剧"; "library" -> "媒体库"; else -> "私人放映厅"
         }, actions, Modifier.padding(horizontal = horizontalInset ?: device.gutter), back, active)
         return
     }
@@ -71,7 +71,6 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
                 ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true, selected = active == "home", maxLines = 1)
                 ActionButton("追剧", actions.tracking, Modifier.focusTarget("header:tracking"), icon = Glyph.Heart, quiet = true, selected = active == "tracking", maxLines = 1)
                 ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true, selected = active == "library", maxLines = 1)
-                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true, selected = active == "subtitles", maxLines = 1)
             }
         } else Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -88,7 +87,6 @@ fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
         Triple("home", "首页", Glyph.Home),
         Triple("tracking", "追剧", Glyph.Heart),
         Triple("library", "媒体库", Glyph.Library),
-        Triple("subtitles", "字幕", Glyph.Subtitle),
         Triple("search", "搜索", Glyph.Search),
     )
     Column(
@@ -132,7 +130,6 @@ fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
                                 "home" -> actions.home()
                                 "tracking" -> actions.tracking()
                                 "library" -> actions.library(null, "媒体库")
-                                "subtitles" -> actions.subtitleManager()
                                 else -> actions.search()
                             }
                         }

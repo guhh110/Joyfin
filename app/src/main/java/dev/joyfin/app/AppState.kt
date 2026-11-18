@@ -16,7 +16,6 @@ enum class Page {
     DETAIL,
     PERSON,
     SETTINGS,
-    SUBTITLES,
     AUDIT,
 }
 

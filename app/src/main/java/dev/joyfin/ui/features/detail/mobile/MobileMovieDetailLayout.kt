@@ -134,7 +134,6 @@ private fun MobileMovieHeader(
     ) {
         IconButton("返回", Glyph.Back, actions.back)
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton("字幕管理", Glyph.Subtitle, actions.subtitles)
             if (hasMediaSources) {
                 IconButton("版本信息", Glyph.Info, onInformation)
             }

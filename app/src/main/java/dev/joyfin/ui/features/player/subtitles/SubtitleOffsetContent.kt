@@ -1,4 +1,4 @@
-package dev.joyfin.ui.features.subtitles
+package dev.joyfin.ui.features.player.subtitles
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.input.rememberTextFieldState

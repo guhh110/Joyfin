@@ -62,7 +62,6 @@ fun CinemaHeader(
             CinemaNav("首页", Glyph.Home, actions.home, "header:home", active == "home", focusModifier)
             CinemaNav("追剧", Glyph.Heart, actions.tracking, "header:tracking", active == "tracking", focusModifier)
             CinemaNav("媒体库", Glyph.Library, { actions.library(null, "媒体库") }, "header:library", active == "library", focusModifier)
-            CinemaNav("字幕", Glyph.Subtitle, actions.subtitleManager, "header:subtitles", active == "subtitles", focusModifier)
             CinemaNav("搜索", Glyph.Search, actions.search, "header:search", active == "search", focusModifier)
             CinemaNav("设置", Glyph.Settings, actions.settings, "header:account", active == "settings", focusModifier)
         }

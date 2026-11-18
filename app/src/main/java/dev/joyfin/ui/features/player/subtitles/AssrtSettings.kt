@@ -1,4 +1,4 @@
-package dev.joyfin.ui.features.subtitles
+package dev.joyfin.ui.features.player.subtitles
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -14,11 +14,11 @@ import dev.joyfin.ui.theme.Palette
 import kotlinx.coroutines.*
 
 @Composable
-internal fun AssrtSettings(store: AssrtAccountStore) {
+internal fun AssrtSettings(store: AssrtAccountStore, onSaved: () -> Unit) {
     val scope = rememberCoroutineScope()
     val token = rememberTextFieldState()
     var enabled by remember { mutableStateOf(true) }
-    var busy by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(store) {
         try {
@@ -27,10 +27,11 @@ internal fun AssrtSettings(store: AssrtAccountStore) {
             enabled = config.enabled
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { message = subtitleFailure(e) }
+        finally { busy = false }
     }
     SectionTitle("ASSRT")
     Caption("使用 assrt.net 的 API Token，无需登录。")
-    ChoiceRow(if (enabled) "已启用" else "已停用", selected = enabled) { if (!busy) enabled = !enabled }
+    ChoiceRow(if (enabled) "已启用" else "已停用", selected = enabled, enabled = !busy) { enabled = !enabled }
     EntryTextField("Token", token, "你的 ASSRT Token", secret = true, enabled = !busy, onSubmit = {})
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionButton("保存", {
@@ -40,6 +41,7 @@ internal fun AssrtSettings(store: AssrtAccountStore) {
                 try {
                     require(!config.enabled || config.token.matches(Regex("[A-Za-z0-9]{32}")))
                     withContext(Dispatchers.IO) { store.save(config) }
+                    onSaved()
                     message = "ASSRT 配置已保存"
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { message = subtitleFailure(e) }
@@ -51,6 +53,7 @@ internal fun AssrtSettings(store: AssrtAccountStore) {
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) { store.remove() }
+                    onSaved()
                     token.edit { replace(0, length, "") }
                     message = "ASSRT 配置已移除"
                 } catch (e: CancellationException) { throw e }

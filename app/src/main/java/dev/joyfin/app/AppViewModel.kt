@@ -84,7 +84,6 @@ class AppViewModel @JvmOverloads constructor(
             session::backToConnection,
         )
 
-    val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(storageContext, viewModelScope, api, ::expireSession)
     val libraryAudit = dev.joyfin.audit.createLibraryAuditController(storageContext, viewModelScope, api, ::expireSession)
     val appUpdates = dev.joyfin.update.AppUpdateController(storageContext, viewModelScope)
 
@@ -212,7 +211,6 @@ class AppViewModel @JvmOverloads constructor(
     private fun cancelSections() {
         homeController.cancel()
         details.cancel()
-        subtitlePage.close()
         libraryAudit.close()
     }
 
@@ -220,17 +218,6 @@ class AppViewModel @JvmOverloads constructor(
 
     private fun push(page: Page): Unit = navigation.push(page)
 
-
-    fun openSubtitles() {
-        val detail = mutable.value.detail
-        push(Page.SUBTITLES)
-        subtitlePage.open(detail)
-    }
-
-    fun openSubtitleManager() {
-        push(Page.SUBTITLES)
-        subtitlePage.open()
-    }
 
     fun settings() = navigation.settings()
 
@@ -243,16 +230,7 @@ class AppViewModel @JvmOverloads constructor(
         libraryAudit.media(finding)?.let(details::open)
     }
 
-    fun auditSubtitles(finding: dev.joyfin.audit.AuditFinding) {
-        val media = libraryAudit.media(finding) ?: return
-        push(Page.SUBTITLES)
-        subtitlePage.openForAudit(media)
-    }
-
-    fun back(): Boolean {
-        if (mutable.value.page == Page.SUBTITLES && subtitlePage.back()) return true
-        return navigation.back()
-    }
+    fun back(): Boolean = navigation.back()
 
     fun refreshAfterPlayback() {
         if (api.session == null) return

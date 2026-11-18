@@ -57,7 +57,6 @@ internal fun TvMovieDetailLayout(
             scroll.value == 0 && (focusedKey.startsWith("header:") || focusedKey in setOf(
                 "movie:entry",
                 "header:back",
-                "header:subtitles",
                 "header:media-info",
                 "header:search",
                 "header:account",
@@ -172,10 +171,6 @@ private fun TvMovieHeader(
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton("本片字幕", Glyph.Subtitle, actions.subtitles,
-            Modifier.focusProperties { down = playRequester }
-                .onFocusChanged { if (it.isFocused) onFocused("detail:subtitles") }
-                .focusTarget("detail:subtitles"))
         if (hasMediaSources) {
             Spacer(Modifier.width(8.dp))
             IconButton("版本信息", Glyph.Info, onInformation,

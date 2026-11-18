@@ -162,8 +162,6 @@ internal fun BrowseHost(
                 submitSearch = vm::submitSearch,
                 loadMore = { vm.loadItems(true) },
                 settings = vm::settings,
-                subtitles = vm::openSubtitles,
-                subtitleManager = vm::openSubtitleManager,
                 favorite = vm::toggleFavorite,
                 play = play,
                 retry = vm::retry,
@@ -178,7 +176,6 @@ internal fun BrowseHost(
                 allMedia = vm::allMedia,
                 libraryAudit = vm::openLibraryAudit,
                 openAuditItem = vm::openAuditItem,
-                auditSubtitles = vm::auditSubtitles,
                 toggleEpisodePlayed = vm::toggleEpisodePlayed,
                 removeResumeItem = vm::removeResumeItem,
                 markResumeItemPlayed = vm::markResumeItemPlayed,
@@ -207,7 +204,7 @@ internal fun BrowseHost(
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry, vm::quickLogin,
                 vm::discoverServers, vm::cancelDiscovery)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit, updates, tracking)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, audioOutputMode, homeLayout, vm.libraryAudit, updates, tracking)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
             confirmInitiallyFocused = true)

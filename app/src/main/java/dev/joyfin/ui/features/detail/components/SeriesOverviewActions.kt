@@ -88,10 +88,3 @@ internal fun SeriesFavoriteAction(content: SeriesOverviewContent, modifier: Modi
         maxLines = 2,
     )
 }
-
-@Composable
-internal fun SeriesSubtitleAction(content: SeriesOverviewContent) {
-    ActionButton("字幕", content.actions.subtitles,
-        Modifier.seriesFocus("detail:subtitles", content.focus).semantics { contentDescription = "管理字幕" }, Glyph.Subtitle,
-        enabled = content.ui.ready, quiet = true, maxLines = 1)
-}

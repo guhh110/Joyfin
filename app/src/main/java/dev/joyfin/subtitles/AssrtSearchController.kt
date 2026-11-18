@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 data class AssrtSearchState(
-    val configurationChecked: Boolean = false,
-    val searched: Boolean = false,
     val results: List<AssrtSubtitle> = emptyList(),
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
@@ -30,26 +28,18 @@ class AssrtSearchController(
 ) {
     private val mutable = MutableStateFlow(AssrtSearchState())
     val state = mutable.asStateFlow()
-    val requestHistory = api.requestHistory
     private var job: Job? = null
     private var detailJob: Job? = null
     private var target: SubtitleSearchContext? = null
     private var submitted = ""
     private var language = "zh"
-    suspend fun checkConfiguration() {
-        try {
-            val account = withContext(Dispatchers.IO) { accounts.load() }
-            mutable.update { it.copy(configurationChecked = true, available = account.enabled && account.token.isNotBlank()) }
-        } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { mutable.update { it.copy(configurationChecked = true, error = assrtFailure("配置", e)) } }
-    }
     fun search(value: SubtitleSearchContext, query: String, lang: String) {
         val sameTarget = target == value
         cancel()
         target = value
         submitted = query.trim()
         language = lang
-        mutable.update { if (sameTarget) it.copy(loading = true, searched = true, error = null, nextPosition = null) else AssrtSearchState(loading = true, searched = true) }
+        mutable.update { if (sameTarget) it.copy(loading = true, error = null, nextPosition = null) else AssrtSearchState(loading = true) }
         request(0)
     }
     fun more() { mutable.value.nextPosition?.takeIf { !mutable.value.loading }?.let(::request) }
@@ -61,7 +51,7 @@ class AssrtSearchController(
             try {
                 val account = withContext(Dispatchers.IO) { accounts.load() }
                 val ready = account.enabled && account.token.isNotBlank()
-                mutable.update { it.copy(available = ready, configurationChecked = true) }
+                mutable.update { it.copy(available = ready) }
                 if (!ready) { mutable.update { it.copy(loading = false, loadingMore = false, results = emptyList(), nextPosition = null) }; return@launch }
                 val results = api.search(account, submitted, position, false)
                 ensureActive()
@@ -100,15 +90,7 @@ class AssrtSearchController(
         val item = mutable.value.selected ?: return
         if (download.state.value.busy || download.state.value.needsEncoding) return
         mutable.update { it.copy(transferringId = item.id) }
-        download.open(current, file.f, file.url, "ASSRT · ${item.nativeName}", null, api::recordRequest)
-    }
-    fun downloadAllFiles() {
-        val current = target ?: return
-        val item = mutable.value.selected ?: return
-        if (download.state.value.busy || download.state.value.needsEncoding || item.filelist.isEmpty()) return
-        mutable.update { it.copy(transferringId = item.id) }
-        download.openFiles(current, item.filelist.map { it.f to it.url },
-            "ASSRT · ${item.nativeName}", null, api::recordRequest)
+        download.open(current, file.f, file.url, "ASSRT · ${item.nativeName}", null)
     }
     fun dismissFiles() { mutable.update { it.copy(selected = null, files = emptyList()) } }
     fun cancel() { job?.cancel(); detailJob?.cancel(); mutable.update { it.copy(loading = false, loadingMore = false, busyId = null, selected = null, files = emptyList()) } }

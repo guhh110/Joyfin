@@ -19,13 +19,12 @@ import okhttp3.Request
 class SubtitleFiles(private val client: okhttp3.OkHttpClient = subtitleHttp()) {
     data class Entry(val name: String, val bytes: ByteArray)
 
-    suspend fun download(name: String, address: String, onRequest: (String) -> Unit): List<Entry> = withContext(Dispatchers.IO) {
+    suspend fun download(name: String, address: String): List<Entry> = withContext(Dispatchers.IO) {
         var url = address.toHttpUrlOrNull() ?: throw SubtitleOperationException("字幕站返回的下载链接无效")
         // Use the site's signed URL as returned, including its original HTTP/HTTPS scheme.
         repeat(5) {
             currentCoroutineContext().ensureActive()
             fileCheck(url.scheme in setOf("http", "https") && url.username.isEmpty() && url.password.isEmpty(), "下载链接不符合要求：需使用无账号信息的 HTTP 或 HTTPS 地址")
-            onRequest("GET $url")
             client.newCall(Request.Builder().url(url).build()).execute().use { response ->
                 if (response.code in setOf(301, 302, 303, 307, 308)) {
                     url = url.resolve(response.header("Location") ?: throw SubtitleOperationException("下载重定向缺少地址")) ?: throw SubtitleOperationException("下载重定向地址无效")

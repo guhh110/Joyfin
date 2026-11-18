@@ -1,4 +1,4 @@
-package dev.joyfin.ui.features.subtitles
+package dev.joyfin.ui.features.player.subtitles
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.input.rememberTextFieldState
@@ -14,14 +14,14 @@ import kotlinx.coroutines.*
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun OpenSubtitlesSettings(store: OpenSubtitlesAccountStore, api: OpenSubtitlesApi) {
+internal fun OpenSubtitlesSettings(store: OpenSubtitlesAccountStore, api: OpenSubtitlesApi, onSaved: () -> Unit) {
     val scope = rememberCoroutineScope()
     val apiKey = rememberTextFieldState()
     val username = rememberTextFieldState()
     val password = rememberTextFieldState()
     var account by remember { mutableStateOf(OpenSubtitlesAccount()) }
     var enabled by remember { mutableStateOf(true) }
-    var busy by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf<String?>("load") }
     var message by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(store) {
         try {
@@ -31,6 +31,7 @@ internal fun OpenSubtitlesSettings(store: OpenSubtitlesAccountStore, api: OpenSu
             enabled = account.enabled
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { message = subtitleFailure(e) }
+        finally { busy = null }
     }
     fun draft(): OpenSubtitlesAccount {
         val key = apiKey.text.toString().trim()
@@ -52,6 +53,7 @@ internal fun OpenSubtitlesSettings(store: OpenSubtitlesAccountStore, api: OpenSu
                     config = api.login(config, secret)
                 }
                 withContext(Dispatchers.IO) { store.save(config) }
+                onSaved()
                 account = config
                 message = if (login) "OpenSubtitles 已登录" else "OpenSubtitles 配置已保存"
             } catch (e: CancellationException) { throw e }
@@ -60,7 +62,7 @@ internal fun OpenSubtitlesSettings(store: OpenSubtitlesAccountStore, api: OpenSu
         }
     }
     SectionTitle("OpenSubtitles")
-    ChoiceRow(if (enabled) "已启用" else "已停用", selected = enabled) { if (busy == null) enabled = !enabled }
+    ChoiceRow(if (enabled) "已启用" else "已停用", selected = enabled, enabled = busy == null) { enabled = !enabled }
     EntryTextField("API Key", apiKey, "你的 OpenSubtitles API Key", secret = true, enabled = busy == null, onSubmit = {})
     EntryTextField("用户名（可选登录）", username, "OpenSubtitles 用户名", enabled = busy == null, onSubmit = {})
     EntryTextField("密码", password, "仅用于本次登录，不保存", secret = true, enabled = busy == null, onSubmit = {})
@@ -73,6 +75,7 @@ internal fun OpenSubtitlesSettings(store: OpenSubtitlesAccountStore, api: OpenSu
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) { store.remove() }
+                    onSaved()
                     account = OpenSubtitlesAccount()
                     apiKey.edit { replace(0, length, "") }; username.edit { replace(0, length, "") }
                     message = "OpenSubtitles 配置已移除"

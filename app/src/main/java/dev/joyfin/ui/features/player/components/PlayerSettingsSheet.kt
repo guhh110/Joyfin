@@ -146,7 +146,7 @@ fun PlayerSettingsSheet(
                             actions.setAudioOutputMode(mode)
                         }
                     }
-                    PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.subtitles.SubtitleOffsetContent(ui, actions)
+                    PlayerPanel.SubtitleOffset -> dev.joyfin.ui.features.player.subtitles.SubtitleOffsetContent(ui, actions)
                     PlayerPanel.SubtitleStyle -> PlayerSubtitleStyleContent(ui, actions)
                     PlayerPanel.Subtitle -> PlayerSubtitleContent(ui, actions, onPanel, onDismiss)
                     PlayerPanel.Speed ->

@@ -237,7 +237,7 @@ class PlaybackController(
             nextNow = { playNextEpisode(markWatched = true) },
             close = { onClose(false) },
             subtitleOffset = ::setSubtitleOffset,
-            selectLocalFile = ::selectManagedSubtitle,
+            selectLocalFile = ::selectDownloadedSubtitle,
             searchSubtitles = ::openSubtitleSearch,
             setSubtitleSize = { size ->
                 if (!released && mutable.value.subtitleSize != size) {
@@ -549,7 +549,7 @@ class PlaybackController(
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) {
                     PlaybackDiagnostics.failure(diagnostics, DiagnosticStage.SUBTITLE, e, fatal = false)
-                    localError = "本地字幕无法读取，请在详情页重新选择"; null
+                    localError = "缓存字幕无法读取，请在播放器中重新搜索下载"; null
                 }
                 var negotiation = environment.negotiate(media.id, source, audioIndex, bitrate, compatible)
                 var profile = negotiation.profile
@@ -936,7 +936,7 @@ class PlaybackController(
             target.generation == playbackGeneration && target.media.id == currentId &&
             target.source.id == plan?.sourceId
 
-    private suspend fun applySearchedSubtitle(target: PlayerSubtitleTarget, pack: ManagedSubtitle, fileId: String) {
+    private suspend fun applySearchedSubtitle(target: PlayerSubtitleTarget, pack: DownloadedSubtitle, fileId: String) {
         check(matchesSubtitleTarget(target))
         val key = LocalSubtitleStore.key(target.session.server, target.session.userId, target.media.id, target.source.id)
         val (file, offset) = withContext(Dispatchers.IO) {
@@ -992,16 +992,11 @@ class PlaybackController(
             player.prepareLocalSubtitle(playbackItem, position, speed)
             currentCoroutineContext().ensureActive()
             check(matchesSubtitleTarget(target) && subtitleSearch.state.value.open && !subtitleSearch.state.value.closing)
-            val mapping = SubtitleMapping(target.media.id, target.media.label, target.source.id,
-                target.source.name.ifBlank { target.source.container.uppercase() }, target.source.path, target.media.episode)
-            val mapped = pack.copy(files = pack.files.map { row ->
-                if (row.fileId == fileId) row.copy(mapping = mapping, manualMapping = true) else row
-            })
             val options = withContext(Dispatchers.IO) { localStore.files(key) }
             currentCoroutineContext().ensureActive()
             check(matchesSubtitleTarget(target) && !subtitleSearch.state.value.closing)
             // One synchronous atomic index commit: a close/switch cannot interleave a late binding.
-            localStore.bindPackage(mapped, target.session.server, target.session.userId, selectFileId = fileId)
+            localStore.use(key, fileId)
             committed = true
             localSubtitleKey = key
             mutable.update { it.copy(subtitleApplying = false, localSubtitleError = null,
@@ -1042,7 +1037,7 @@ class PlaybackController(
         }
     }
 
-    private fun selectManagedSubtitle(id: String) {
+    private fun selectDownloadedSubtitle(id: String) {
         val key = localSubtitleKey ?: return
         if (mutable.value.loading || mutable.value.subtitleApplying || mutable.value.localSubtitles.none { it.id == id }) return
         val generation = playbackGeneration

@@ -12,7 +12,6 @@ import dev.joyfin.app.UiState
 import dev.joyfin.app.isEntry
 import dev.joyfin.ui.components.CinemaHeader
 import dev.joyfin.ui.components.MobileBrowseNavigation
-import dev.joyfin.subtitles.SubtitleScreen
 import dev.joyfin.ui.components.PageFadeHost
 import dev.joyfin.ui.components.RequestStatus
 import dev.joyfin.ui.components.cinemaBackground
@@ -39,7 +38,6 @@ fun AppContent(
     images: ArtworkSource,
     autoNext: Boolean,
     entryActions: EntryActions,
-    subtitles: dev.joyfin.subtitles.SubtitlePageController? = null,
     audioOutputMode: dev.joyfin.data.AudioOutputMode = dev.joyfin.data.AudioOutputMode.AUTO,
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     audit: dev.joyfin.audit.LibraryAuditController? = null,
@@ -50,10 +48,8 @@ fun AppContent(
     val tv = LocalDeviceLayout.current.television
     val entry = ui.page.isEntry
     val immersiveBrowse = ui.page in setOf(Page.HOME, Page.DETAIL)
-    val subtitleScreen = subtitles?.state?.collectAsState()?.value?.screen
     val showNavigation = !tv &&
-        ui.page in setOf(Page.HOME, Page.TRACKING, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.SUBTITLES, Page.PERSON, Page.AUDIT) &&
-        !(ui.page == Page.SUBTITLES && subtitleScreen == SubtitleScreen.ORGANIZE)
+        ui.page in setOf(Page.HOME, Page.TRACKING, Page.DETAIL, Page.LIBRARY, Page.SEARCH, Page.PERSON, Page.AUDIT)
     val pageKey =
         if (ui.page == Page.DETAIL) "detail:${ui.detail.visit}"
         else if (ui.page == Page.TRACKING) "tracking"
@@ -70,9 +66,7 @@ fun AppContent(
             Page.LIBRARY, Page.PERSON -> if (tv) "collection:initial" else "header:back"
             Page.SEARCH -> "search:input"
             Page.SETTINGS -> if (tv) "settings:category:account" else "settings:back"
-            Page.SUBTITLES -> "subtitles:back"
             Page.AUDIT -> "audit:back"
-            else -> "header:back"
         }
     val visitedPages = remember { mutableSetOf<String>() }
     val isReturn = visitedPages.contains(pageKey)
@@ -84,7 +78,6 @@ fun AppContent(
         Page.HOME -> "home"
         Page.TRACKING -> "tracking"
         Page.LIBRARY, Page.PERSON -> "library"
-        Page.SUBTITLES -> "subtitles"
         Page.SEARCH -> "search"
         Page.SETTINGS -> "settings"
         else -> ""
@@ -98,11 +91,6 @@ fun AppContent(
         Page.DETAIL -> if (ui.detail.entryType == "Series") "剧集详情" else "电影详情"
         Page.PERSON -> ui.collection.person?.name?.ifBlank { "演职人员" } ?: "演职人员"
         Page.SETTINGS -> "设置"
-        Page.SUBTITLES -> when (subtitleScreen) {
-            SubtitleScreen.ORGANIZE -> "整理字幕"
-            SubtitleScreen.SEARCH -> "搜索字幕"
-            else -> "字幕管理"
-        }
         Page.AUDIT -> "片库体检"
         else -> "JOYFIN"
     }
@@ -124,7 +112,7 @@ fun AppContent(
             holder.SaveableStateProvider(pageKey) {
                 RememberScreenFocus(initial) {
                     Column(Modifier.fillMaxSize()) {
-                        if (tv && !entry && ui.page != Page.SUBTITLES) {
+                        if (tv && !entry) {
                             CinemaHeader(
                                 title = tvPageTitle,
                                 actions = actions,
@@ -166,9 +154,6 @@ fun AppContent(
                                         Page.SEARCH -> SearchRoute(ui.collection, actions, images)
                                         Page.SETTINGS -> SettingsRoute(ui.entry, actions, autoNext, ui.settings, audioOutputMode,
                                             homeLayout, ui.home.content?.libraries.orEmpty(), updates)
-                                        Page.SUBTITLES -> subtitles?.let {
-                                            dev.joyfin.ui.features.subtitles.SubtitleManagementRoute(it, images, actions.back, actions)
-                                        }
                                         Page.AUDIT -> audit?.let {
                                             dev.joyfin.ui.features.audit.LibraryAuditRoute(it, actions, ui.home.content?.libraries.orEmpty())
                                         }

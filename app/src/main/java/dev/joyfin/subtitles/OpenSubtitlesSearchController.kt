@@ -8,8 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 data class OpenSubtitlesSearchState(
-    val configurationChecked: Boolean = false,
-    val searched: Boolean = false,
     val results: List<OpenSubtitlesEntry> = emptyList(),
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
@@ -29,27 +27,19 @@ class OpenSubtitlesSearchController(
 ) {
     private val mutable = MutableStateFlow(OpenSubtitlesSearchState())
     val state = mutable.asStateFlow()
-    val requestHistory = api.requestHistory
     private var job: Job? = null
     private var downloadJob: Job? = null
     private var target: SubtitleSearchContext? = null
     private var submitted = ""
     private var language = "zh"
     private var successfulParams = emptyMap<String, String>()
-    suspend fun checkConfiguration() {
-        try {
-            val account = withContext(Dispatchers.IO) { accounts.load() }
-            mutable.update { it.copy(configurationChecked = true, available = account.enabled && account.apiKey.isNotBlank()) }
-        } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { mutable.update { it.copy(configurationChecked = true, error = subtitleFailure(e)) } }
-    }
     fun search(value: SubtitleSearchContext, query: String, lang: String) {
         val sameTarget = target == value
         cancel()
         target = value
         submitted = query.trim()
         language = lang
-        mutable.update { if (sameTarget) it.copy(loading = true, searched = true, error = null, nextPage = null) else OpenSubtitlesSearchState(loading = true, searched = true) }
+        mutable.update { if (sameTarget) it.copy(loading = true, error = null, nextPage = null) else OpenSubtitlesSearchState(loading = true) }
         request(1)
     }
     fun more() { mutable.value.nextPage?.takeIf { !mutable.value.loading }?.let(::request) }
@@ -61,7 +51,7 @@ class OpenSubtitlesSearchController(
             try {
                 val account = withContext(Dispatchers.IO) { accounts.load() }
                 val ready = account.enabled && account.apiKey.isNotBlank()
-                mutable.update { it.copy(available = ready, configurationChecked = true) }
+                mutable.update { it.copy(available = ready) }
                 if (!ready) { mutable.update { it.copy(loading = false, loadingMore = false, results = emptyList(), nextPage = null) }; return@launch }
                 val params = if (page > 1) successfulParams.toMutableMap().apply { put("page", page.toString()) }
                 else linkedMapOf<String, String>().apply {
@@ -103,7 +93,7 @@ class OpenSubtitlesSearchController(
                 val account = withContext(Dispatchers.IO) { accounts.load() }
                 val resolved = api.download(account, file.id)
                 ensureActive()
-                download.open(current, resolved.name, resolved.link, "OpenSubtitles · ${selected.attributes.release}", selected.attributes.language, api::recordRequest)
+                download.open(current, resolved.name, resolved.link, "OpenSubtitles · ${selected.attributes.release}", selected.attributes.language)
                 mutable.update { it.copy(busyFile = null, transferringFile = file.id, remaining = resolved.remaining) }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutable.update { it.copy(busyFile = null, error = subtitleFailure(e)) } }

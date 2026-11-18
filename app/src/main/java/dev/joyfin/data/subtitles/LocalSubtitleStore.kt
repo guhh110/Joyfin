@@ -24,7 +24,6 @@ private data class LocalSubtitleIndex(
     val files: Map<String, LocalSubtitleFile> = emptyMap(),
     val downloads: Map<String, List<String>> = emptyMap(),
     val choices: Map<String, LocalSubtitleChoice> = emptyMap(),
-    val packages: Map<String, ManagedSubtitle> = emptyMap(),
 )
 
 /** Local file storage knows nothing about subtitle-site DTOs or accounts. */
@@ -53,79 +52,15 @@ class LocalSubtitleStore private constructor(context: Context) {
         val validFiles = index.files.filterValues(::valid).keys
         return index.downloads.filterValues { files -> files.any { it in validFiles } }.keys.toSet()
     }
-    @Synchronized fun packages(server: String, user: String): List<ManagedSubtitle> {
+    /** Bind and select the downloaded file for the actual playing media version in one commit. */
+    @Synchronized fun use(key: String, fileId: String) {
         val index = read()
-        val owner = owner(server, user)
-        return index.packages.values.filter { it.owner == owner }.map { pack ->
-            val active = pack.localSaved && pack.boundFiles.isNotEmpty() && pack.boundFiles.all { row ->
-                row.mapping?.let { mapping ->
-                    row.fileId in index.downloads[key(server, user, mapping.itemId, mapping.versionId)].orEmpty()
-                } == true
-            }
-            pack.copy(localSaved = active)
-        }.sortedByDescending { it.created }
-    }
-
-    @Synchronized fun putPackage(value: ManagedSubtitle) {
-        val index = read()
-        require(value.files.all { index.files[it.fileId]?.let(::valid) == true }) { "本地字幕已失效" }
-        write(index.copy(packages = index.packages + (value.id to value)))
-    }
-
-    @Synchronized fun forgetReceipt(server: String, user: String, item: String, path: String) {
-        val index = read()
-        val owner = owner(server, user)
-        write(index.copy(packages = index.packages.mapValues { (_, pack) ->
-            if (pack.owner != owner) pack else {
-                val removed = pack.receipts.filter { it.itemId == item && it.path == path }
-                pack.copy(receipts = pack.receipts - removed.toSet(), files = pack.files.map { row ->
-                    if (removed.any { it.fileId == row.fileId && it.mapping == row.mapping }) row.copy(upload = "", uploadError = null, uploadBefore = null) else row
-                })
-            }
-        }))
-    }
-
-    @Synchronized fun content(id: String): ByteArray {
-        val file = read().files[id]?.takeIf(::valid) ?: error("本地字幕已失效，请重新下载")
-        return File(directory, file.path).readBytes()
-    }
-
-    /** Files, choices and workflow state share one atomic index commit. */
-    @Synchronized fun bindPackage(value: ManagedSubtitle, server: String, user: String, selectFileId: String? = null): ManagedSubtitle {
-        val index = read()
-        val old = index.packages[value.id] ?: error("字幕下载记录不存在")
-        require(old.owner == value.owner && value.owner == owner(server, user))
-        val assigned = value.files.filter { it.mapping != null }
-        val keys = assigned.map { row -> row.mapping!!.let { key(server, user, it.itemId, it.versionId) } }
-        val choices = index.choices.toMutableMap()
-        val downloads = index.downloads.toMutableMap()
-        val oldGroups = old.boundFiles.filter { it.mapping != null }.groupBy { row -> row.mapping!!.let { key(server, user, it.itemId, it.versionId) } }
-        oldGroups.forEach { (binding, rows) ->
-            val retainedByOtherPacks = index.packages.values.filter { it.id != value.id && it.owner == value.owner }
-                .flatMap { it.boundFiles }.filter { row -> row.mapping?.let { key(server, user, it.itemId, it.versionId) == binding } == true }.map { it.fileId }.toSet()
-            downloads[binding] = downloads[binding].orEmpty().filter { id -> id !in rows.map { it.fileId } || id in retainedByOtherPacks }
-        }
-        assigned.forEachIndexed { i, row ->
-            require(index.files[row.fileId]?.let(::valid) == true) { "本地字幕已失效" }
-            downloads[keys[i]] = (downloads[keys[i]].orEmpty() + row.fileId).distinct()
-        }
-        (oldGroups.keys + keys).forEach { binding ->
-            val available = downloads[binding].orEmpty()
-            // Organization only changes availability; playback alone chooses a subtitle.
-            val current = choices[binding]
-            if (current != null && current.fileId !in available) choices.remove(binding)
-        }
-        // The quick player flow explicitly chooses one file; ordinary organization never does.
-        if (selectFileId != null) {
-            val row = assigned.first { it.fileId == selectFileId }
-            val mapping = requireNotNull(row.mapping)
-            val binding = key(server, user, mapping.itemId, mapping.versionId)
-            choices[binding] = choices[binding]?.takeIf { it.fileId == selectFileId }
-                ?: LocalSubtitleChoice(selectFileId)
-        }
-        val saved = value.copy(localSaved = true, boundFiles = assigned)
-        write(index.copy(choices = choices, downloads = downloads, packages = index.packages + (value.id to saved)))
-        return saved
+        require(index.files[fileId]?.let(::valid) == true) { "本地字幕已失效，请重新下载" }
+        val choice = index.choices[key]?.takeIf { it.fileId == fileId } ?: LocalSubtitleChoice(fileId)
+        write(index.copy(
+            downloads = index.downloads + (key to (index.downloads[key].orEmpty() + fileId).distinct()),
+            choices = index.choices + (key to choice),
+        ))
     }
     @Synchronized fun choice(key: String): Pair<LocalSubtitleFile, Long>? {
         val index = read()
