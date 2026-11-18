@@ -1,6 +1,7 @@
 package dev.joyfin
 
 import android.content.Context
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
@@ -77,18 +78,19 @@ class CoreFlowTest {
                 .performScrollTo()
                 .assertIsDisplayed()
                 .performTouchInput { click() }
-            waitFor("最近加入")
             waitFor("测试影片")
             val device = UiDevice.getInstance(instrumentation)
-            // The immersive hero focuses play first; move right to its detail action.
-            device.pressDPadRight()
-            compose.onNodeWithTag("hero:detail").assertIsFocused()
+            // The hero has one playback action; details open from the next full-page rail.
+            compose.onNodeWithTag("hero:play").performSemanticsAction(SemanticsActions.RequestFocus)
+            device.pressDPadDown()
+            waitFor("最近加入")
+            compose.onNodeWithTag("最近加入:movie").assertIsFocused()
             device.pressDPadCenter()
             waitFor("测试简介")
             compose.onNodeWithTag("detail:play").assertExists()
             device.pressBack()
             waitFor("最近加入")
-            compose.onNodeWithTag("hero:detail").assertIsFocused()
+            compose.onNodeWithTag("最近加入:movie").assertIsFocused()
             assertEquals("mock-token", SessionStore(context).load()?.token)
             assertEquals(
                 server.url("/jellyfin").toString().trimEnd('/'),
@@ -96,7 +98,7 @@ class CoreFlowTest {
             )
             scenario.close()
             scenario = ActivityScenario.launch(MainActivity::class.java)
-            waitFor("最近加入")
+            waitFor("测试影片")
             compose.onNodeWithTag("hero:play").assertExists()
             compose.onNodeWithContentDescription("搜索").performTouchInput { click() }
             compose.onAllNodes(hasSetTextAction()).onFirst().performTextReplacement("测试")

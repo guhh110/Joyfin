@@ -2,6 +2,7 @@ package dev.joyfin
 
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -27,10 +28,11 @@ class HomeLayoutTest {
     @get:Rule val compose = createEmptyComposeRule()
 
     @Test
-    fun tvFirstScreenIncludesResumeAndFocusDoesNotMoveIt() {
+    fun tvUsesFullPagesAndRestoresTheExpandedCardWhenChangingSections() {
         val home =
             Home(
-                resume = listOf(Media("resume", "继续的影片", "Movie", resumeTicks = 10)),
+                resume = listOf(Media("resume", "继续的影片", "Movie", resumeTicks = 10),
+                    Media("resume2", "另一部影片", "Movie", resumeTicks = 20)),
                 latest = listOf(Media("latest", "最近的影片", "Movie")),
                 libraries = emptyList(),
             )
@@ -63,7 +65,7 @@ class HomeLayoutTest {
                         CompositionLocalProvider(
                             LocalDeviceLayout provides DeviceLayout(true, 960)
                         ) {
-                            RememberScreenFocus("header:search") {
+                            RememberScreenFocus("header:home") {
                                 HomeRoute(HomeUiState(content = home), actions, images)
                             }
                         }
@@ -71,20 +73,30 @@ class HomeLayoutTest {
                 }
             }
             val viewport = compose.onNodeWithTag("home:scroll").getUnclippedBoundsInRoot()
-            val hero = compose.onNodeWithTag("home:hero").getUnclippedBoundsInRoot()
+            val hero = compose.onNodeWithTag("home:section:featured").getUnclippedBoundsInRoot()
             assertEquals(viewport.bottom - viewport.top, hero.bottom - hero.top)
-            for (target in listOf("hero:play", "hero:detail", "继续观看:resume")) {
+            compose.onNodeWithTag("hero:detail").assertDoesNotExist()
+            for (target in listOf("hero:play", "header:search", "hero:play")) {
                 compose
                     .onNodeWithTag(target)
                     .assertIsDisplayed()
                     .performSemanticsAction(SemanticsActions.RequestFocus)
                 compose.mainClock.advanceTimeBy(1_000)
-                assertEquals(hero, compose.onNodeWithTag("home:hero").getUnclippedBoundsInRoot())
+                assertEquals(hero, compose.onNodeWithTag("home:section:featured").getUnclippedBoundsInRoot())
                 val bounds = compose.onNodeWithTag(target).getUnclippedBoundsInRoot()
                 assertTrue(bounds.top >= hero.top && bounds.bottom <= hero.bottom)
             }
-            compose.onNodeWithTag("home:scroll").performScrollToIndex(1)
+            compose.onNodeWithTag("hero:play").performKeyInput { pressKey(Key.DirectionDown) }
+            compose.onNodeWithTag("继续观看:resume").assertIsDisplayed().assertIsFocused().assertIsSelected()
+            compose.onNodeWithTag("继续观看:resume").performKeyInput { pressKey(Key.DirectionRight) }
+            compose.onNodeWithTag("继续观看:resume2").assertIsDisplayed().assertIsFocused().assertIsSelected()
+            val expanded = compose.onNodeWithTag("继续观看:resume2").getUnclippedBoundsInRoot()
+            val poster = compose.onNodeWithTag("继续观看:resume").getUnclippedBoundsInRoot()
+            assertTrue(expanded.right - expanded.left > (poster.right - poster.left) * 2)
+            compose.onNodeWithTag("继续观看:resume2").performKeyInput { pressKey(Key.DirectionDown) }
             compose.onNodeWithTag("最近加入:latest").assertIsDisplayed()
+            compose.onNodeWithTag("最近加入:latest").performKeyInput { pressKey(Key.DirectionUp) }
+            compose.onNodeWithTag("继续观看:resume2").assertIsDisplayed().assertIsFocused().assertIsSelected()
         } finally {
             scenario.close()
         }

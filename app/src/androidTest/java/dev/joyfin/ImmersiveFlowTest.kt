@@ -111,9 +111,11 @@ class ImmersiveFlowTest {
         }
         try {
             waitForTag("hero:play")
-            compose.onNodeWithTag("hero:play").assertIsFocused()
+            compose.onNodeWithTag("header:home").assertIsFocused()
             shot("home")
-            remoteClick("hero:detail")
+            compose.onNodeWithTag("hero:play").performSemanticsAction(SemanticsActions.RequestFocus)
+            device.pressDPadDown()
+            remoteClick("最近加入:series")
             waitForTag("detail:play")
             compose.onNodeWithText("第 1 季 · 第 2 集　看到 18:00").assertExists()
             shot("series")
@@ -158,8 +160,8 @@ class ImmersiveFlowTest {
             waitForTag("person:actor:陈屿")
             compose.onNodeWithTag("person:actor:陈屿").assertIsFocused()
             device.pressBack()
-            waitForTag("hero:detail")
-            compose.onNodeWithTag("hero:detail").assertIsFocused()
+            waitForTag("最近加入:series")
+            compose.onNodeWithTag("最近加入:series").assertIsFocused()
             assertTrue(requests.any { it.requestUrl!!.encodedPath.endsWith("/Images/Backdrop/0") })
             assertTrue(
                 requests.any { it.requestUrl!!.encodedPath.endsWith("/Items/e1/Images/Primary") },

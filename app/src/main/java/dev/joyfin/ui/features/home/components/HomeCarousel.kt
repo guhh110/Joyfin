@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
@@ -132,7 +133,7 @@ internal fun HomeCarouselContent(state: HomeCarouselState, actions: BrowseAction
 /** Tracking loading/errors must not fall through to the unrelated recent-media hero. */
 @Composable
 internal fun TrackingHeroPlaceholder(ui: dev.joyfin.browse.TrackingUiState, actions: BrowseActions,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier, active: Boolean = true) {
     Column(modifier.padding(horizontal = LocalDeviceLayout.current.gutter),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (ui.loading || !ui.loaded && ui.error == null) SkeletonText(Modifier.fillMaxWidth(), 3)
@@ -141,10 +142,13 @@ internal fun TrackingHeroPlaceholder(ui: dev.joyfin.browse.TrackingUiState, acti
             Caption(ui.error ?: if (ui.empty) "收藏整部剧，即可在首页继续观看。" else "暂无可播放剧集，或部分剧集进度读取失败。")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ActionButton("我的追剧", actions.tracking, Modifier.focusTarget("hero:play"), primary = true)
+            ActionButton("我的追剧", actions.tracking,
+                Modifier.focusProperties { canFocus = active }.focusTarget("hero:play", active), primary = true)
             if (ui.error != null || ui.entries.any { it.error != null })
-                ActionButton("重试", actions.refreshTracking, Modifier.focusTarget("hero:detail"))
-            else ActionButton("浏览媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("hero:detail"))
+                ActionButton("重试", actions.refreshTracking,
+                    Modifier.focusProperties { canFocus = active }.focusTarget("hero:detail", active))
+            else ActionButton("浏览媒体库", { actions.library(null, "媒体库") },
+                Modifier.focusProperties { canFocus = active }.focusTarget("hero:detail", active))
         }
     }
 }
