@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 data class OpenSubtitlesSearchState(
+    val configurationChecked: Boolean = false,
+    val searched: Boolean = false,
     val results: List<OpenSubtitlesEntry> = emptyList(),
     val loading: Boolean = false,
     val loadingMore: Boolean = false,
@@ -34,13 +36,20 @@ class OpenSubtitlesSearchController(
     private var submitted = ""
     private var language = "zh"
     private var successfulParams = emptyMap<String, String>()
+    suspend fun checkConfiguration() {
+        try {
+            val account = withContext(Dispatchers.IO) { accounts.load() }
+            mutable.update { it.copy(configurationChecked = true, available = account.enabled && account.apiKey.isNotBlank()) }
+        } catch (e: CancellationException) { throw e }
+        catch (e: Exception) { mutable.update { it.copy(configurationChecked = true, error = subtitleFailure(e)) } }
+    }
     fun search(value: SubtitleSearchContext, query: String, lang: String) {
         val sameTarget = target == value
         cancel()
         target = value
         submitted = query.trim()
         language = lang
-        mutable.update { if (sameTarget) it.copy(loading = true, error = null, nextPage = null) else OpenSubtitlesSearchState(loading = true) }
+        mutable.update { if (sameTarget) it.copy(loading = true, searched = true, error = null, nextPage = null) else OpenSubtitlesSearchState(loading = true, searched = true) }
         request(1)
     }
     fun more() { mutable.value.nextPage?.takeIf { !mutable.value.loading }?.let(::request) }
@@ -52,7 +61,7 @@ class OpenSubtitlesSearchController(
             try {
                 val account = withContext(Dispatchers.IO) { accounts.load() }
                 val ready = account.enabled && account.apiKey.isNotBlank()
-                mutable.update { it.copy(available = ready) }
+                mutable.update { it.copy(available = ready, configurationChecked = true) }
                 if (!ready) { mutable.update { it.copy(loading = false, loadingMore = false, results = emptyList(), nextPage = null) }; return@launch }
                 val params = if (page > 1) successfulParams.toMutableMap().apply { put("page", page.toString()) }
                 else linkedMapOf<String, String>().apply {

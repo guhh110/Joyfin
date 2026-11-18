@@ -8,17 +8,17 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun MobileSubtitleEpisodeLayout(number: @Composable () -> Unit, details: @Composable () -> Unit, status: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 4.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         number()
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) { details() }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) { details() }
         status()
     }
 }
 
 @Composable
 internal fun MobileSubtitleOrganizerActions(status: @Composable () -> Unit, save: @Composable (Modifier) -> Unit, upload: @Composable (Modifier) -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         status()
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             save(Modifier.weight(1f))
@@ -29,7 +29,7 @@ internal fun MobileSubtitleOrganizerActions(status: @Composable () -> Unit, save
 
 @Composable
 internal fun MobileSubtitleUploadActions(summary: @Composable () -> Unit, action: @Composable (Modifier) -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         summary()
         action(Modifier.fillMaxWidth())
     }

@@ -13,23 +13,26 @@ import dev.joyfin.ui.theme.Palette
 internal fun SubtitleEncodingSheet(controller: LocalSubtitleDownload) {
     val ui by controller.state.collectAsState()
     RememberSelectionFocus("encoding:${ui.encoding}") {
-        Sheet("保存下载文件", controller::cancel) {
-            SubtitleEncodingContent(controller)
+        Sheet("保存下载文件", controller::cancel, actions = {
+            ActionButton("重新保存到待整理", controller::retryEncoding, Modifier.fillMaxWidth(), primary = true, loading = ui.busy, enabled = !ui.busy)
+        }) {
+            SubtitleFileName(ui.fileName)
+            SubtitleEncodingContent(controller, showAction = false)
         }
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun SubtitleEncodingContent(controller: LocalSubtitleDownload, retryLabel: String = "重新保存到待整理") {
+internal fun SubtitleEncodingContent(controller: LocalSubtitleDownload, retryLabel: String = "重新保存到待整理", showAction: Boolean = true) {
     val ui by controller.state.collectAsState()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ui.error?.let { Caption(it, color = Palette.Error) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        ui.error?.let { SubtitleFullText(it, Palette.Error) }
+        Column {
             listOf("自动", "UTF-8", "GB18030", "Big5", "UTF-16LE", "UTF-16BE").forEach { encoding ->
-                ActionButton(encoding, { controller.encoding(encoding) }, Modifier.focusTarget("encoding:$encoding"), selected = ui.encoding == encoding, enabled = !ui.busy)
+                ChoiceRow(encoding, Modifier.focusTarget("encoding:$encoding"), selected = ui.encoding == encoding, enabled = !ui.busy) { controller.encoding(encoding) }
             }
         }
-        ActionButton(retryLabel, controller::retryEncoding, primary = true, loading = ui.busy, enabled = !ui.busy)
+        if (showAction) ActionButton(retryLabel, controller::retryEncoding, primary = true, loading = ui.busy, enabled = !ui.busy)
     }
 }

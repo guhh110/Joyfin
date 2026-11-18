@@ -13,11 +13,11 @@ import dev.joyfin.ui.theme.Palette
 internal fun MobileSubtitleManagementLayout(header: @Composable () -> Unit, controls: @Composable () -> Unit,
     content: @Composable () -> Unit, actions: @Composable () -> Unit, hasActions: Boolean) {
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)) { header(); controls() }
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp)) { content() }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) { header(); controls() }
+        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)) { content() }
         if (hasActions) FixedActionArea {
-            Box(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = 20.dp, vertical = 14.dp)) { actions() }
+            Box(Modifier.fillMaxWidth().background(Palette.Surface).padding(horizontal = 16.dp, vertical = 8.dp)) { actions() }
         }
     }
 }
@@ -25,27 +25,30 @@ internal fun MobileSubtitleManagementLayout(header: @Composable () -> Unit, cont
 @Composable
 internal fun MobileSubtitlePackageLayout(artwork: @Composable () -> Unit, details: @Composable () -> Unit,
     status: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 18.dp),
-        verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         artwork()
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            details()
-            status()
-        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) { details() }
+        Box(contentAlignment = Alignment.CenterEnd) { status() }
     }
 }
 
 @Composable
 internal fun MobileSubtitleResultLayout(title: @Composable () -> Unit, release: @Composable () -> Unit,
     metadata: @Composable () -> Unit, action: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        title(); release(); metadata(); action()
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            title()
+            release()
+            metadata()
+        }
+        action()
     }
 }
 
 @Composable
 internal fun MobileSubtitleSearchInput(field: @Composable (Modifier) -> Unit, action: @Composable () -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) { field(Modifier.fillMaxWidth()) }
         action()
     }

@@ -14,10 +14,10 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun TvSubtitleEpisodeLayout(number: @Composable () -> Unit, details: @Composable () -> Unit, status: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).padding(horizontal = 10.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         number()
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) { details() }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) { details() }
         status()
     }
 }

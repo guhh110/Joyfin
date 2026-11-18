@@ -15,15 +15,19 @@ internal fun AssrtResults(controller: AssrtSearchController, download: dev.joyfi
     val ui by controller.state.collectAsState()
     val transfer by download.state.collectAsState()
     val focus = LocalScreenFocus.current
+    SubtitleListFocus(ui.results.map { it.id.toString() }, "assrt:result", ui.loading && ui.results.isEmpty(), scroll, "subtitles:query")
     var returning by remember { mutableStateOf(false) }
     LaunchedEffect(ui.selected) {
         if (ui.selected != null) returning = true
         else if (returning) { withFrameNanos {}; focus?.restore(); returning = false }
     }
-    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-        item("attribution") { Caption("字幕服务由 assrt.net 提供") }
-        if (!ui.loading && !ui.available) item("configure") { ActionButton("配置 ASSRT Token", settings) }
-        if (ui.loading && ui.results.isEmpty()) item("skeleton") { repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(90.dp).padding(bottom = 8.dp)) } }
+    LazyColumn(state = scroll, verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp)) {
+        if (ui.configurationChecked && !ui.loading && !ui.available && ui.error == null) item("configure") { ActionButton("配置 ASSRT Token", settings) }
+        if (!ui.loading && !ui.searched && ui.error == null && (!ui.configurationChecked || ui.available)) item("idle") {
+            SubtitleEmpty(if (ui.configurationChecked) "输入作品名称搜索字幕" else "正在检查字幕来源",
+                "可使用作品名、原名或发行文件名")
+        }
+        if (ui.loading && ui.results.isEmpty()) item("skeleton") { repeat(3) { SkeletonBlock(Modifier.fillMaxWidth().height(70.dp).padding(bottom = 6.dp)) } }
         items(ui.results, key = { it.id }) { item ->
             SubtitleResultRow(item.nativeName.ifBlank { item.videoname },
                 listOf(item.lang.desc, item.subtype).filter { it.isNotBlank() }.joinToString(" · "), item.videoname,
@@ -34,12 +38,15 @@ internal fun AssrtResults(controller: AssrtSearchController, download: dev.joyfi
                     enabled = ui.busyId == null && !transfer.busy && !transfer.needsEncoding)
             }
         }
+        if (ui.results.isNotEmpty()) item("attribution") {
+            Caption("字幕服务由 assrt.net 提供", Modifier.padding(top = 6.dp), color = Palette.Muted)
+        }
         if (ui.results.isEmpty() && ui.error != null && !ui.loading) item("error") {
             ErrorContent("暂时无法读取字幕", ui.error ?: "搜索失败", "重试搜索", controller::retry, loading = ui.loading)
         } else if (ui.error != null) item("error") {
             RegionLoadFeedback(ui.loading, ui.error, controller::retry, true, reserveSpace = false)
         }
-        if (ui.available && !ui.loading && ui.results.isEmpty() && ui.error == null) item("empty") { SubtitleEmpty("没有找到字幕", "尝试修改关键词或语言") }
+        if (ui.searched && ui.available && !ui.loading && ui.results.isEmpty() && ui.error == null) item("empty") { SubtitleEmpty("没有找到字幕", "尝试修改关键词或语言") }
         if (ui.nextPosition != null || ui.loadingMore) item("more") {
             ActionButton("加载更多", controller::more,
                 loading = ui.loadingMore, enabled = !ui.loading && ui.nextPosition != null)

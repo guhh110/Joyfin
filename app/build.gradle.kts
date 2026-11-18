@@ -21,7 +21,6 @@ android {
         targetSdk = 37
         versionCode = 13
         versionName = "0.2.11"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
         if (releaseSigning.values.all { !it.isNullOrBlank() }) {
@@ -49,7 +48,6 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    testOptions { unitTests.isReturnDefaultValues = true }
 }
 kotlin {
     jvmToolchain(21)
@@ -78,14 +76,4 @@ dependencies {
     // Same FFmpeg audio extension used by Jellyfin Android TV with Media3 1.11.1.
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1")
     implementation("io.github.peerless2012:ass-media:0.5.1")
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-    androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    androidTestImplementation("androidx.test:runner:1.7.0")
-    androidTestImplementation("androidx.test.ext:junit:1.3.0")
-    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
-    androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

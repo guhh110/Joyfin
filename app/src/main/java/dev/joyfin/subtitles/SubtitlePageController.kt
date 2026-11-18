@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.update
 
 enum class SubtitleScreen { MANAGEMENT, SEARCH, ORGANIZE }
 data class SubtitlePageState(
+    val packagesLoaded: Boolean = false,
+    val packagesLoading: Boolean = false,
     val screen: SubtitleScreen = SubtitleScreen.MANAGEMENT,
     val packages: List<ManagedSubtitle> = emptyList(),
     val context: SubtitleSearchContext? = null,
@@ -36,6 +38,7 @@ class SubtitlePageController(
     private val scope: CoroutineScope,
     private val api: JellyfinApi,
     private val expired: () -> Unit,
+    httpClient: okhttp3.OkHttpClient = subtitleHttp(),
 ) {
     private val mutable = MutableStateFlow(SubtitlePageState())
     val state = mutable.asStateFlow()
@@ -43,9 +46,9 @@ class SubtitlePageController(
     private val store = LocalSubtitleStore.get(context)
     val assrtAccounts = AssrtAccountStore(context)
     val openSubtitlesAccounts = OpenSubtitlesAccountStore(context)
-    val assrtApi = AssrtApi()
-    val openSubtitlesApi = OpenSubtitlesApi()
-    val download = LocalSubtitleDownload(scope, store, ::reloadPackages)
+    val assrtApi = AssrtApi(httpClient)
+    val openSubtitlesApi = OpenSubtitlesApi(httpClient)
+    val download = LocalSubtitleDownload(scope, store, ::reloadPackages, httpClient = httpClient)
     val organizer = SubtitleOrganizer(scope, api, store, ::reloadPackages)
     val uploader = SubtitleUploadController(scope, api, store, organizer, ::reloadPackages)
     val assrt = AssrtSearchController(scope, assrtAccounts, assrtApi, download)
@@ -53,6 +56,7 @@ class SubtitlePageController(
     private var metadataJob: Job? = null
     private var localJob: Job? = null
     private var worksJob: Job? = null
+    private var configurationJob: Job? = null
     private var searched = false
 
     fun open(detail: DetailUiState? = null) {
@@ -107,20 +111,30 @@ class SubtitlePageController(
         val owner = mutable.value.context?.owner ?: return
         if (LocalSubtitleStore.owner(session.server, session.userId) != owner) return
         localJob?.cancel()
+        mutable.update { it.copy(packagesLoading = true) }
         localJob = scope.launch {
             try {
                 val packages = withContext(Dispatchers.IO) { store.packages(session.server, session.userId) }
                 ensureActive()
-                if (mutable.value.context?.owner == owner) mutable.update { it.copy(packages = packages) }
+                if (mutable.value.context?.owner == owner) mutable.update { it.copy(packages = packages, packagesLoaded = true, packagesLoading = false, error = null) }
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { error(e) }
+            catch (e: Exception) { mutable.update { it.copy(packagesLoaded = true, packagesLoading = false) }; error(e) }
         }
     }
     fun allWorks() { mutable.update { it.copy(filterWork = false, seasons = emptyList(), context = it.context?.let { value -> SubtitleSearchContext(value.owner) }) } }
     fun management() { mutable.update { it.copy(screen = SubtitleScreen.MANAGEMENT) }; reloadPackages() }
     fun showSearch() {
         mutable.update { it.copy(screen = SubtitleScreen.SEARCH) }
+        refreshSources()
         if (mutable.value.query.isNotBlank() && !searched) search()
+    }
+    fun refreshSources(repeatSearch: Boolean = false) {
+        configurationJob?.cancel()
+        configurationJob = scope.launch {
+            assrt.checkConfiguration()
+            openSubtitles.checkConfiguration()
+            if (repeatSearch && searched && mutable.value.query.isNotBlank()) search()
+        }
     }
     fun organize(id: String) {
         if (uploader.state.value.busy || organizer.state.value.saving) return
@@ -171,6 +185,7 @@ class SubtitlePageController(
         else mutable.update { it.copy(loading = false, error = e.message ?: "读取字幕管理失败") }
     }
     fun close() {
+        configurationJob?.cancel()
         metadataJob?.cancel(); localJob?.cancel(); worksJob?.cancel()
         assrt.clear(); openSubtitles.clear(); download.cancel(); organizer.close()
         // Explicit uploads continue and persist their results while navigating away.

@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.joyfin.data.Media
@@ -26,32 +27,34 @@ internal fun SubtitlePackageList(packages: List<ManagedSubtitle>, group: String,
         "all" -> true; "linked" -> it.localSaved; "failed" -> it.failed; else -> it.pending
     } }
     val tv = LocalDeviceLayout.current.television
-    LazyColumn(state = scroll, contentPadding = PaddingValues(top = 6.dp, bottom = 14.dp)) {
+    val inspection = LocalSubtitleInspection.current
+    SubtitleListFocus(shown.map { it.id }, "subtitles:package", loading, scroll, "subtitles:search-tab")
+    LazyColumn(state = scroll, contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp)) {
         if (loading && shown.isEmpty()) item("skeleton") { SubtitlePackageSkeleton() }
         if (!loading && shown.isEmpty()) item("empty") {
             SubtitleEmpty(if (group == "pending") "没有待整理的字幕" else "暂无字幕包",
                 if (group == "pending" || group == "all") "搜索下载后，字幕包会保存在这里" else "切换筛选查看其他字幕包")
         }
         items(shown, key = { it.id }) { value ->
-            FocusSurface({ open(value.id) }, Modifier.fillMaxWidth().focusTarget("subtitles:package:${value.id}"),
+            FocusSurface({ open(value.id) }, Modifier.fillMaxWidth().onFocusChanged {
+                if (it.hasFocus) inspection?.value = SubtitleDetails(value.workName.ifBlank { "未指定作品" }, value.title,
+                    "${value.seasonName}\n${value.origin}\n${value.files.size - value.matched} 份待关联 · ${value.uploaded} 份已回传",
+                    value.cleanupError ?: value.files.firstNotNullOfOrNull { file -> file.uploadError })
+            }.focusTarget("subtitles:package:${value.id}"),
                 enabled = !busy, transparent = true, focusedScale = MotionTokens.FixedScale) {
                 val artwork: @Composable () -> Unit = { SubtitlePackageArtwork(value, images) }
                 val details: @Composable () -> Unit = {
                     SubtitleTitle(listOf(value.workName.ifBlank { "未指定作品" }, value.seasonName)
-                        .filter(String::isNotBlank).joinToString(" · "))
+                        .filter(String::isNotBlank).joinToString(" · "), maxLines = 1)
                     SubtitleFileName(value.title)
-                    Caption("${value.origin.substringBefore(" · ")} · ${value.files.size} 个文件", maxLines = 2)
+                    Caption("${value.origin.substringBefore(" · ")} · ${value.files.size} 个文件", maxLines = 1)
                 }
                 val status: @Composable () -> Unit = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            SubtitleStatus(when {
-                                value.failed -> "回传失败"
-                                value.uploaded > 0 -> "已回传 ${value.uploaded} 份"
-                                value.localSaved -> "已关联"
-                                else -> "待整理"
-                            }, warning = value.failed)
-                            if (value.matched > 0) Caption("${value.matched} / ${value.files.size} 份已关联", maxLines = 1)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp), horizontalAlignment = Alignment.End) {
+                            SubtitleStatus("待关联 ${value.files.size - value.matched}", subdued = true)
+                            if (value.uploaded > 0) SubtitleStatus("已回传 ${value.uploaded}", subdued = true)
+                            if (value.failed) SubtitleStatus("失败 ${value.files.count { it.upload in setOf("failed", "uncertain", "sending", "identifying") }}", warning = true)
                         }
                         AppIcon(Glyph.Next, color = Palette.Muted)
                     }
@@ -68,7 +71,8 @@ internal fun SubtitlePackageList(packages: List<ManagedSubtitle>, group: String,
 internal fun SubtitleEpisodeList(editor: SubtitleOrganizerState, scroll: LazyListState, choose: (Media) -> Unit) {
     val pack = editor.pack
     val tv = LocalDeviceLayout.current.television
-    LazyColumn(state = scroll, contentPadding = PaddingValues(top = 6.dp, bottom = 14.dp)) {
+    SubtitleListFocus(editor.media.map { it.id }, "subtitles:episode", editor.loading, scroll, "subtitles:work")
+    LazyColumn(state = scroll, contentPadding = PaddingValues(top = 4.dp, bottom = 12.dp)) {
         if (editor.loading) item("skeleton") { SubtitleEpisodeSkeleton() }
         else if (pack?.workId == null) item("choose") { SubtitleEmpty("为字幕选择作品", "选择作品与季后，按集整理字幕") }
         else if (pack != null) {
@@ -83,7 +87,7 @@ internal fun SubtitleEpisodeList(editor: SubtitleOrganizerState, scroll: LazyLis
                         SubtitleNumber(if (media.type == "Episode") media.episode.toString().padStart(2, '0') else "片")
                     }
                     val details: @Composable () -> Unit = {
-                        SubtitleTitle(media.name, maxLines = if (tv) 1 else 2)
+                        SubtitleTitle(media.name, maxLines = 1)
                         val formats = files.map { it.name.substringAfterLast('.', "").uppercase() }.filter(String::isNotBlank).distinct()
                         val versions = files.mapNotNull { it.mapping?.versionId }.distinct().size
                         Caption(when {

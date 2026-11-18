@@ -176,9 +176,10 @@ class LocalSubtitleStore private constructor(context: Context) {
             digest(listOf(server, user, item, version).joinToString("\u0000"))
         private fun digest(value: String): String = MessageDigest.getInstance("SHA-256")
             .digest(value.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-        @Volatile private var instance: LocalSubtitleStore? = null
-        fun get(context: Context): LocalSubtitleStore = instance ?: synchronized(this) {
-            instance ?: LocalSubtitleStore(context.applicationContext).also { instance = it }
+        private val instances = mutableMapOf<String, LocalSubtitleStore>()
+        fun get(context: Context): LocalSubtitleStore = synchronized(instances) {
+            val application = context.applicationContext
+            instances.getOrPut(application.noBackupFilesDir.canonicalPath) { LocalSubtitleStore(application) }
         }
     }
 }

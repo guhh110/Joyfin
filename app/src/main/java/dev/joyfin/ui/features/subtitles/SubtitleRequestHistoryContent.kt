@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -15,6 +17,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
+import androidx.tv.material3.Text
+import dev.joyfin.ui.theme.Palette
 import dev.joyfin.data.subtitles.SubtitleRequestRecord
 import dev.joyfin.ui.components.ActionButton
 import dev.joyfin.ui.components.Caption
@@ -47,7 +53,11 @@ internal fun SubtitleRequestHistoryContent(records: List<SubtitleRequestRecord>)
                     if (expanded) {
                         record.note?.let { Caption(it) }
                         record.responseJson?.let { body ->
-                            SelectionContainer { SubtitleFileName(body) }
+                            SelectionContainer {
+                                Text(body, Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    color = Palette.Muted, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                                    lineHeight = 18.sp, softWrap = false)
+                            }
                         }
                         ActionButton("复制请求与响应", {
                             clipboard.setText(AnnotatedString(buildString {

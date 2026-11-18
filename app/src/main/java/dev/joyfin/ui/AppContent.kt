@@ -124,7 +124,7 @@ fun AppContent(
             holder.SaveableStateProvider(pageKey) {
                 RememberScreenFocus(initial) {
                     Column(Modifier.fillMaxSize()) {
-                        if (tv && !entry) {
+                        if (tv && !entry && ui.page != Page.SUBTITLES) {
                             CinemaHeader(
                                 title = tvPageTitle,
                                 actions = actions,

@@ -45,7 +45,9 @@ internal fun SubtitleUploadConfirmation(controller: SubtitlePageController, dism
             if (tv) TvSubtitleUploadActions(summary, action)
             else MobileSubtitleUploadActions(summary, action)
         }) {
+            Caption("目标与语言")
             SubtitleTitle(listOf(pack.workName, pack.seasonName).filter(String::isNotBlank).joinToString(" · "), maxLines = 3)
+            Caption(controller.serverAddress, maxLines = 2)
             val options = listOfNotNull(language, "强制".takeIf { pack.forced }, "听障".takeIf { pack.hearingImpaired }).joinToString(" · ")
             ActionButton("$options · ${if (settings) "收起设置" else "修改"}", { settings = !settings; languages = false },
                 Modifier.focusTarget("subtitles:upload-settings"), quiet = true)
@@ -66,7 +68,7 @@ internal fun SubtitleUploadConfirmation(controller: SubtitlePageController, dism
                     }
                 }
             }
-            upload.error?.let { Caption(it, color = Palette.Error) }
+            upload.error?.let { SubtitleFullText(it, Palette.Error) }
             if (pack.files.any { it.upload in setOf("sending", "uncertain") }) {
                 Caption("回传结果未确认，请先核对服务器。", color = Palette.Error)
             }
@@ -81,7 +83,7 @@ internal fun SubtitleUploadConfirmation(controller: SubtitlePageController, dism
                         Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Caption(mapping.itemName, color = Palette.Text)
                             if (mapping.versionName.isNotBlank()) Caption(mapping.versionName, maxLines = 2)
-                            files.forEach { file -> SubtitleFileName(file.name, emphasizeDetails = true) }
+                            files.forEach { file -> SubtitleFullText(file.name) }
                         }
                     }
                     if (tv) TvSubtitleUploadReviewGroup(Modifier.fillMaxWidth().focusTarget("subtitles:upload-review:${mapping.itemId}:${mapping.versionId}"), details)

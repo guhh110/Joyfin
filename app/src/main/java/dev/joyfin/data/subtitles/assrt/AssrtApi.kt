@@ -40,13 +40,13 @@ internal interface AssrtService {
         @Query("is_file") isFile: Int = 0): Response<AssrtResponse>
     @GET("sub/detail") suspend fun detail(@Header("Authorization") auth: String, @Query("id") id: Long): Response<AssrtResponse>
 }
-class AssrtApi {
+class AssrtApi(httpClient: okhttp3.OkHttpClient = subtitleHttp()) {
     private val history = SubtitleRequestHistory()
     val requestHistory = history.records
-    private val client = subtitleHttp().newBuilder().addInterceptor { chain ->
+    private val client = httpClient.newBuilder().apply { interceptors().add(0, okhttp3.Interceptor { chain ->
         val request = chain.request()
         history.proceed(chain, request)
-    }.build()
+    }) }.build()
     private val service = subtitleRetrofit("https://api.assrt.net/v1/", client).create(AssrtService::class.java)
     internal fun recordRequest(url: String) { history.recordRequest(url) }
     fun clearRequestHistory() { history.clear() }

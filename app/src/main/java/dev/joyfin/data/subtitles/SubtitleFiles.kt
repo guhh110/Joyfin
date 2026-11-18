@@ -16,9 +16,8 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Request
 
 /** No API client or credentials are used for file transfers. */
-class SubtitleFiles {
+class SubtitleFiles(private val client: okhttp3.OkHttpClient = subtitleHttp()) {
     data class Entry(val name: String, val bytes: ByteArray)
-    private val client = subtitleHttp()
 
     suspend fun download(name: String, address: String, onRequest: (String) -> Unit): List<Entry> = withContext(Dispatchers.IO) {
         var url = address.toHttpUrlOrNull() ?: throw SubtitleOperationException("字幕站返回的下载链接无效")

@@ -23,10 +23,11 @@ class LocalSubtitleDownload(
     private val store: LocalSubtitleStore,
     private val saved: () -> Unit,
     private val completed: (ManagedSubtitle) -> Unit = {},
+    httpClient: okhttp3.OkHttpClient = subtitleHttp(),
 ) {
     private val mutable = MutableStateFlow(LocalDownloadState())
     val state = mutable.asStateFlow()
-    private val files = SubtitleFiles()
+    private val files = SubtitleFiles(httpClient)
     private var task: Job? = null
     private var entries: List<SubtitleFiles.Entry> = emptyList()
     private var context: SubtitleSearchContext? = null

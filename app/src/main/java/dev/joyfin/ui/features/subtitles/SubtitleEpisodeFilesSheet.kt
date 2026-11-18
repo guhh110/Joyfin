@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -42,6 +43,7 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
     val queryText = rememberTextFieldState()
     val keyboard = LocalSoftwareKeyboardController.current
     val tv = LocalDeviceLayout.current.television
+    val inspection = remember { SubtitleInspection() }
     val source = if (sourceId == pack.id) pack else ui.candidatePackages.packages.firstOrNull { it.id == sourceId } ?: pack
     val sourceNames = source.files.map { it.fileId to it.name }
     val scope = remember(source.id, sourceNames, ui.media) { SubtitleCandidateScope(source, ui.media) }
@@ -108,7 +110,7 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                 }
             }
         }
-        Sheet(if (choosingPackage) "选择字幕来源包" else media.label, ::dismissView, scrollContent = false, preferredWidth = if (tv) 680.dp else null, actions = {
+        CompositionLocalProvider(LocalSubtitleInspection provides inspection) { SubtitleFilePickerHost(if (choosingPackage) "选择字幕来源包" else media.label, ::dismissView, scrollContent = false, preferredWidth = if (tv) 840.dp else null, actions = {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -123,10 +125,14 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                     reload = { controller.loadCandidatePackages(reload = true) },
                     select = { showAll = false; returnToFiles(it, focusSource = false) })
             } else {
-                Caption(media.sources.firstOrNull { it.id == version }?.name.orEmpty(), maxLines = 2)
-                Caption("${if (source.id == pack.id) "当前包" else "来源包"} · ${source.title}",
-                    maxLines = 1)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                val versionName = media.sources.firstOrNull { it.id == version }?.name.orEmpty()
+                Caption(listOfNotNull(versionName.ifBlank { null }, "${if (source.id == pack.id) "当前包" else "来源包"} · ${source.title}")
+                    .joinToString(" · "), maxLines = 1)
+                Column(Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth()) { TextTab("相关文件", { showAll = false }, !showAll, Modifier.focusTarget("candidate:related"), compact = true)
+                    TextTab("包内全部 (${sourceFiles.size})", { showAll = true }, showAll, Modifier.focusTarget("candidate:all"), compact = true)
+                    }
                     ActionButton("从其他包添加", {
                         queryText.edit { replace(0, length, "") }
                         controller.loadCandidatePackages()
@@ -137,12 +143,8 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                     }, Modifier.focusTarget("candidate:source"), Glyph.Plus, quiet = true)
                     if (source.id != pack.id) ActionButton("返回当前包", { showAll = false; returnToFiles(pack.id) }, quiet = true)
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextTab("相关文件", { showAll = false }, !showAll, Modifier.focusTarget("candidate:related"))
-                    TextTab("包内全部 (${sourceFiles.size})", { showAll = true }, showAll, Modifier.focusTarget("candidate:all"))
-                }
                 SubtitleDivider()
-                LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth(), state = filesScroll,
+                SubtitleBrowsePane(Modifier.weight(1f)) { LazyColumn(Modifier.fillMaxSize(), state = filesScroll,
                     verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     // The complete source name scrolls with the list, so a long name cannot
                     // consume the file viewport or push the fixed footer off screen.
@@ -151,19 +153,29 @@ private fun EpisodeCandidateSheet(controller: SubtitleOrganizer, media: Media, v
                     items(candidates, key = { it.fileId }) { candidate ->
                         val row = currentFiles[candidate.fileId]
                         val selected = row?.mapping?.itemId == media.id && row?.mapping?.versionId == version
+                        val details = SubtitleDetails(candidate.name, metadata = listOfNotNull(
+                            subtitleFileMetadata(candidate.name),
+                            row?.mapping?.let { "${it.itemName} · ${it.versionName}" } ?: "未关联"
+                        ).joinToString("\n"), error = row?.uploadError)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         FocusSurface({ controller.toggleCandidate(
                             if (candidate.fileId in sourceFiles) source.id else pack.id,
                             candidate.fileId, media.id, version,
-                        ) }, Modifier.fillMaxWidth().focusTarget("episode-file:${candidate.fileId}").semantics {
+                        ) }, Modifier.weight(1f).onFocusChanged { if (it.hasFocus) inspection.value = details }.focusTarget("episode-file:${candidate.fileId}").semantics {
                             role = Role.Checkbox
                             stateDescription = if (selected) "已勾选" else "未勾选"
                         }, selected = selected, transparent = true, enabled = !ui.loading && !ui.saving) {
                             SubtitleCandidateFileContent(row ?: candidate, row, selected)
                         }
+                        if (!tv) IconButton("完整文件名与详情", Glyph.Info, { inspection.value = details; inspection.opened = true })
+                        }
                         SubtitleDivider()
                     }
-                }
+                } }
             }
+        } }
+        if (inspection.opened) Sheet("完整文件名与详情", { inspection.opened = false }, initialFocus = "sheet:close") {
+            inspection.value?.let { SubtitleDetailsContent(it) }
         }
     }
 }
