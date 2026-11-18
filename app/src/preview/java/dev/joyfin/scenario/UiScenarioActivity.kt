@@ -143,14 +143,15 @@ class UiScenarioActivity : ComponentActivity() {
                             "library" -> vm.library()
                             "library-grid" -> vm.library(ScenarioMedia.library.id, ScenarioMedia.library.name)
                             "search" -> { vm.search(); vm.submitSearch("群山") }
-                            "subtitles" -> vm.openSubtitleManager()
                             "settings" -> vm.settings()
                             "audit" -> vm.openLibraryAudit(null, "全部电影与剧集")
                             "person" -> vm.openPerson(Media.from(ScenarioMedia.series).people.first())
                         }
                     }
                 }
-                if (showPlayer) {
+                val entryPage = intent.getStringExtra("page")?.takeIf { it in setOf("connect", "login", "restore") }
+                if (entryPage != null) ScenarioEntry(entryPage, scenario)
+                else if (showPlayer) {
                     ScenarioPlayer(scenario, initialPanel, intent.getStringExtra("skipOffer"),
                         intent.getIntExtra("episodeCount", 6), intent.getStringExtra("episodeState"),
                         intent.getIntExtra("seasonCount", 2), playbackTarget) { showPlayer = false }

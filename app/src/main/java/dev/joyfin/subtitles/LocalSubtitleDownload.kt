@@ -13,49 +13,34 @@ data class LocalDownloadState(
     val encoding: String = "自动",
     val needsEncoding: Boolean = false,
     val error: String? = null,
-    val notice: String? = null,
-    val source: String = "",
 )
 
-/** Resolves files to a persistent pending package; downloading never selects playback subtitles. */
+/** Downloads and decodes files for the player; playback explicitly applies the chosen file. */
 class LocalSubtitleDownload(
     private val scope: CoroutineScope,
     private val store: LocalSubtitleStore,
-    private val saved: () -> Unit,
-    private val completed: (ManagedSubtitle) -> Unit = {},
+    private val completed: (DownloadedSubtitle) -> Unit,
+    httpClient: okhttp3.OkHttpClient = subtitleHttp(),
 ) {
     private val mutable = MutableStateFlow(LocalDownloadState())
     val state = mutable.asStateFlow()
-    private val files = SubtitleFiles()
+    private val files = SubtitleFiles(httpClient)
     private var task: Job? = null
     private var entries: List<SubtitleFiles.Entry> = emptyList()
     private var context: SubtitleSearchContext? = null
     private var origin = ""
     private var language: String? = null
 
-    fun open(value: SubtitleSearchContext, name: String, url: String, source: String, lang: String?, onRequest: (String) -> Unit) =
-        openFiles(value, listOf(name to url), source, lang, onRequest)
-
-    fun openFiles(value: SubtitleSearchContext, references: List<Pair<String, String>>, source: String, lang: String?, onRequest: (String) -> Unit) {
+    fun open(value: SubtitleSearchContext, name: String, url: String, source: String, lang: String?) {
         if (mutable.value.busy || mutable.value.needsEncoding) return
         context = value
         origin = source
         language = lang
         entries = emptyList()
-        mutable.value = LocalDownloadState(busy = true, fileName = if (references.size == 1) references.first().first else "整包文件", source = source.substringBefore(" · "))
+        mutable.value = LocalDownloadState(busy = true, fileName = name)
         task = scope.launch {
             try {
-                if (references.isEmpty()) throw SubtitleOperationException("字幕站没有提供可下载文件")
-                if (references.size > 200) throw SubtitleOperationException("一次下载最多支持 200 个文件")
-                val downloaded = mutableListOf<SubtitleFiles.Entry>()
-                for ((name, url) in references) {
-                    ensureActive()
-                    downloaded += files.download(name, url, onRequest)
-                    if (downloaded.size > 200) throw SubtitleOperationException("整包字幕超过 200 个文件限制")
-                    if (downloaded.sumOf { it.bytes.size.toLong() } > 20L * 1024 * 1024)
-                        throw SubtitleOperationException("整包字幕内容超过 20 MiB 限制")
-                }
-                entries = downloaded
+                entries = files.download(name, url)
                 persist()
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { failure(e) }
@@ -79,24 +64,18 @@ class LocalSubtitleDownload(
             val records = decoded.map { (entry, text) ->
                 ensureActive()
                 val file = store.save(value.owner, entry.name, origin, language, text)
-                ManagedSubtitleFile(file.id, entry.name.replace('\\', '/'))
+                DownloadedSubtitleFile(file.id, entry.name.replace('\\', '/'))
             }
             ensureActive()
-            val pack = ManagedSubtitle(id, value.owner, mutable.value.fileName, origin, System.currentTimeMillis(), records,
-                workId = value.work?.id, workName = value.work?.name.orEmpty(),
-                seasonId = value.seasonMedia?.id, seasonName = value.seasonMedia?.name.orEmpty(),
-                language = when (language) { "en" -> "eng"; "zh-tw" -> "cht"; "zh", "zh-cn" -> "chi"; else -> language ?: "chi" })
-            store.putPackage(pack)
-            pack
+            DownloadedSubtitle(id, value.owner, records)
         }
         entries = emptyList()
-        mutable.update { it.copy(busy = false, needsEncoding = false, error = null, notice = "下载完成，已加入待整理") }
-        saved()
+        mutable.update { it.copy(busy = false, needsEncoding = false, error = null) }
         completed(pack)
     }
     private fun failure(e: Exception) {
         mutable.update { it.copy(busy = false, needsEncoding = entries.isNotEmpty(),
-            error = if (e is java.nio.charset.CharacterCodingException) "编码不符，请选择编码后重新保存" else subtitleFailure(e)) }
+            error = if (e is java.nio.charset.CharacterCodingException) "编码不符，请选择编码后重试" else subtitleFailure(e)) }
     }
 
     fun cancel() { task?.cancel(); entries = emptyList(); mutable.value = LocalDownloadState() }

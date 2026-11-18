@@ -34,7 +34,7 @@ internal fun SheetPanel(
             .fillMaxWidth()
             .then(heightModifier)
             .border(0.5.dp, Palette.Line, shape)
-            .background(androidx.compose.ui.graphics.Color(0xFF0E1017), shape)
+            .background(if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) Palette.Surface else androidx.compose.ui.graphics.Color(0xFF0E1017), shape)
             .padding(if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) 24.dp else 20.dp)
     ) {
         if (isMobileBottom) {

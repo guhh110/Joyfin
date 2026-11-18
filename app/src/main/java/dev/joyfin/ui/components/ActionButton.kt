@@ -104,7 +104,7 @@ fun ActionButton(
         enabled && (!loading || enabledWhileLoading),
         primary && (enabled || loading),
         selected,
-        quiet,
+        quiet || (LocalDeviceLayout.current.television && !primary),
         focusedScale = focusedScale,
     ) {
         Box(contentAlignment = Alignment.Center) {

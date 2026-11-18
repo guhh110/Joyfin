@@ -66,7 +66,7 @@ fun LibraryAuditRoute(controller: LibraryAuditController, actions: BrowseActions
     }
     val counts = ui.report.findings.filter { ui.showIgnored || it.fingerprint !in ui.ignored }.groupingBy { it.category }.eachCount()
     val header: @Composable () -> Unit = {
-        PageHeader("片库体检", onBack = actions.back, backFocusKey = "audit:back")
+        if (!tv) PageHeader("片库体检", onBack = actions.back, backFocusKey = "audit:back")
     }
     val controls: @Composable () -> Unit = {
         AuditControls(ui, counts,
@@ -139,7 +139,6 @@ fun LibraryAuditRoute(controller: LibraryAuditController, actions: BrowseActions
         Sheet("检查依据", { selected = null }, side = true, scrollContent = false, preferredWidth = 440.dp) {
             AuditFindingDetails(finding, ui,
                 onOpen = { selected = null; actions.openAuditItem(finding) },
-                onSubtitles = { selected = null; actions.auditSubtitles(finding) },
                 onRecheck = { controller.recheck(finding) },
                 onIgnore = { controller.ignore(finding); selected = null })
         }

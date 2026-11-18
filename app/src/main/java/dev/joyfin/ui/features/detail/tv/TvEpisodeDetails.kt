@@ -26,7 +26,7 @@ import dev.joyfin.data.fileSizeLabel
 import dev.joyfin.data.runtimeLabel
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.LocalScreenFocus
-import dev.joyfin.ui.interaction.RememberScreenFocus
+import dev.joyfin.ui.interaction.RememberSelectionFocus
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.theme.Palette
@@ -59,23 +59,19 @@ fun TvEpisodeDetails(
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     val height = minOf(screenHeight * .85f, (screenHeight * .48f).coerceIn(270.dp, 360.dp) + 58.dp + 48.dp * (fontScale - 1f))
-    RememberScreenFocus("episode:sheet-play") {
-        val memory = LocalScreenFocus.current
-        LaunchedEffect(mediaInfo) {
-            withFrameNanos {}
-            memory?.requesters?.get("episode:sheet-play")?.requestFocus()
-        }
         Dialog(
             onDismissRequest = dismissView,
             properties = DialogProperties(usePlatformDefaultWidth = false),
         ) {
+          key(mediaInfo) {
+           RememberSelectionFocus("episode:sheet-play") {
             Box(Modifier.fillMaxSize().padding(bottom = 24.dp), contentAlignment = Alignment.BottomCenter) {
                 Box(
                     Modifier.matchParentSize().pointerInput(dismissView) {
                         detectTapGestures { dismissView() }
                     }
                 )
-                val sheetShape = RoundedCornerShape(10.dp)
+                val sheetShape = RoundedCornerShape(12.dp)
                 Box(
                     Modifier.widthIn(max = 960.dp)
                         .fillMaxWidth(.9f)
@@ -321,8 +317,9 @@ fun TvEpisodeDetails(
                     }
                 }
             }
+           }
+          }
         }
-    }
 }
 
 @Composable

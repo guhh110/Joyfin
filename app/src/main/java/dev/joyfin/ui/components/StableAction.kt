@@ -30,8 +30,10 @@ fun Modifier.stableAction(
     onClick: () -> Unit,
 ): Modifier {
     val television = LocalDeviceLayout.current.television
+    // TV must attach padding and focus restoration only once; preserve existing touch geometry.
+    val actionBase = if (television) Modifier else this
     val clickModifier = if (onLongClick != null) {
-        combinedClickable(
+        actionBase.combinedClickable(
             interactionSource = interactionSource,
             indication = null,
             enabled = enabled || television,
@@ -40,7 +42,7 @@ fun Modifier.stableAction(
             onClick = { if (enabled) onClick() },
         )
     } else {
-        clickable(
+        actionBase.clickable(
             interactionSource = interactionSource,
             indication = null,
             enabled = enabled || television,
@@ -49,7 +51,7 @@ fun Modifier.stableAction(
     }
 
     val keyModifier = if (television && onLongClick != null) {
-        onKeyEvent { event ->
+        Modifier.onKeyEvent { event ->
             if (event.type == KeyEventType.KeyUp && (event.key == Key.Menu || event.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_MENU)) {
                 if (enabled) {
                     onLongClick()

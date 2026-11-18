@@ -73,6 +73,7 @@ internal fun ColumnScope.AccountLoginForm(
             .focusTarget("auth:input", tv || !busy),
         enabled = !busy,
         error = nameError,
+        showLabel = !tv,
         showErrorText = false,
         next = true,
         onSubmit = {
@@ -107,6 +108,7 @@ internal fun ColumnScope.AccountLoginForm(
                 }
             },
         error = error,
+        showLabel = !tv,
         showErrorText = false,
         onSubmit = ::submit,
     )

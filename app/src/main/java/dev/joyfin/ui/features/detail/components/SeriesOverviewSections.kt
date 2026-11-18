@@ -36,8 +36,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
         Modifier.fillMaxWidth().padding(top = if (layout.television) 24.dp else 8.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        SeriesEpisodePreview(ui, images, actions, focus, previewList, onSeason, onPreview,
-            subtitleAction = { SeriesSubtitleAction(content) })
+        SeriesEpisodePreview(ui, images, actions, focus, previewList, onSeason, onPreview)
         val topError = ui.error ?: recommendation?.error
         if (topError != null) {
             RegionLoadFeedback(
@@ -48,6 +47,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
                 Modifier.padding(horizontal = layout.gutter),
                 stableRetrySlot = true,
                 reserveSpace = false,
+                retryModifier = Modifier.seriesFocus(if (ui.error != null) "detail:retry" else "recommendation:retry", focus),
             )
         }
         if (ui.busy && !ui.ready && media?.people.isNullOrEmpty()) PeopleRailSkeleton()
@@ -80,6 +80,7 @@ internal fun SeriesOverviewSections(content: SeriesOverviewContent) {
                 ui.related.isNotEmpty(),
                 Modifier.padding(horizontal = layout.gutter),
                 reserveSpace = false,
+                retryModifier = Modifier.seriesFocus("series:related:retry", focus),
             )
         }
     }
@@ -94,7 +95,6 @@ private fun SeriesEpisodePreview(
     list: LazyListState,
     onSeason: () -> Unit,
     onPreview: (Media) -> Unit,
-    subtitleAction: @Composable () -> Unit,
 ) {
     val episodes = ui.series?.episodes
     val seasons = ui.series?.seasons
@@ -114,7 +114,7 @@ private fun SeriesEpisodePreview(
     Column(Modifier.testTag("series:preview"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Header keeps the same composition and focus identity across cold loads and season
         // changes.
-        Box(Modifier.padding(horizontal = gutter)) { SeriesPreviewHeading(ui, focus, onSeason, subtitleAction) }
+        Box(Modifier.padding(horizontal = gutter)) { SeriesPreviewHeading(ui, focus, onSeason) }
         if (items.isNotEmpty()) {
             MediaRail(
                 "剧集预览",
@@ -149,6 +149,7 @@ private fun SeriesEpisodePreview(
             items.isNotEmpty(),
             Modifier.padding(horizontal = gutter),
             reserveSpace = false,
+            retryModifier = Modifier.seriesFocus(if (seasons?.error != null) "series:seasons:retry" else "series:preview:retry", focus),
         )
     }
 }
@@ -158,7 +159,6 @@ private fun SeriesPreviewHeading(
     ui: DetailUiState,
     focus: SeriesFocusCoordinator,
     onSeason: () -> Unit,
-    subtitleAction: @Composable () -> Unit,
 ) {
     val seasons = ui.series?.seasons
     val selected = seasons?.data?.find { it.id == ui.series.seasonId }
@@ -179,7 +179,6 @@ private fun SeriesPreviewHeading(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SectionTitle("剧集", Modifier.weight(1f))
-        subtitleAction()
         ActionButton(
             selected?.name ?: "选择季",
             onSeason,

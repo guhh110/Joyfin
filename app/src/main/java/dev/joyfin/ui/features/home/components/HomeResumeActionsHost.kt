@@ -25,7 +25,8 @@ internal fun HomeResumeActionsHost(ui: HomeUiState, actions: BrowseActions, cont
         val target = resume.firstOrNull { it.id == item?.id }
             ?: resume.getOrNull(itemIndex.coerceAtMost((resume.size - 1).coerceAtLeast(0)))
         restoreTarget = target?.let { "继续观看:${it.id}" }
-            ?: if (ui.content?.latest?.isNotEmpty() == true) "hero:play" else "header:account"
+            ?: if (television) "header:home"
+            else if (ui.content?.latest?.isNotEmpty() == true) "hero:play" else "header:account"
         item = null
         actions.cancelResumeAction()
     }

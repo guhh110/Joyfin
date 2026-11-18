@@ -1,6 +1,5 @@
 package dev.joyfin.data.subtitles.assrt
 
-import dev.joyfin.data.subtitles.SubtitleRequestHistory
 import dev.joyfin.data.subtitles.SubtitleOperationException
 import dev.joyfin.data.subtitles.subtitleHttp
 import dev.joyfin.data.subtitles.subtitleRetrofit
@@ -40,16 +39,8 @@ internal interface AssrtService {
         @Query("is_file") isFile: Int = 0): Response<AssrtResponse>
     @GET("sub/detail") suspend fun detail(@Header("Authorization") auth: String, @Query("id") id: Long): Response<AssrtResponse>
 }
-class AssrtApi {
-    private val history = SubtitleRequestHistory()
-    val requestHistory = history.records
-    private val client = subtitleHttp().newBuilder().addInterceptor { chain ->
-        val request = chain.request()
-        history.proceed(chain, request)
-    }.build()
-    private val service = subtitleRetrofit("https://api.assrt.net/v1/", client).create(AssrtService::class.java)
-    internal fun recordRequest(url: String) { history.recordRequest(url) }
-    fun clearRequestHistory() { history.clear() }
+class AssrtApi(httpClient: okhttp3.OkHttpClient = subtitleHttp()) {
+    private val service = subtitleRetrofit("https://api.assrt.net/v1/", httpClient).create(AssrtService::class.java)
     private val mutex = Mutex()
     private var nextRequest = 0L
     private suspend fun request(call: suspend () -> Response<AssrtResponse>): AssrtResponse = mutex.withLock {

@@ -20,8 +20,8 @@ internal fun SettingsGroup(title: String, icon: Glyph, content: @Composable Colu
         }
         Column(
             Modifier.fillMaxWidth()
-                .background(Palette.Surface.copy(alpha = .65f), RoundedCornerShape(18.dp))
-                .border(.5.dp, Palette.Line, RoundedCornerShape(18.dp))
+                .background(Palette.Surface.copy(alpha = .65f), RoundedCornerShape(if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) 12.dp else 18.dp))
+                .border(.5.dp, Palette.Line, RoundedCornerShape(if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) 12.dp else 18.dp))
                 .padding(6.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
             content = content,
@@ -33,7 +33,7 @@ internal fun SettingsGroup(title: String, icon: Glyph, content: @Composable Colu
 internal fun SettingsSwitch(checked: Boolean) {
     Box(
         Modifier.size(38.dp, 22.dp)
-            .background(if (checked) Palette.Text else Palette.Elevated, RoundedCornerShape(11.dp))
+            .background(if (checked) Palette.Accent else Palette.Elevated, RoundedCornerShape(11.dp))
             .padding(3.dp),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
     ) {

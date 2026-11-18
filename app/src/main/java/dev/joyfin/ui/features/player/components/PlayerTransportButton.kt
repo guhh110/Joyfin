@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import dev.joyfin.ui.components.stableAction
 import dev.joyfin.ui.theme.MotionTokens
 import dev.joyfin.ui.theme.rememberMotionSpec
+import dev.joyfin.ui.device.LocalDeviceLayout
 
 /** Fixed geometry: remote focus only changes color, never scale or measured size. */
 @Composable
@@ -43,12 +44,14 @@ internal fun PlayerTransportButton(
     val pressColorSpec = rememberMotionSpec<Color>(MotionTokens.PressDurationMs)
     val dpSpec = rememberMotionSpec<Dp>(MotionTokens.FocusDurationMs)
 
+    val television = LocalDeviceLayout.current.television
     val highlighted = focused && enabled
-    val baseTint = Palette.Text
+    val baseTint = if (television && primary) Palette.Background else Palette.Text
     val targetTint = if (pressed && enabled) baseTint.copy(alpha = 0.82f) else baseTint
 
     val baseSurface =
         when {
+            television && primary -> Palette.Text
             highlighted -> Color.White.copy(alpha = .20f)
             primary -> Color.Black.copy(alpha = .18f)
             else -> Color.Black.copy(alpha = .08f)
@@ -97,4 +100,4 @@ internal fun PlayerTransportButton(
     }
 }
 
-internal val LocalTransportTint = staticCompositionLocalOf { Palette.Text }
+internal val LocalTransportTint = staticCompositionLocalOf { Color(0xFFF4F4F6) }

@@ -33,6 +33,7 @@ internal fun EntryButton(
     enabledWhileBusy: Boolean = false,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
 ) {
+    val canvasBackground = Palette.Background
     val tv = LocalDeviceLayout.current.television
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(8.dp)
@@ -100,14 +101,14 @@ internal fun EntryButton(
                             }
                         drawPath(
                             path,
-                            Palette.Background,
+                            canvasBackground,
                             style = androidx.compose.ui.graphics.drawscope.Stroke(1.3.dp.toPx()),
                         )
                     }
                 }
             Text(
                 label,
-                color = if (quiet) Palette.Muted else Palette.Background,
+                color = if (quiet) Palette.Muted else canvasBackground,
                 fontSize = if (LocalDeviceLayout.current.television) 15.sp else 13.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -116,6 +117,6 @@ internal fun EntryButton(
             )
         }
         if (busy)
-            LoadingSpinner(diameter = 20.dp, tint = if (quiet) Palette.Text else Palette.Background)
+            LoadingSpinner(diameter = 20.dp, tint = if (quiet) Palette.Text else canvasBackground)
     }
 }

@@ -27,7 +27,7 @@ internal fun TvSheetLayout(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val config = LocalConfiguration.current
-    val width = (preferredWidth ?: if (side) (config.screenWidthDp.dp * .48f).coerceAtMost(380.dp) else 512.dp)
+    val width = (preferredWidth ?: if (side) 420.dp else if (bottom) 800.dp else 512.dp)
         .coerceAtMost(config.screenWidthDp.dp * .9f)
     val height =
         if (side) Modifier.fillMaxHeight()
@@ -40,7 +40,7 @@ internal fun TvSheetLayout(
         slideHorizontal = side,
     ) { isExiting ->
         Box(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxSize().padding(20.dp),
             contentAlignment =
                 if (side) Alignment.CenterEnd
                 else if (!bottom) Alignment.Center else Alignment.BottomCenter,
@@ -56,12 +56,7 @@ internal fun TvSheetLayout(
                 modifier,
                 width,
                 height,
-                RoundedCornerShape(
-                    topStart = 12.dp,
-                    topEnd = if (side) 0.dp else 12.dp,
-                    bottomStart = if (!side && !bottom) 12.dp else 0.dp,
-                    bottomEnd = if (!side && !bottom) 12.dp else 0.dp,
-                ),
+                RoundedCornerShape(12.dp),
                 actions,
                 scrollContent,
                 isMobileBottom = false,

@@ -63,6 +63,8 @@ internal fun EntryTextField(
     var keyboardActivated by remember { mutableStateOf(false) }
     var revealed by remember { mutableStateOf(false) }
     LaunchedEffect(enabled) { if (!enabled) revealed = false }
+    val canvasText = Palette.Text
+    val canvasMuted = Palette.Muted
     val tv = LocalDeviceLayout.current.television
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -81,7 +83,7 @@ internal fun EntryTextField(
         }
     }
     val shape = RoundedCornerShape(12.dp)
-    val style = TextStyle(color = Palette.Text, fontSize = if (tv) 15.sp else 14.sp)
+    val style = TextStyle(color = canvasText, fontSize = if (tv) 15.sp else 14.sp)
     val options =
         KeyboardOptions(
             keyboardType =
@@ -91,6 +93,8 @@ internal fun EntryTextField(
             autoCorrectEnabled = false,
             showKeyboardOnFocus = enabled && (!tv || keyboardActivated),
         )
+    // Remote navigation uses the field border; enable the editing cursor with the IME.
+    val cursor = SolidColor(if (tv && !keyboardActivated) androidx.compose.ui.graphics.Color.Unspecified else canvasText)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showLabel) EntryText(label)
         Row(
@@ -156,13 +160,13 @@ internal fun EntryTextField(
                         if (error != null) semanticsError(error)
                     }
                     .padding(horizontal = 15.dp, vertical = if (showLabel) 16.dp else 12.dp)
-            val decorator: androidx.compose.foundation.text.input.TextFieldDecorator =
+            val decorator = remember(state, placeholder, canvasMuted, style) {
                 androidx.compose.foundation.text.input.TextFieldDecorator { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
                         if (state.text.isEmpty())
                             Text(
                                 placeholder,
-                                color = Palette.Muted.copy(alpha = .6f),
+                                color = canvasMuted.copy(alpha = .6f),
                                 style = style,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -170,19 +174,22 @@ internal fun EntryTextField(
                         inner()
                     }
                 }
+            }
+            val transformation = remember(enabled) {
+                androidx.compose.foundation.text.input.InputTransformation {
+                    if (!enabled) revertAllChanges()
+                }
+            }
             if (secret)
                 BasicSecureTextField(
                     state,
                     fieldModifier,
                     enabled = enabled || tv,
-                    inputTransformation =
-                        androidx.compose.foundation.text.input.InputTransformation {
-                            if (!enabled) revertAllChanges()
-                        },
+                    inputTransformation = transformation,
                     textStyle = style,
                     keyboardOptions = options,
                     onKeyboardAction = { onSubmit() },
-                    cursorBrush = SolidColor(Palette.Text),
+                    cursorBrush = cursor,
                     textObfuscationMode =
                         if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
                     decorator = decorator,
@@ -192,14 +199,11 @@ internal fun EntryTextField(
                     state,
                     fieldModifier,
                     enabled = enabled || tv,
-                    inputTransformation =
-                        androidx.compose.foundation.text.input.InputTransformation {
-                            if (!enabled) revertAllChanges()
-                        },
+                    inputTransformation = transformation,
                     textStyle = style,
                     keyboardOptions = options,
                     onKeyboardAction = { onSubmit() },
-                    cursorBrush = SolidColor(Palette.Text),
+                    cursorBrush = cursor,
                     lineLimits = TextFieldLineLimits.SingleLine,
                     decorator = decorator,
                 )
@@ -211,7 +215,7 @@ internal fun EntryTextField(
                         .onFocusChanged { eyeFocused = it.isFocused }
                         .border(
                             1.dp,
-                            if (eyeFocused) Palette.Text
+                            if (eyeFocused) canvasText
                             else androidx.compose.ui.graphics.Color.Transparent,
                             shape,
                         )
@@ -233,13 +237,13 @@ internal fun EntryTextField(
                             }
                         drawPath(
                             path,
-                            if (eyeFocused) Palette.Text else Palette.Muted,
+                            if (eyeFocused) canvasText else canvasMuted,
                             style = Stroke(1.2.dp.toPx()),
                         )
-                        drawCircle(Palette.Muted, 3 * u, style = Stroke(1.2.dp.toPx()))
+                        drawCircle(canvasMuted, 3 * u, style = Stroke(1.2.dp.toPx()))
                         if (revealed)
                             drawLine(
-                                Palette.Text,
+                                canvasText,
                                 androidx.compose.ui.geometry.Offset(3 * u, 3 * u),
                                 androidx.compose.ui.geometry.Offset(21 * u, 21 * u),
                                 1.2.dp.toPx(),
@@ -260,7 +264,7 @@ internal fun EntryTextField(
                     AppIcon(
                         Glyph.Close,
                         Modifier.size(16.dp),
-                        color = Palette.Muted,
+                        color = canvasMuted,
                     )
                 }
         }

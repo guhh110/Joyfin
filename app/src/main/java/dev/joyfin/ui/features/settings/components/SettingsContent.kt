@@ -38,6 +38,7 @@ internal fun ColumnScope.SettingsContent(
     homeLayout: dev.joyfin.data.HomeLayoutPreferences = dev.joyfin.data.HomeLayoutPreferences(),
     homeLibraries: List<dev.joyfin.data.Media> = emptyList(),
     updates: dev.joyfin.update.AppUpdateController? = null,
+    category: String? = null,
 ) {
     var diagnostics by remember { mutableStateOf(false) }
     var returnFromDiagnostics by remember { mutableStateOf(false) }
@@ -75,7 +76,8 @@ internal fun ColumnScope.SettingsContent(
             returnFromHome = false
         }
     }
-    PageHeader("设置", onBack = actions.back, backFocusKey = "settings:back")
+    if (category == null) PageHeader("设置", onBack = actions.back, backFocusKey = "settings:back")
+    if (category == null || category == "account") {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         val accountShape = RoundedCornerShape(14.dp)
         Row(
@@ -118,6 +120,9 @@ internal fun ColumnScope.SettingsContent(
             }
             QualityBadge("当前账号")
         }
+    }
+    if (category == "account") ActionButton("退出当前账号", actions.logout, Modifier.focusTarget("settings:logout"),
+        loading = request.busy, icon = Glyph.Account, quiet = true)
     }
     val playback: @Composable () -> Unit = {
         SettingsGroup("播放偏好", Glyph.Play) {
@@ -175,6 +180,13 @@ internal fun ColumnScope.SettingsContent(
             }
         }
     }
+    if (category != null) {
+        when (category) {
+            "playback" -> playback()
+            "library" -> library()
+            "support" -> { tools(); AboutJoyfin() }
+        }
+    } else {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (maxWidth >= 760.dp) {
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
@@ -198,6 +210,7 @@ internal fun ColumnScope.SettingsContent(
     }
     ActionButton("退出当前账号", actions.logout, Modifier.focusTarget("settings:logout"),
         loading = request.busy, icon = Glyph.Account, quiet = true)
+    }
     if (diagnostics) PlaybackDiagnosticsSheet { diagnostics = false }
     if (editHome) HomeLayoutSheet(homeLayout, homeLibraries, actions.setHomeLayout) { editHome = false }
     if (showUpdate && updates != null) AppUpdateSheet(updates) { showUpdate = false }
