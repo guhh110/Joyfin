@@ -31,6 +31,15 @@ internal fun TrackingPosterGrid(
     images: ArtworkSource, onRemove: (String) -> Unit,
 ) {
     val scroll = rememberLazyGridState()
+    CinemaGridFocus(entries.map { it.series.id }, "tracking:play", ui.loading, scroll, fallback = "tracking:filter:all")
+    val focus = dev.joyfin.ui.interaction.LocalScreenFocus.current
+    LaunchedEffect(entries.map { it.series.id }, ui.loading) {
+        if (focus?.target?.invoke() == "tracking:initial" && (!ui.loading || entries.isNotEmpty())) {
+            focus.rememberTarget(entries.firstOrNull()?.let { "tracking:play:${it.series.id}" } ?: "tracking:filter:all")
+            withFrameNanos { }
+            focus.restore()
+        }
+    }
     var optionsId by rememberSaveable { mutableStateOf<String?>(null) }
     val pinStart = rememberTrackingStartPinned { scroll.isScrollInProgress }
     LaunchedEffect(entries.map { it.series.id }) {

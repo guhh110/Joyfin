@@ -138,8 +138,12 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
-        if (::controller.isInitialized && controller.handleMediaKey(keyCode)) true
+        if (::controller.isInitialized && controller.handleMediaKey(keyCode, repeatCount = event.repeatCount)) true
         else super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        if (::controller.isInitialized && controller.handleMediaKey(keyCode, down = false)) true
+        else super.onKeyUp(keyCode, event)
 
     override fun onStart() {
         super.onStart()

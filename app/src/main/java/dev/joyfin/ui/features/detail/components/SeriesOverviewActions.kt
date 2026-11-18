@@ -19,6 +19,9 @@ import dev.joyfin.ui.theme.Palette
 internal fun SeriesOverviewHeader(content: SeriesOverviewContent) {
     val actions = content.actions
     val focus = content.focus
+    if (dev.joyfin.ui.device.LocalDeviceLayout.current.television) {
+        return
+    }
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -84,11 +87,4 @@ internal fun SeriesFavoriteAction(content: SeriesOverviewContent, modifier: Modi
         loading = content.ui.favoriteBusy,
         maxLines = 2,
     )
-}
-
-@Composable
-internal fun SeriesSubtitleAction(content: SeriesOverviewContent) {
-    ActionButton("字幕", content.actions.subtitles,
-        Modifier.seriesFocus("detail:subtitles", content.focus).semantics { contentDescription = "管理字幕" }, Glyph.Subtitle,
-        enabled = content.ui.ready, quiet = true, maxLines = 1)
 }

@@ -71,7 +71,6 @@ internal fun AuditFindingDetails(
     finding: AuditFinding,
     ui: AuditUiState,
     onOpen: () -> Unit,
-    onSubtitles: () -> Unit,
     onRecheck: () -> Unit,
     onIgnore: () -> Unit,
 ) {
@@ -104,9 +103,6 @@ internal fun AuditFindingDetails(
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionButton("查看作品", onOpen, Modifier.fillMaxWidth().focusTarget("audit:detail:open"),
                 Glyph.Film, primary = true, enabled = available, focusedScale = MotionTokens.FixedScale)
-            if (finding.category == AuditCategory.SUBTITLES) ActionButton("搜索与整理字幕", onSubtitles,
-                Modifier.fillMaxWidth().focusTarget("audit:detail:subtitles"), Glyph.Subtitle,
-                enabled = available, focusedScale = MotionTokens.FixedScale)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionButton("重新检查", onRecheck, Modifier.weight(1f).focusTarget("audit:detail:recheck"), Glyph.Refresh,
                     enabled = !ui.running && (ui.rechecking == null || ui.rechecking == finding.key),

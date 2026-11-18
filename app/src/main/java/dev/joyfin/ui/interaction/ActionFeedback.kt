@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import dev.joyfin.ui.theme.MotionTokens
+import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.theme.Palette
 import dev.joyfin.ui.theme.rememberMotionSpec
 
@@ -68,7 +69,7 @@ fun Modifier.actionVisualFeedback(
         overrideBorderColor
             ?: when {
                 focused -> Palette.BorderFocus
-                selected -> Palette.Muted
+                selected -> if (LocalDeviceLayout.current.television) Palette.Accent else Palette.Muted
                 else -> Color.Transparent
             }
     val animatedBorderColor =

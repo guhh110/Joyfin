@@ -26,6 +26,7 @@ fun RegionLoadFeedback(
     requestKey: Any? = Unit,
     stableRetrySlot: Boolean = false,
     reserveSpace: Boolean = true,
+    retryModifier: Modifier = if (stableRetrySlot) Modifier.focusTarget("detail:retry") else Modifier,
 ) {
     var retrying by remember(requestKey) { mutableStateOf(false) }
     LaunchedEffect(loading, error) { if (!loading) retrying = false }
@@ -69,7 +70,7 @@ fun RegionLoadFeedback(
                         retrying = true
                         onRetry()
                     },
-                    if (stableRetrySlot) Modifier.focusTarget("detail:retry") else Modifier,
+                    retryModifier,
                     enabled = error != null || loading && retrying,
                     loading = loading && retrying,
                     icon = Glyph.Refresh,

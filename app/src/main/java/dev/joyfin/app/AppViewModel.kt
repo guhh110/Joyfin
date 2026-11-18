@@ -54,6 +54,11 @@ class AppViewModel @JvmOverloads constructor(
     private val trackingController = TrackingController(viewModelScope, { api.session },
         api::favoriteSeries, api::trackingEpisodes, api::favorite, ::expireSession)
     val tracking = trackingController.state
+    private val tvHomeDiscoveryController = TvHomeDiscoveryController(viewModelScope, { api.session },
+        api::homeDiscovery, ::expireSession)
+    val tvHomeDiscovery = tvHomeDiscoveryController.state
+    fun setTvHomeActive(active: Boolean) = tvHomeDiscoveryController.setActive(active)
+    fun retryTvHomeDiscovery() = tvHomeDiscoveryController.refresh()
     private val details =
         DetailController(viewModelScope, api, mutable, requests, ::push, ::library, ::expireSession,
             { trackingController.refresh(all = mutable.value.page == Page.TRACKING, force = true) })
@@ -67,6 +72,7 @@ class AppViewModel @JvmOverloads constructor(
             {
                 cancelSections()
                 trackingController.clear()
+                tvHomeDiscoveryController.clear()
                 navigation.clearHistory()
             },
             { homeController.loadHome(enterHome = true) },
@@ -84,7 +90,6 @@ class AppViewModel @JvmOverloads constructor(
             session::backToConnection,
         )
 
-    val subtitlePage = dev.joyfin.subtitles.SubtitlePageController(storageContext, viewModelScope, api, ::expireSession)
     val libraryAudit = dev.joyfin.audit.createLibraryAuditController(storageContext, viewModelScope, api, ::expireSession)
     val appUpdates = dev.joyfin.update.AppUpdateController(storageContext, viewModelScope)
 
@@ -92,7 +97,10 @@ class AppViewModel @JvmOverloads constructor(
         session.start()
         viewModelScope.launch {
             state.map { api.session to it.page }.distinctUntilChanged().collect { (user, page) ->
-                if (user == null) trackingController.clear()
+                if (user == null) {
+                    trackingController.clear()
+                    tvHomeDiscoveryController.clear()
+                }
                 else if (page == Page.HOME || page == Page.TRACKING)
                     trackingController.refresh(all = page == Page.TRACKING)
             }
@@ -132,6 +140,7 @@ class AppViewModel @JvmOverloads constructor(
     fun refreshHome(validate: Boolean = false) {
         homeController.refreshHome(validate)
         if (api.session != null) trackingController.refresh()
+        tvHomeDiscoveryController.refresh()
     }
 
     fun retryHome(region: HomeRegion) = homeController.retryHome(region)
@@ -212,7 +221,6 @@ class AppViewModel @JvmOverloads constructor(
     private fun cancelSections() {
         homeController.cancel()
         details.cancel()
-        subtitlePage.close()
         libraryAudit.close()
     }
 
@@ -220,17 +228,6 @@ class AppViewModel @JvmOverloads constructor(
 
     private fun push(page: Page): Unit = navigation.push(page)
 
-
-    fun openSubtitles() {
-        val detail = mutable.value.detail
-        push(Page.SUBTITLES)
-        subtitlePage.open(detail)
-    }
-
-    fun openSubtitleManager() {
-        push(Page.SUBTITLES)
-        subtitlePage.open()
-    }
 
     fun settings() = navigation.settings()
 
@@ -243,16 +240,7 @@ class AppViewModel @JvmOverloads constructor(
         libraryAudit.media(finding)?.let(details::open)
     }
 
-    fun auditSubtitles(finding: dev.joyfin.audit.AuditFinding) {
-        val media = libraryAudit.media(finding) ?: return
-        push(Page.SUBTITLES)
-        subtitlePage.openForAudit(media)
-    }
-
-    fun back(): Boolean {
-        if (mutable.value.page == Page.SUBTITLES && subtitlePage.back()) return true
-        return navigation.back()
-    }
+    fun back(): Boolean = navigation.back()
 
     fun refreshAfterPlayback() {
         if (api.session == null) return

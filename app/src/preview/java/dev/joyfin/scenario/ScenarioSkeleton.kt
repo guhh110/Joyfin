@@ -20,6 +20,7 @@ internal enum class CardSkeletonStyle { Detailed, Plain, Drawn }
 /** Experimental renderers live only in Preview; all variants keep the normal cell geometry. */
 @Composable
 internal fun ScenarioSkeleton(modifier: Modifier, wide: Boolean, visible: Boolean, showSubtitle: Boolean, plain: Boolean) {
+    val canvasSurface = Palette.Surface
     val density = LocalDensity.current
     val titleHeight = with(density) { MediaCardLayout.TitleSlot.toDp() }
     val subtitleHeight = with(density) { MediaCardLayout.SubtitleSlot.toDp() }
@@ -35,13 +36,13 @@ internal fun ScenarioSkeleton(modifier: Modifier, wide: Boolean, visible: Boolea
             val subtitleBlock = with(density) { 12.sp.toPx() }
             onDrawBehind {
                 if (visible) {
-                    if (plain) drawRoundRect(Palette.Surface, cornerRadius = corner)
+                    if (plain) drawRoundRect(canvasSurface, cornerRadius = corner)
                     else {
-                        drawRoundRect(Palette.Surface, size = Size(size.width, imageHeight), cornerRadius = corner)
-                        drawRoundRect(Palette.Surface,
+                        drawRoundRect(canvasSurface, size = Size(size.width, imageHeight), cornerRadius = corner)
+                        drawRoundRect(canvasSurface,
                             topLeft = Offset(0f, titleTop + (titleHeight.toPx() - titleBlock) / 2),
                             size = Size(size.width * .8f, titleBlock), cornerRadius = corner)
-                        if (showSubtitle) drawRoundRect(Palette.Surface,
+                        if (showSubtitle) drawRoundRect(canvasSurface,
                             topLeft = Offset(0f, titleTop + titleHeight.toPx() + (subtitleHeight.toPx() - subtitleBlock) / 2),
                             size = Size(size.width * .5f, subtitleBlock), cornerRadius = corner)
                     }

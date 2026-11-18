@@ -27,6 +27,9 @@ fun LoadingSpinner(
     val angle = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         val scale = coroutineContext[MotionDurationScale]
+        // Android's first scale read starts an observer and writes snapshot state.
+        // Initialize it before snapshotFlow enters its read-only snapshot.
+        scale?.scaleFactor
         snapshotFlow { scale?.scaleFactor ?: 1f }
             .collectLatest { durationScale ->
                 angle.snapTo(0f)

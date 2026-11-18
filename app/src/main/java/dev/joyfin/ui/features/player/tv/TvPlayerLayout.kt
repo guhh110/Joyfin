@@ -31,13 +31,13 @@ internal fun TvPlayerLayout(
         actions,
         onPanel,
         onInteraction,
-        40.dp,
+        32.dp,
         showTransport = ui.nextSeconds == 0 && panel == null,
     ) {
         if (ui.error != null && panel == null)
             Column(
                 Modifier.align(Alignment.TopCenter).padding(top = 48.dp)
-                    .background(Color(0xE6141418), RoundedCornerShape(12.dp))
+                    .background(Palette.Surface.copy(alpha = .94f), RoundedCornerShape(12.dp))
                     .border(1.dp, Palette.BorderSubtle, RoundedCornerShape(12.dp))
                     .padding(horizontal = 24.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

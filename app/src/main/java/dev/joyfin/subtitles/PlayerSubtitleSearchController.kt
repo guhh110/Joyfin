@@ -28,7 +28,8 @@ data class PlayerSubtitleSearchState(
     val query: String = "",
     val contextLabel: String = "",
     val source: PlayerSubtitleSource = PlayerSubtitleSource.ASSRT,
-    val pack: ManagedSubtitle? = null,
+    val configuring: Boolean = false,
+    val pack: DownloadedSubtitle? = null,
     val showAll: Boolean = false,
     val selectedFileId: String? = null,
     val applying: Boolean = false,
@@ -45,17 +46,18 @@ class PlayerSubtitleSearchController(
     context: Context,
     private val scope: CoroutineScope,
     private val api: JellyfinApi,
-    private val store: LocalSubtitleStore,
-    private val apply: suspend (PlayerSubtitleTarget, ManagedSubtitle, String) -> Unit,
+    store: LocalSubtitleStore,
+    private val apply: suspend (PlayerSubtitleTarget, DownloadedSubtitle, String) -> Unit,
     private val closed: (applied: Boolean) -> Unit,
 ) {
     private val mutable = MutableStateFlow(PlayerSubtitleSearchState())
     val state = mutable.asStateFlow()
-    private val assrtAccounts = AssrtAccountStore(context)
-    private val openSubtitlesAccounts = OpenSubtitlesAccountStore(context)
-    val download = LocalSubtitleDownload(scope, store, {}, ::downloaded)
+    val assrtAccounts = AssrtAccountStore(context)
+    val openSubtitlesAccounts = OpenSubtitlesAccountStore(context)
+    val download = LocalSubtitleDownload(scope, store, ::downloaded)
     val assrt = AssrtSearchController(scope, assrtAccounts, AssrtApi(), download)
-    val openSubtitles = OpenSubtitlesSearchController(scope, openSubtitlesAccounts, OpenSubtitlesApi(), download)
+    val openSubtitlesApi = OpenSubtitlesApi()
+    val openSubtitles = OpenSubtitlesSearchController(scope, openSubtitlesAccounts, openSubtitlesApi, download)
     private var target: PlayerSubtitleTarget? = null
     private var searchContext: SubtitleSearchContext? = null
     private var generation = 0
@@ -65,6 +67,7 @@ class PlayerSubtitleSearchController(
     private var resultFocus = "quick:query"
     private var assrtQuery: String? = null
     private var openSubtitlesQuery: String? = null
+    private var configurationChanged = false
     private val active get() = mutable.value.open && !mutable.value.closing
     val busy: Boolean get() = mutable.value.initializing || mutable.value.applying ||
         download.state.value.busy || download.state.value.needsEncoding ||
@@ -118,8 +121,29 @@ class PlayerSubtitleSearchController(
     }
 
     fun query(value: String) { if (active && !busy) mutable.update { it.copy(query = value) } }
-    fun source(value: PlayerSubtitleSource) {
+    fun configure() {
         if (!active || busy || mutable.value.pack != null) return
+        if (assrt.state.value.loading) assrtQuery = null
+        if (openSubtitles.state.value.loading) openSubtitlesQuery = null
+        assrt.cancel(); openSubtitles.cancel()
+        configurationChanged = false
+        mutable.update { it.copy(configuring = true, error = null, focusKey = "quick:settings") }
+    }
+    fun configurationSource(value: PlayerSubtitleSource) {
+        if (active && mutable.value.configuring) mutable.update { it.copy(source = value) }
+    }
+    fun configurationSaved() { configurationChanged = true }
+    fun finishConfiguration() {
+        if (!active || !mutable.value.configuring) return
+        mutable.update { it.copy(configuring = false, focusRevision = it.focusRevision + 1) }
+        if (configurationChanged) {
+            assrtQuery = null; openSubtitlesQuery = null
+        }
+        val submitted = if (mutable.value.source == PlayerSubtitleSource.ASSRT) assrtQuery else openSubtitlesQuery
+        if (mutable.value.query.isNotBlank() && submitted != mutable.value.query.trim()) search()
+    }
+    fun source(value: PlayerSubtitleSource) {
+        if (!active || busy || mutable.value.configuring || mutable.value.pack != null) return
         dismissFiles()
         download.cancel()
         mutable.update { it.copy(source = value, error = null, showAll = false) }
@@ -127,7 +151,7 @@ class PlayerSubtitleSearchController(
         if (submitted != mutable.value.query.trim()) search()
     }
     fun search() {
-        if (!active || busy || mutable.value.pack != null) return
+        if (!active || busy || mutable.value.configuring || mutable.value.pack != null) return
         val context = searchContext ?: return
         val query = mutable.value.query.trim()
         if (query.isBlank()) { mutable.update { it.copy(error = "请输入搜索关键词") }; return }
@@ -186,7 +210,7 @@ class PlayerSubtitleSearchController(
         }
     }
 
-    private fun downloaded(pack: ManagedSubtitle) {
+    private fun downloaded(pack: DownloadedSubtitle) {
         if (!active || pack.owner != searchContext?.owner) return
         if (pack.files.size != 1) dismissFiles()
         mutable.update { it.copy(pack = pack, showAll = false, error = null, selectingFile = pack.files.size > 1) }
@@ -213,6 +237,7 @@ class PlayerSubtitleSearchController(
     }
     fun back() {
         if (!active) return
+        if (mutable.value.configuring) { finishConfiguration(); return }
         if (mutable.value.pack != null || assrt.state.value.selected != null || openSubtitles.state.value.selected != null || download.state.value.needsEncoding) {
             applyJob?.cancel()
             dismissFiles()
@@ -230,7 +255,7 @@ class PlayerSubtitleSearchController(
         setupJob?.cancel(); episodesJob?.cancel()
         if (!applied) applyJob?.cancel()
         assrt.cancel(); openSubtitles.cancel(); download.cancel()
-        mutable.update { it.copy(closing = true, applying = false, applied = applied) }
+        mutable.update { it.copy(closing = true, configuring = false, applying = false, applied = applied) }
     }
     fun finishClose() {
         if (!mutable.value.open || !mutable.value.closing) return
@@ -250,6 +275,7 @@ class PlayerSubtitleSearchController(
         assrt.clear(); openSubtitles.clear(); download.cancel()
         target = null; searchContext = null
         assrtQuery = null; openSubtitlesQuery = null
+        configurationChanged = false
         resultFocus = "quick:query"
     }
 }

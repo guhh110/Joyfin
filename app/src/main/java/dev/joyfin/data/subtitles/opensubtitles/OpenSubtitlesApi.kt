@@ -1,6 +1,5 @@
 package dev.joyfin.data.subtitles.opensubtitles
 
-import dev.joyfin.data.subtitles.SubtitleRequestHistory
 import dev.joyfin.data.subtitles.subtitleBody
 import dev.joyfin.data.subtitles.subtitleHttp
 import dev.joyfin.data.subtitles.subtitleRetrofit
@@ -28,15 +27,11 @@ internal interface OpenSubtitlesService {
     @POST("login") suspend fun login(@Header("Api-Key") key: String, @Body body: LoginBody): Response<LoginResponse>
     @POST("download") suspend fun download(@Header("Api-Key") key: String, @Header("Authorization") auth: String?, @Body body: DownloadBody): Response<OpenSubtitlesDownload>
 }
-class OpenSubtitlesApi {
-    private val history = SubtitleRequestHistory()
-    val requestHistory = history.records
-    internal fun recordRequest(url: String) { history.recordRequest(url) }
-    fun clearRequestHistory() { history.clear() }
+class OpenSubtitlesApi(httpClient: okhttp3.OkHttpClient = subtitleHttp()) {
     // Official API normalizes search query URLs; authentication stays on this origin and path.
-    private val client = subtitleHttp().newBuilder().addInterceptor { chain ->
+    private val client = httpClient.newBuilder().apply { interceptors().add(0, okhttp3.Interceptor { chain ->
         var request = chain.request()
-        var response = history.proceed(chain, request)
+        var response = chain.proceed(request)
         if (request.method == "GET" && request.url.encodedPath == "/api/v1/subtitles") {
             var count = 0
             while (response.code in setOf(301, 302, 307, 308) && count++ < 3) {
@@ -46,11 +41,11 @@ class OpenSubtitlesApi {
                     target.username.isNotEmpty() || target.password.isNotEmpty()) break
                 response.close()
                 request = request.newBuilder().url(target).build()
-                response = history.proceed(chain, request)
+                response = chain.proceed(request)
             }
         }
         response
-    }.build()
+    }) }.build()
     private fun service(account: OpenSubtitlesAccount): OpenSubtitlesService {
         require(account.host in setOf("api.opensubtitles.com", "vip-api.opensubtitles.com"))
         return subtitleRetrofit("https://${account.host}/api/v1/", client).create(OpenSubtitlesService::class.java)

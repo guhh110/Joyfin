@@ -33,6 +33,12 @@ import dev.joyfin.ui.theme.Palette
 fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boolean = false,
     horizontalInset: androidx.compose.ui.unit.Dp? = null, active: String? = null) {
     val device = LocalDeviceLayout.current
+    if (device.television) {
+        CinemaHeader(when (active) {
+            "tracking" -> "我的追剧"; "library" -> "媒体库"; else -> "私人放映厅"
+        }, actions, Modifier.padding(horizontal = horizontalInset ?: device.gutter), back, active)
+        return
+    }
     Row(
         Modifier.fillMaxWidth()
             .then(if (statusBarInset && !device.television) Modifier.statusBarsPadding() else Modifier)
@@ -65,7 +71,6 @@ fun AppHeader(actions: BrowseActions, back: Boolean = false, statusBarInset: Boo
                 ActionButton("首页", actions.home, Modifier.focusTarget("header:home"), icon = Glyph.Home, quiet = true, selected = active == "home", maxLines = 1)
                 ActionButton("追剧", actions.tracking, Modifier.focusTarget("header:tracking"), icon = Glyph.Heart, quiet = true, selected = active == "tracking", maxLines = 1)
                 ActionButton("媒体库", { actions.library(null, "媒体库") }, Modifier.focusTarget("header:library"), icon = Glyph.Library, quiet = true, selected = active == "library", maxLines = 1)
-                ActionButton("字幕", actions.subtitleManager, Modifier.focusTarget("header:subtitles"), icon = Glyph.Subtitle, quiet = true, selected = active == "subtitles", maxLines = 1)
             }
         } else Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -82,7 +87,6 @@ fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
         Triple("home", "首页", Glyph.Home),
         Triple("tracking", "追剧", Glyph.Heart),
         Triple("library", "媒体库", Glyph.Library),
-        Triple("subtitles", "字幕", Glyph.Subtitle),
         Triple("search", "搜索", Glyph.Search),
     )
     Column(
@@ -126,7 +130,6 @@ fun MobileBrowseNavigation(actions: BrowseActions, active: String) {
                                 "home" -> actions.home()
                                 "tracking" -> actions.tracking()
                                 "library" -> actions.library(null, "媒体库")
-                                "subtitles" -> actions.subtitleManager()
                                 else -> actions.search()
                             }
                         }
@@ -172,6 +175,7 @@ fun TextTab(
     compact: Boolean = false,
 ) {
     val active = selected
+    val tv = LocalDeviceLayout.current.television
     val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(if (compact) 14.dp else 20.dp)
     FocusSurface(
         onClick,
@@ -190,8 +194,8 @@ fun TextTab(
                 .then(
                     if (active) {
                         Modifier
-                            .background(Color(0xFF1B202D), pillShape)
-                            .border(0.5.dp, Palette.Line, pillShape)
+                            .background(if (tv) Palette.Selected else Color(0xFF1B202D), pillShape)
+                            .border(0.5.dp, if (tv) Palette.Accent.copy(alpha = .4f) else Palette.Line, pillShape)
                     } else if (compact) {
                         Modifier
                             .background(Color(0xFF0F1118), pillShape)
@@ -206,7 +210,7 @@ fun TextTab(
         ) {
             Text(
                 text,
-                color = if (active) Palette.Text else Palette.Muted,
+                color = if (active && tv) Palette.Accent else if (active) Palette.Text else Palette.Muted,
                 fontSize = if (compact) 12.sp else 14.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,

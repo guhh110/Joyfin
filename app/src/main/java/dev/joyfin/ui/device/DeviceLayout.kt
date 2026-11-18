@@ -14,7 +14,7 @@ data class DeviceLayout(val television: Boolean = true, val widthDp: Int = 960) 
         get() = !television && widthDp < 600
 
     val gutter
-        get() = if (television) 48.dp else 20.dp
+        get() = if (television) 32.dp else 20.dp
 }
 
 val LocalDeviceLayout = staticCompositionLocalOf { DeviceLayout() }

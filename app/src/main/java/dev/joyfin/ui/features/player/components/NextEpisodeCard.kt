@@ -18,6 +18,7 @@ import dev.joyfin.data.Media
 import dev.joyfin.ui.components.*
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.theme.Palette
+import dev.joyfin.ui.device.LocalDeviceLayout
 
 @Composable
 fun NextEpisodeCard(
@@ -29,11 +30,12 @@ fun NextEpisodeCard(
     paused: Boolean = false,
     buffering: Boolean = false,
 ) {
-    val cardShape = RoundedCornerShape(16.dp)
+    val television = LocalDeviceLayout.current.television
+    val cardShape = RoundedCornerShape(if (television) 12.dp else 16.dp)
     Column(
         modifier
             .widthIn(max = 420.dp)
-            .background(Color(0xFF0C0E14).copy(alpha = 0.94f), cardShape)
+            .background(if (television) Palette.Surface.copy(alpha = .94f) else Color(0xFF0C0E14).copy(alpha = 0.94f), cardShape)
             .border(0.5.dp, Palette.Line, cardShape)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),

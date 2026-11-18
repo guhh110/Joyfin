@@ -72,6 +72,9 @@ internal class ScenarioTransport(
                         allSeries.filter { it.id in favorites }.map { it.copy(userData = it.userData.copy(favorite = true)) }
                     path == "/Items" && request.url.queryParameter("IncludeItemTypes") == "Episode" ->
                         allEpisodes.filter { it.seriesId == request.url.queryParameter("ParentId") }
+                    path == "/Items" && request.url.queryParameter("IsPlayed") == "false" &&
+                        request.url.queryParameter("IncludeItemTypes") == "Movie,Series" ->
+                        (allSeries + ScenarioMedia.movies).filter { !it.userData.played && !it.virtual }
                     path == "/Items" && request.url.queryParameter("ParentId") == null &&
                         request.url.queryParameter("Recursive") == null &&
                         request.url.queryParameter("SearchTerm") == null ->

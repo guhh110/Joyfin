@@ -92,6 +92,12 @@ internal fun BrowseHost(
     val audioOutputMode by vm.audioOutputMode.collectAsStateWithLifecycle()
     val homeLayout by vm.homeLayout.collectAsStateWithLifecycle()
     val tracking by vm.tracking.collectAsStateWithLifecycle()
+    val discovery by vm.tvHomeDiscovery.collectAsStateWithLifecycle()
+    val television = dev.joyfin.ui.device.LocalDeviceLayout.current.television
+    DisposableEffect(vm, television, ui.page, vm.api.session) {
+        vm.setTvHomeActive(television && ui.page == dev.joyfin.app.Page.HOME)
+        onDispose { vm.setTvHomeActive(false) }
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     var exit by remember { mutableStateOf(false) }
     var logout by remember { mutableStateOf(false) }
@@ -162,8 +168,6 @@ internal fun BrowseHost(
                 submitSearch = vm::submitSearch,
                 loadMore = { vm.loadItems(true) },
                 settings = vm::settings,
-                subtitles = vm::openSubtitles,
-                subtitleManager = vm::openSubtitleManager,
                 favorite = vm::toggleFavorite,
                 play = play,
                 retry = vm::retry,
@@ -178,7 +182,6 @@ internal fun BrowseHost(
                 allMedia = vm::allMedia,
                 libraryAudit = vm::openLibraryAudit,
                 openAuditItem = vm::openAuditItem,
-                auditSubtitles = vm::auditSubtitles,
                 toggleEpisodePlayed = vm::toggleEpisodePlayed,
                 removeResumeItem = vm::removeResumeItem,
                 markResumeItemPlayed = vm::markResumeItemPlayed,
@@ -187,6 +190,7 @@ internal fun BrowseHost(
                 refreshTracking = vm::refreshTracking,
                 retryTracking = vm::retryTracking,
                 removeTracking = vm::removeTracking,
+                retryTvHomeDiscovery = vm::retryTvHomeDiscovery,
             )
         }
     val images =
@@ -207,7 +211,8 @@ internal fun BrowseHost(
             EntryActions(vm::connect, vm::login, vm::changeServer, vm::cancelEntry, vm::retry, vm::quickLogin,
                 vm::discoverServers, vm::cancelDiscovery)
         }
-    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, vm.subtitlePage, audioOutputMode, homeLayout, vm.libraryAudit, updates, tracking)
+    AppContent(ui, actions, imagesOverride ?: images, autoNext, entryActions, audioOutputMode, homeLayout,
+        vm.libraryAudit, updates, tracking, discovery, exit || logout)
     if (exit)
         ConfirmDialog("退出 Joyfin？", { exit = false }, { (context as? ComponentActivity)?.finish() },
             confirmInitiallyFocused = true)

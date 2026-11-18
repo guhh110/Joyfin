@@ -32,6 +32,7 @@ fun SearchRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
             ActionButton(
                 "搜索",
                 { search() },
+                Modifier.focusTarget("search:submit"),
                 icon = Glyph.Search,
                 primary = true,
                 enabled = !ui.busy,
@@ -43,7 +44,9 @@ fun SearchRoute(ui: CollectionUiState, actions: BrowseActions, images: ArtworkSo
             else if (ui.error != null && ui.media.isEmpty()) "“${ui.query}” · 暂时无法读取结果"
             else if (ui.busy && ui.media.isEmpty()) "“${ui.query}”"
             else "“${ui.query}” · ${ui.total} 个结果"
-        if (LocalDeviceLayout.current.television) TvSearchHeader(actions.back, summary, field, submit)
+        if (LocalDeviceLayout.current.television) {
+            TvSearchHeader(actions.back, summary, field, submit)
+        }
         else MobileSearchHeader(actions.back, summary, field, submit)
     }
 }

@@ -27,7 +27,6 @@ class OpenSubtitlesSearchController(
 ) {
     private val mutable = MutableStateFlow(OpenSubtitlesSearchState())
     val state = mutable.asStateFlow()
-    val requestHistory = api.requestHistory
     private var job: Job? = null
     private var downloadJob: Job? = null
     private var target: SubtitleSearchContext? = null
@@ -94,7 +93,7 @@ class OpenSubtitlesSearchController(
                 val account = withContext(Dispatchers.IO) { accounts.load() }
                 val resolved = api.download(account, file.id)
                 ensureActive()
-                download.open(current, resolved.name, resolved.link, "OpenSubtitles · ${selected.attributes.release}", selected.attributes.language, api::recordRequest)
+                download.open(current, resolved.name, resolved.link, "OpenSubtitles · ${selected.attributes.release}", selected.attributes.language)
                 mutable.update { it.copy(busyFile = null, transferringFile = file.id, remaining = resolved.remaining) }
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { mutable.update { it.copy(busyFile = null, error = subtitleFailure(e)) } }

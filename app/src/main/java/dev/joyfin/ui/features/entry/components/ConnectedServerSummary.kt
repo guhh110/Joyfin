@@ -8,13 +8,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import androidx.tv.material3.LocalTextStyle
 import dev.joyfin.ui.device.LocalDeviceLayout
 import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.theme.Palette
@@ -31,6 +36,19 @@ internal fun ConnectedServerSummary(
     onChange: () -> Unit,
     actionModifier: Modifier = Modifier,
 ) {
+    val tv = LocalDeviceLayout.current.television
+    // Measure the actual fallback font and letter spacing at the active font scale.
+    val changeWidth = if (tv) {
+        val textWidth = rememberTextMeasurer().measure(
+            text = "更换",
+            style = LocalTextStyle.current.merge(
+                TextStyle(fontSize = 15.sp, platformStyle = PlatformTextStyle(includeFontPadding = false)),
+            ),
+            softWrap = false,
+            maxLines = 1,
+        ).size.width
+        (with(LocalDensity.current) { textWidth.toDp() } + 32.dp).coerceAtLeast(68.dp)
+    } else 68.dp
     val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
@@ -76,7 +94,7 @@ internal fun ConnectedServerSummary(
             )
         }
         Spacer(Modifier.width(8.dp))
-        Box(Modifier.width(68.dp)) {
+        Box(Modifier.width(changeWidth)) {
             EntryButton(
                 "更换",
                 onChange,
