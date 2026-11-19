@@ -18,6 +18,7 @@ internal data class TvHomeSection(
         "latest" -> "最近加入"
         else -> key
     }
+    fun selectionKey(item: Media) = if (key == "resume") tvHomeResumeIdentity(item) else item.id
     fun mediaKey(item: Media) = "$focusPrefix:${item.id}"
     val retryKey: String get() = "home:$key:retry"
     val moreKey: String get() = "home:$key:more"
@@ -29,7 +30,7 @@ internal fun tvHomeSections(home: Home, layout: HomeLayoutPreferences): List<TvH
     val keys = layout.visibleKeys(home.libraries.map { it.id })
     keys.forEach { key ->
         val section = when (key) {
-            "resume" -> TvHomeSection(key, "继续观看", home.resume, home.resumeLoad)
+            "resume" -> TvHomeSection(key, "继续观看", tvHomeResumeItems(home.resume), home.resumeLoad)
             "latest" -> TvHomeSection(key, "最近加入", home.latest, home.latestLoad)
             else -> home.rails.firstOrNull { "library:${it.library.id}" == key }?.let {
                 TvHomeSection(key, it.library.name, it.items,

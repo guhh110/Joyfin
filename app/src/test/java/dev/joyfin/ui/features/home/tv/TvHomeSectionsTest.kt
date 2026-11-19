@@ -52,4 +52,58 @@ class TvHomeSectionsTest {
         val hidden = HomeLayoutPreferences(hidden = setOf("resume", "latest", "library:a"))
         assertEquals(listOf("layout"), tvHomeSections(home.copy(libraries = listOf(library)), hidden).map { it.key })
     }
+
+    @Test fun resumeGroupsSeriesByTheirLatestActivityAndKeepsTheActualEpisode() {
+        val older = Media("older", "第一集", "Episode", seriesId = "series", lastPlayedAt = 10)
+        val latest = older.copy(id = "latest", name = "第二集", lastPlayedAt = 30,
+            ticks = 100, resumeTicks = 40, imageTag = "episode-art")
+        val other = older.copy(id = "other", seriesId = "other-series", lastPlayedAt = 20)
+        val rows = tvHomeResumeItems(listOf(older, other, latest))
+        assertEquals(listOf("latest", "other"), rows.map { it.id })
+        assertSame(latest, rows.first())
+        val section = TvHomeSection("resume", "继续观看")
+        assertEquals(section.selectionKey(older), section.selectionKey(latest))
+        assertEquals("继续观看:latest", section.mediaKey(latest))
+    }
+
+    @Test fun resumeKeepsDistinctSeriesWithTheSameTitleAndMoviesWithCollidingSeriesIds() {
+        val episode = Media("episode", "第一集", "Episode", seriesId = "series",
+            seriesName = "同名剧", lastPlayedAt = 30)
+        val other = episode.copy(id = "other", seriesId = "other-series", lastPlayedAt = 10)
+        val film = movie.copy(id = "series", lastPlayedAt = 20)
+        assertEquals(listOf(episode, film, other), tvHomeResumeItems(listOf(other, film, episode)))
+    }
+
+    @Test fun resumeKeepsUnidentifiedEpisodesSeparateAndDeduplicatesRepeatedItemIds() {
+        val episode = Media("episode", "同名集", "Episode", seriesName = "同名剧")
+        val other = episode.copy(id = "other", seriesId = " ")
+        val recentMovie = movie.copy(lastPlayedAt = 20, resumeTicks = 50)
+        val rows = tvHomeResumeItems(listOf(episode, movie, other, recentMovie, episode))
+        assertEquals(listOf(recentMovie, episode, other), rows)
+        assertSame(recentMovie, rows.first())
+    }
+
+    @Test fun resumeUsesServerOrderForEqualAndMissingViewingDates() {
+        val first = Media("first", "第一集", "Episode", seriesId = "series", lastPlayedAt = 10)
+        val tied = first.copy(id = "tied")
+        val unknown = first.copy(id = "unknown", lastPlayedAt = null)
+        val nextSeries = first.copy(id = "next", seriesId = "next-series")
+        val unknownFirst = first.copy(id = "unknown-first", seriesId = "unknown-series", lastPlayedAt = null)
+        val unknownNext = unknownFirst.copy(id = "unknown-next")
+        val rows = tvHomeResumeItems(listOf(unknown, unknownFirst, first, movie, tied, nextSeries, unknownNext))
+        assertEquals(listOf(first, nextSeries, unknownFirst, movie), rows)
+        assertTrue(tvHomeResumeItems(emptyList()).isEmpty())
+    }
+
+    @Test fun resumeProjectionDoesNotChangeSourceOrOtherSections() {
+        val first = Media("first", "第一集", "Episode", seriesId = "series")
+        val second = first.copy(id = "second", lastPlayedAt = 10)
+        val source = listOf(first, second)
+        val home = Home(source, source, emptyList())
+        val sections = tvHomeSections(home, HomeLayoutPreferences())
+        assertEquals(listOf(second), sections.first { it.key == "resume" }.items)
+        assertSame(source, sections.first { it.key == "latest" }.items)
+        assertSame(source, home.resume)
+        assertEquals(listOf(first, second), source)
+    }
 }

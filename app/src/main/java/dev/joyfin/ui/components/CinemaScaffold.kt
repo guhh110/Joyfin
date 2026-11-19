@@ -44,6 +44,7 @@ fun CinemaHeader(
     backFocusKey: String = "header:back",
     leading: @Composable () -> Unit = {},
     tools: @Composable RowScope.() -> Unit = {},
+    titleContent: (@Composable () -> Unit)? = null,
     focusModifier: @Composable (Modifier, String) -> Modifier = { modifier, key -> modifier.focusTarget(key) },
 ) {
     Row(modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("cinema:header"),
@@ -52,10 +53,13 @@ fun CinemaHeader(
         if (back) IconButton("返回", Glyph.Back, actions.back, focusModifier(Modifier, backFocusKey))
         leading()
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("JOYFIN / CINERAMA", color = CinemaStyle.Muted.copy(alpha = .55f),
-                fontSize = 9.sp, letterSpacing = 2.sp, maxLines = 1)
-            Text(title, color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Medium,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+            if (titleContent != null) titleContent()
+            else {
+                Text("JOYFIN / CINERAMA", color = CinemaStyle.Muted.copy(alpha = .55f),
+                    fontSize = 9.sp, letterSpacing = 2.sp, maxLines = 1)
+                Text(title, color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Medium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+            }
         }
         tools()
         Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -52,6 +52,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
     val sectionKeys = sections.map { it.key }
     var activeKey by rememberSaveable { mutableStateOf("featured") }
     var selections by rememberSaveable { mutableStateOf(hashMapOf<String, String>()) }
+    var resumeIndex by rememberSaveable { mutableIntStateOf(0) }
     val latestSections by rememberUpdatedState(sections)
     val pager = rememberPagerState(pageCount = { latestSections.size })
     val featured = rememberTvHomeFeaturedState(home.resume, tracking, discovery.items, images,
@@ -65,13 +66,18 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
         override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float) = 0f
     } }
 
+    fun selectedItem(section: TvHomeSection) =
+        section.items.firstOrNull { section.selectionKey(it) == selections[section.key] }
+            ?: section.items.getOrNull((if (section.key == "resume") resumeIndex else 0)
+                .coerceAtMost(section.items.lastIndex))
+
     fun entryTarget(section: TvHomeSection): String {
         if (section.key == "featured") return "hero:play"
         if (section.key == "layout") return "home:layout"
-        val selected = section.items.firstOrNull { it.id == selections[section.key] } ?: section.items.firstOrNull()
+        val selected = selectedItem(section)
         return selected?.let(section::mediaKey)
             ?: section.retryKey.takeIf { section.load.error != null || focus?.requesters?.containsKey(it) == true }
-            ?: section.moreKey.takeIf { section.hasMore && !section.load.loading }
+            ?: section.moreKey.takeIf { section.hasMore }
             ?: "header:home"
     }
     val latestEntryTarget by rememberUpdatedState<(TvHomeSection) -> String>(::entryTarget)
@@ -133,7 +139,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
         activeKey = sectionKeys[index]
         if (removedSectionHadFocus && currentWindowFocused) {
             withFrameNanos {}
-            focusContent()
+            if (!focus.target().startsWith("header:")) focusContent()
         }
     }
     LaunchedEffect(pager) {
@@ -169,14 +175,23 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                 modifier = Modifier.fillMaxSize().testTag("home:scroll").onPreviewKeyEvent { event ->
                     if (pager.settledPage == 0 && event.key in listOf(Key.DirectionDown, Key.DirectionUp))
                         return@onPreviewKeyEvent false
+                    val section = latestSections[pager.settledPage]
+                    val target = focus?.target?.invoke()
                     when (event.key) {
                         Key.DirectionDown, Key.PageDown -> {
-                            if (event.type == KeyEventType.KeyDown) goToPage(pager.settledPage + 1)
+                            if (event.type == KeyEventType.KeyDown) {
+                                val entry = latestEntryTarget(section)
+                                if (event.key == Key.DirectionDown && target == section.moreKey && entry != section.moreKey)
+                                    focus.requesters[entry]?.requestFocus()
+                                else goToPage(pager.settledPage + 1)
+                            }
                             true
                         }
                         Key.DirectionUp, Key.PageUp -> {
                             if (event.type == KeyEventType.KeyDown) {
-                                if (pager.settledPage == 0) focus?.requesters?.get("header:home")?.requestFocus()
+                                if (event.key == Key.DirectionUp && section.hasMore && target != section.moreKey)
+                                    focus?.requesters?.get(section.moreKey)?.requestFocus()
+                                else if (pager.settledPage == 0) focus?.requesters?.get("header:home")?.requestFocus()
                                 else goToPage(pager.settledPage - 1)
                             }
                             true
@@ -186,7 +201,7 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                 }) { index ->
                 val section = latestSections[index]
                 val active = index == pager.settledPage && !pager.isScrollInProgress
-                val selected = section.items.firstOrNull { it.id == selections[section.key] } ?: section.items.firstOrNull()
+                val selected = selectedItem(section)
                 Box(Modifier.fillMaxSize().testTag("home:section:${section.key}")) {
                     if (section.key == "featured") TvHomeFeaturedBackdrop(featured, unit)
                     else TvHomeBackdrop(selected, images, collection = true)
@@ -194,9 +209,11 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
                         if (section.key == "featured") Modifier.testTag("home:hero") else Modifier)) {
                         if (section.key == "featured") TvHomeFeaturedHero(home, tracking, discovery, featured,
                             actions, images, unit, active, { goToPage(1) })
-                        else TvHomeCollection(section, images, actions, unit, selections[section.key], { id ->
-                            if (selections[section.key] != id)
-                                selections = HashMap(selections).apply { put(section.key, id) }
+                        else TvHomeCollection(section, images, actions, unit, selections[section.key], { key ->
+                            if (selections[section.key] != key)
+                                selections = HashMap(selections).apply { put(section.key, key) }
+                            if (section.key == "resume")
+                                resumeIndex = section.items.indexOfFirst { section.selectionKey(it) == key }.coerceAtLeast(0)
                         }, active)
                         if (sections.size > 1 && section.key != "featured") TvHomeNext(unit, index == sections.lastIndex,
                             Modifier.align(Alignment.BottomStart).padding(start = unit * 80, bottom = unit * 48)) {
@@ -207,8 +224,6 @@ internal fun TvHomeLayout(ui: HomeUiState, actions: BrowseActions, images: Artwo
             }
         }
         Box(stage.align(Alignment.Center)) {
-            if (pager.settledPage == 0 && featured.items.isNotEmpty()) Caption("左右选片 · 确认观看 · 下键浏览栏目",
-                Modifier.align(Alignment.BottomCenter).padding(bottom = unit * 20), maxLines = 1)
             if (sections.size > 1) TvHomePositions(pager.settledPage, sections.size, unit,
                 Modifier.align(Alignment.CenterEnd).padding(end = unit * 60))
         }

@@ -33,7 +33,6 @@ import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.Palette
-import kotlin.math.ceil
 
 @Composable
 internal fun TvHomeFeaturedBackdrop(state: TvHomeFeaturedState, unit: Dp) {
@@ -103,31 +102,17 @@ internal fun TvHomeFeaturedHero(
             }
         }) {
         if (current != null) {
-            Text(current.reason.label, color = Palette.Muted, fontSize = (unit.value * 24).sp,
-                maxLines = 1, modifier = Modifier.height(unit * 40))
-            Text(current.title, color = Palette.Text, fontWeight = FontWeight.SemiBold,
-                fontSize = (unit.value * if (largeFont) 62 else 78).sp,
-                lineHeight = (unit.value * if (largeFont) 76 else 92).sp,
-                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(unit * 208))
-            val metadata = listOfNotNull(current.media.year.takeIf { it > 0 }?.toString(),
-                if (current.details.type == "Series") "剧集" else "电影",
-                current.media.rating?.let { "评分 ${"%.1f".format(java.util.Locale.ROOT, it)}" },
-                current.media.genres.firstOrNull()).joinToString(" · ")
-            Text(metadata, color = Palette.Muted, fontSize = (unit.value * 24).sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(unit * 42))
+            TvHomeFeaturedTitle(current, images, unit, largeFont)
+            Text(current.metadata, color = Palette.Muted, fontSize = (unit.value * 24).sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.height(unit * 42).testTag("hero:metadata"))
             Text(current.media.overview, color = Palette.Muted, fontSize = (unit.value * 25).sp,
-                lineHeight = (unit.value * 34).sp, maxLines = if (largeFont) 1 else 2,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.height(unit * 76))
-            val playback = current.playback
-            val progressText = when {
-                playback?.type == "Episode" -> "S${playback.season} · E${playback.episode}" +
-                    if (playback.name.isNotBlank()) " · ${playback.name}" else ""
-                playback != null && playback.ticks > playback.resumeTicks && playback.resumeTicks > 0 ->
-                    "剩余约 ${ceil((playback.ticks - playback.resumeTicks) / 600_000_000.0).toInt()} 分钟"
-                else -> ""
-            }
-            Text(progressText, color = Palette.Text, fontSize = (unit.value * 23).sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.height(unit * 42))
+                lineHeight = (unit.value * 34).sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.height(unit * 42).testTag("hero:overview"))
+            Text(current.progressLabel, color = Palette.Text, fontSize = (unit.value * 23).sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.height(unit * 42).testTag("hero:progress"))
             Row(Modifier.onPreviewKeyEvent { event ->
                 when (event.key) {
                     Key.DirectionUp -> {
@@ -150,7 +135,7 @@ internal fun TvHomeFeaturedHero(
             }, horizontalArrangement = Arrangement.spacedBy(unit * 24)) {
                 ActionButton(current.playLabel, { execute(current) }, target("hero:play"),
                     Glyph.Play, primary = true, maxLines = 1)
-                ActionButton("查看详情", { state.onInput(); actions.open(current.details) },
+                ActionButton("详情", { state.onInput(); actions.open(current.details) },
                     target("hero:detail"), Glyph.Info, maxLines = 1)
             }
         } else {
@@ -237,10 +222,6 @@ internal fun TvHomeFeaturedHero(
                     val horizontal = item.media.backdropTag.isNotBlank()
                     Artwork(if (horizontal) images.thumbnail(item.media) else images.poster(item.media), images,
                         Modifier.fillMaxSize(), contentScale = if (horizontal) ContentScale.Crop else ContentScale.Fit)
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-                        0f to Color.Transparent, 1f to Color.Black.copy(alpha = .78f))))
-                    Text(item.reason.label, Modifier.align(Alignment.BottomStart).padding(unit * 12),
-                        color = Palette.Text, fontSize = (unit.value * 19).sp, maxLines = 1)
                     item.progress?.let { progress ->
                         Box(Modifier.align(Alignment.BottomStart).fillMaxWidth(progress).height(unit * 4)
                             .background(Palette.Text).semantics {
@@ -250,7 +231,7 @@ internal fun TvHomeFeaturedHero(
                 }
                 Text(item.title, Modifier.padding(top = unit * 10).fillMaxWidth(),
                     color = if (selected || focused) Palette.Text else Palette.Muted,
-                    fontSize = (unit.value * 23).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    fontSize = (unit.value * 21).sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         } }
     }

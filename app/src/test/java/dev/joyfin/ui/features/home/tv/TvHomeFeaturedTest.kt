@@ -73,10 +73,45 @@ class TvHomeFeaturedTest {
             discovery("played").copy(played = true), discovery("virtual").copy(virtual = true)))
         assertSame(series, items.first().media)
         assertNull(items.first().playback)
-        assertEquals("查看剧集", items.first().playLabel)
+        assertEquals("剧集", items.first().playLabel)
         assertEquals("movie", items.last().playback?.id)
         assertEquals("播放", items.last().playLabel)
         assertEquals(2, items.size)
+    }
+
+    @Test fun compactMetadataSkipsMissingFieldsAndGenres() {
+        val media = Media("movie", "电影名", "Movie", year = 2026, rating = 8.8, genres = listOf("动画"))
+        val item = TvHomeFeaturedItem(media.id, media, media, media, TvHomeFeaturedReason.DISCOVER)
+        assertEquals("2026 · 电影 · 8.8 分", item.metadata)
+        assertEquals("电影 · 8.8 分", item.copy(media = media.copy(year = 0)).metadata)
+        assertEquals("2026 · 电影", item.copy(media = media.copy(rating = null)).metadata)
+        assertEquals("电影", item.copy(media = media.copy(year = 0, rating = null)).metadata)
+        assertEquals("剧集", item.copy(media = media.copy(year = 0, rating = null),
+            details = media.copy(type = "Series"), playback = null).metadata)
+    }
+
+    @Test fun compactProgressKeepsEpisodeNumbersInTheButtonAndMovieMinutesAboveIt() {
+        val episode = Media("episode", "不应重复显示的集名", "Episode", season = 5, episode = 140)
+        val item = TvHomeFeaturedItem(episode.id, episode, episode, episode, TvHomeFeaturedReason.RESUME)
+        assertEquals("继续 S5E140", item.playLabel)
+        assertEquals("", item.progressLabel)
+        val movie = Media("movie", "电影", "Movie", ticks = 1_800_000_001, resumeTicks = 600_000_000)
+        assertEquals("剩余 3 分钟", item.copy(playback = movie).progressLabel)
+        assertEquals("剩余 2 分钟", item.copy(playback = movie.copy(ticks = 1_800_000_000)).progressLabel)
+        assertEquals("", item.copy(playback = movie.copy(resumeTicks = 0)).progressLabel)
+        assertEquals("", item.copy(playback = movie.copy(resumeTicks = movie.ticks)).progressLabel)
+        assertEquals("", item.copy(playback = null).progressLabel)
+    }
+
+    @Test fun compactPlayLabelsKeepResumeAndNextEpisodeActionsDistinctFromNewMovies() {
+        val media = movie("movie")
+        val item = TvHomeFeaturedItem(media.id, media, media, media, TvHomeFeaturedReason.RESUME)
+        assertEquals("继续", item.playLabel)
+        assertEquals("继续 S5E140", item.copy(playback = media.copy(type = "Episode", season = 5, episode = 140)).playLabel)
+        assertEquals("继续 S5E141", item.copy(playback = media.copy(type = "Episode", season = 5, episode = 141, resumeTicks = 0),
+            reason = TvHomeFeaturedReason.NEXT_EPISODE).playLabel)
+        assertEquals("播放", item.copy(reason = TvHomeFeaturedReason.DISCOVER).playLabel)
+        assertEquals("剧集", item.copy(playback = null).playLabel)
     }
 
     @Test fun selectionSurvivesLateSourcesReorderingAndMetadataRefresh() {

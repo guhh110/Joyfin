@@ -2,6 +2,8 @@ package dev.joyfin.ui.features.home.tv
 
 import dev.joyfin.browse.TrackingUiState
 import dev.joyfin.data.*
+import java.util.Locale
+import kotlin.math.ceil
 
 internal enum class TvHomeFeaturedReason(val label: String) {
     RESUME("继续观看"), NEXT_EPISODE("接着看下一集"), DISCOVER("最近加入"),
@@ -17,10 +19,24 @@ internal data class TvHomeFeaturedItem(
 ) {
     val title: String get() = media.seriesName.ifBlank { media.name }
     val playLabel: String get() = when {
-        playback == null -> "查看剧集"
-        playback.type == "Episode" -> "继续 S${playback.season} E${playback.episode}"
-        reason == TvHomeFeaturedReason.RESUME -> "继续观看"
+        playback == null -> "剧集"
+        playback.type == "Episode" -> "继续 S${playback.season}E${playback.episode}"
+        reason == TvHomeFeaturedReason.RESUME -> "继续"
         else -> "播放"
+    }
+    val metadata: String get() = listOfNotNull(
+        media.year.takeIf { it > 0 }?.toString(),
+        if (details.type == "Series") "剧集" else "电影",
+        media.rating?.let { "${"%.1f".format(Locale.ROOT, it)} 分" },
+    ).joinToString(" · ")
+    val progressLabel: String get() {
+        val target = playback ?: return ""
+        return when {
+            target.type == "Episode" -> ""
+            target.ticks > target.resumeTicks && target.resumeTicks > 0 ->
+                "剩余 ${ceil((target.ticks - target.resumeTicks) / 600_000_000.0).toInt()} 分钟"
+            else -> ""
+        }
     }
     val progress: Float? get() = playback?.takeIf { it.ticks > 0 && it.resumeTicks > 0 }
         ?.let { (it.resumeTicks.toDouble() / it.ticks).toFloat().coerceIn(0f, 1f) }
