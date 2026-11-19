@@ -5,6 +5,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.imageLoader
@@ -16,6 +17,8 @@ import dev.joyfin.browse.TrackingUiState
 import dev.joyfin.data.Media
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Stable
 internal class TvHomeFeaturedState(initialKey: String = "", initialIndex: Int = 0) {
@@ -27,9 +30,7 @@ internal class TvHomeFeaturedState(initialKey: String = "", initialIndex: Int = 
         private set
     var interacted by mutableStateOf(false)
         private set
-    var artwork by mutableStateOf<ImageRequest?>(null)
-    var artworkKey by mutableStateOf<String?>(null)
-    var landscape by mutableStateOf(false)
+    var artwork by mutableStateOf<TvHomeFeaturedArtwork?>(null)
     val current: TvHomeFeaturedItem? get() = items.firstOrNull { it.key == selectedKey }
 
     fun update(values: List<TvHomeFeaturedItem>) {
@@ -80,19 +81,33 @@ internal fun rememberTvHomeFeaturedState(
     val landscape = current?.media?.backdropTag?.isNotBlank() == true
     val request = rememberArtworkRequest(current?.media?.let { if (landscape) images.backdrop(it) else images.poster(it) }, images)
     val size = window.containerSize
-    var readyRequest by remember { mutableStateOf<ImageRequest?>(null) }
+    var readyRequest by remember(images.cacheNamespace) { mutableStateOf<ImageRequest?>(null) }
     LaunchedEffect(running, current?.key, request) {
-        if (!running || current == null) return@LaunchedEffect
+        if (current == null) {
+            state.artwork = null
+            readyRequest = null
+            return@LaunchedEffect
+        }
+        if (!running) return@LaunchedEffect
+        if (state.interacted) delay(180)
         val sized = request.newBuilder().size(
             if (landscape) size.width.coerceIn(1, 1920) else 640,
             if (landscape) size.height.coerceIn(1, 1080) else 960,
-        ).build()
+        ).allowHardware(false).build()
         val loaded = if (current.media.id.isBlank() || request.data.toString().isBlank()) null
-            else (loader.execute(sized) as? SuccessResult)?.let { sized }
+            else loader.execute(sized) as? SuccessResult
+        val tint = withContext(Dispatchers.Default) {
+            loaded?.drawable?.let { drawable ->
+                runCatching {
+                    val bitmap = drawable.toBitmap(24, 24, android.graphics.Bitmap.Config.ARGB_8888)
+                    val pixels = IntArray(bitmap.width * bitmap.height)
+                    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+                    tvHomeAtmosphereColor(pixels)
+                }.getOrNull()
+            } ?: androidx.compose.ui.graphics.Color.Transparent
+        }
         ensureActive()
-        state.artwork = loaded
-        state.landscape = landscape
-        state.artworkKey = current.key
+        state.artwork = TvHomeFeaturedArtwork(current.key, sized.takeIf { loaded != null }, landscape, tint)
         readyRequest = request
     }
     val next = state.items.takeIf { it.size > 1 }?.get((state.selectedIndex + 1) % state.items.size)
@@ -103,7 +118,7 @@ internal fun rememberTvHomeFeaturedState(
             loader.execute(nextRequest.newBuilder().size(
                 if (nextLandscape) size.width.coerceIn(1, 1920) else 640,
                 if (nextLandscape) size.height.coerceIn(1, 1080) else 960,
-            ).build())
+            ).allowHardware(false).build())
     }
     LaunchedEffect(running, state.interacted, readyRequest, current?.key) {
         if (running && !state.interacted && current != null && readyRequest == request && state.items.size > 1)

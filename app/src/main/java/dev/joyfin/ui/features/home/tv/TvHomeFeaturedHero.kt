@@ -4,25 +4,35 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
 import dev.joyfin.browse.HomeRegion
 import dev.joyfin.browse.TrackingUiState
 import dev.joyfin.browse.TvHomeDiscoveryUiState
@@ -33,26 +43,23 @@ import dev.joyfin.ui.interaction.focusTarget
 import dev.joyfin.ui.model.ArtworkSource
 import dev.joyfin.ui.model.BrowseActions
 import dev.joyfin.ui.theme.Palette
+import dev.joyfin.ui.theme.MotionTokens
+import dev.joyfin.ui.theme.rememberMotionSpec
 
 @Composable
-internal fun TvHomeFeaturedBackdrop(state: TvHomeFeaturedState, unit: Dp) {
-    val current = state.current
-    Box(Modifier.fillMaxSize().background(Palette.Background)) {
-        if (current != null && state.artworkKey == current.key && state.artwork != null) {
-            AsyncImage(state.artwork, contentDescription = null,
-                modifier = if (state.landscape) Modifier.fillMaxSize()
-                    else Modifier.align(Alignment.CenterEnd).padding(end = unit * 160, bottom = unit * 140)
-                        .size(unit * 420, unit * 630).clip(RoundedCornerShape(unit * 18)),
-                contentScale = if (state.landscape) ContentScale.Crop else ContentScale.Fit,
-                alignment = Alignment.CenterEnd)
-        }
-        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-            0f to Palette.Background.copy(alpha = .97f), .48f to Palette.Background.copy(alpha = .75f),
-            1f to Color.Transparent)))
-        Box(Modifier.matchParentSize().background(Brush.verticalGradient(
-            0f to Palette.Background.copy(alpha = .48f), .4f to Color.Transparent,
-            .7f to Palette.Background.copy(alpha = .78f), 1f to Palette.Background)))
-    }
+private fun rememberFeaturedActionWidth(labels: List<String>, weight: FontWeight, namespace: String): Dp {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val style = TextStyle(fontSize = 15.sp, fontWeight = weight, letterSpacing = .2.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false))
+    val textWidth = labels.maxOfOrNull {
+        measurer.measure(it, style, maxLines = 1, softWrap = false).size.width
+    } ?: 0
+    val required = with(density) { textWidth.toDp() } + 70.dp
+    var retained by rememberSaveable(namespace, density.density, density.fontScale) { mutableFloatStateOf(0f) }
+    val width = maxOf(required.value, retained)
+    SideEffect { retained = width }
+    return width.dp
 }
 
 @Composable
@@ -64,6 +71,8 @@ internal fun TvHomeFeaturedHero(
     val current = state.current
     val focus = LocalScreenFocus.current
     val largeFont = LocalDensity.current.fontScale > 1.15f
+    val playWidth = rememberFeaturedActionWidth(state.items.map { it.playLabel }, FontWeight.SemiBold, images.cacheNamespace)
+    val detailWidth = rememberFeaturedActionWidth(listOf("详情"), FontWeight.Medium, images.cacheNamespace)
     fun request(key: String) { focus?.requesters?.get(key)?.requestFocus() }
     fun execute(item: TvHomeFeaturedItem) {
         state.onInput()
@@ -83,7 +92,7 @@ internal fun TvHomeFeaturedHero(
         home.resumeLoad.loaded && home.resume.isEmpty() && home.latestLoad.loaded && home.latest.isEmpty() &&
         discovery.loaded && discovery.items.isEmpty() && tracking?.loading != true && tracking?.error == null &&
         tracking?.entries.orEmpty().isEmpty()
-    Column(Modifier.offset(x = unit * 96, y = unit * 214).width(unit * 1050)
+    Column(Modifier.offset(x = unit * 104, y = unit * 230).width(unit * 960)
         .height(unit * 514).testTag("home:hero-content").onPreviewKeyEvent { event ->
             if (current != null) return@onPreviewKeyEvent false
             when (event.key) {
@@ -103,16 +112,14 @@ internal fun TvHomeFeaturedHero(
         }) {
         if (current != null) {
             TvHomeFeaturedTitle(current, images, unit, largeFont)
-            Text(current.metadata, color = Palette.Muted, fontSize = (unit.value * 24).sp,
+            Text(current.metadata, color = Palette.Text.copy(alpha = .82f), fontSize = (unit.value * 24).sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.height(unit * 42).testTag("hero:metadata"))
             Text(current.media.overview, color = Palette.Muted, fontSize = (unit.value * 25).sp,
                 lineHeight = (unit.value * 34).sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.height(unit * 42).testTag("hero:overview"))
-            Text(current.progressLabel, color = Palette.Text, fontSize = (unit.value * 23).sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.height(unit * 42).testTag("hero:progress"))
+                modifier = Modifier.width(unit * 800).height(unit * 42).testTag("hero:overview"))
+            Spacer(Modifier.height(unit * 24))
             Row(Modifier.onPreviewKeyEvent { event ->
                 when (event.key) {
                     Key.DirectionUp -> {
@@ -133,10 +140,10 @@ internal fun TvHomeFeaturedHero(
                     else -> false
                 }
             }, horizontalArrangement = Arrangement.spacedBy(unit * 24)) {
-                ActionButton(current.playLabel, { execute(current) }, target("hero:play"),
-                    Glyph.Play, primary = true, maxLines = 1)
+                ActionButton(current.playLabel, { execute(current) }, target("hero:play").width(playWidth),
+                    if (current.playback == null) Glyph.List else Glyph.Play, primary = true, maxLines = 1)
                 ActionButton("详情", { state.onInput(); actions.open(current.details) },
-                    target("hero:detail"), Glyph.Info, maxLines = 1)
+                    target("hero:detail").width(detailWidth), Glyph.Info, maxLines = 1)
             }
         } else {
             Spacer(Modifier.height(unit * 45))
@@ -210,15 +217,36 @@ internal fun TvHomeFeaturedHero(
         state.items.forEach { item -> key(item.key) {
             val selected = item.key == current?.key
             var focused by remember { mutableStateOf(false) }
+            val lift by animateFloatAsState(if (focused) 1f else 0f,
+                animationSpec = rememberMotionSpec(MotionTokens.FocusDurationMs), label = "featured-focus")
+            val tint = state.artwork?.tint?.takeIf { it.alpha > 0f } ?: Palette.Text
             val shape = RoundedCornerShape(unit * 10)
             Column(target("hero:candidate:${item.key}").width(unit * 268)
                 .onFocusChanged { focused = it.isFocused; if (it.isFocused) state.select(item.key) }
                 .semantics { this.selected = selected; contentDescription = "${item.title}，${item.reason.label}" }
-                .stableAction(true) { execute(item) }) {
-                Box(Modifier.fillMaxWidth().height(unit * 151)
-                    .border(unit * if (focused) 4 else if (selected) 2 else 0,
-                        if (focused) Palette.BorderFocus else if (selected) Palette.Text.copy(alpha = .65f)
-                        else Color.Transparent, shape).padding(unit * 5).clip(shape)) {
+                .stableAction(true) { execute(item) }.zIndex(if (focused) 1f else 0f)
+                .graphicsLayer {
+                    scaleX = 1f + .025f * lift
+                    scaleY = 1f + .025f * lift
+                    translationY = -(unit * 6).toPx() * lift
+                }) {
+                Box(Modifier.fillMaxWidth().height(unit * 12), contentAlignment = Alignment.TopCenter) {
+                    if (selected && !focused) Box(Modifier.width(unit * 32).height(unit * 3)
+                        .background(Palette.Text, RoundedCornerShape(unit * 2))
+                        .testTag("hero:selection:${item.key}"))
+                }
+                Box(Modifier.fillMaxWidth().height(unit * 151).testTag("hero:artwork:${item.key}")
+                    .drawWithCache {
+                        val spread = (unit * 24).toPx()
+                        val glow = Brush.radialGradient(listOf(tint.copy(alpha = .24f * lift), Color.Transparent),
+                            center = Offset(size.width / 2, size.height / 2), radius = size.width * .7f)
+                        onDrawBehind {
+                            drawRect(glow, topLeft = Offset(-spread, -spread),
+                                size = Size(size.width + spread * 2, size.height + spread * 2))
+                        }
+                    }
+                    .border(unit * 4, if (focused) Palette.BorderFocus else Color.Transparent, shape)
+                    .padding(unit * 5).clip(shape)) {
                     val horizontal = item.media.backdropTag.isNotBlank()
                     Artwork(if (horizontal) images.thumbnail(item.media) else images.poster(item.media), images,
                         Modifier.fillMaxSize(), contentScale = if (horizontal) ContentScale.Crop else ContentScale.Fit)

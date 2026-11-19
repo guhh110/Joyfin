@@ -179,9 +179,10 @@ private fun TvHomeFocusCard(item: Media, images: ArtworkSource, unit: Dp, expand
         .semantics { selected = expanded }
         .stableAction(true, onLongClick = onLongClick, onClick = onClick).alpha(opacity)) {
         Box(Modifier.fillMaxWidth().height(imageHeight)
-            .actionVisualFeedback(focused = focused, borderOnly = true, shape = shape)) {
-            if (item.type == "Episode") EpisodeArtwork(item, images, Modifier.fillMaxSize(),
-                imageRatio = if (expanded) 16f / 9f else 2f / 3f)
+            .actionVisualFeedback(focused = focused, borderOnly = true, shape = shape,
+                overrideBorderColor = if (focused) Palette.BorderFocus.copy(alpha = .8f)
+                    else Color.Transparent)) {
+            if (item.type == "Episode") TvHomeEpisodeArtwork(item, images, unit, Modifier.fillMaxSize())
             else {
                 Artwork(images.poster(item), images, Modifier.fillMaxSize(), item.name)
                 if (landscape > 0f) Artwork(images.backdrop(item), images,
@@ -190,11 +191,19 @@ private fun TvHomeFocusCard(item: Media, images: ArtworkSource, unit: Dp, expand
             if (expanded) {
                 Box(Modifier.matchParentSize().background(Brush.verticalGradient(
                     .3f to Color.Transparent, 1f to Color.Black.copy(alpha = .92f))))
-                Text(item.seriesName.ifBlank { item.name }, Modifier.align(Alignment.BottomStart)
-                    .padding(horizontal = unit * 32, vertical = unit * 38),
-                    color = Palette.Text, fontFamily = FontFamily.SansSerif,
-                    fontSize = (unit.value * 32).sp, fontWeight = FontWeight.SemiBold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.align(Alignment.BottomStart)
+                    .padding(horizontal = unit * 32, vertical = unit * 32),
+                    verticalArrangement = Arrangement.spacedBy(unit * 8)) {
+                    Text(item.seriesName.ifBlank { item.name }, color = Palette.Text,
+                        fontFamily = FontFamily.SansSerif, fontSize = (unit.value * 32).sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val metadata = tvHomeCardMetadata(item)
+                    if (metadata.isNotBlank()) Text(metadata,
+                        Modifier.testTag("home:card-metadata:${item.id}"),
+                        color = Palette.Text.copy(alpha = .72f), fontFamily = FontFamily.SansSerif,
+                        fontSize = (unit.value * 23).sp, lineHeight = (unit.value * 32).sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
             if (item.resumeTicks > 0 && item.ticks > 0) {
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(unit * 5)

@@ -9,6 +9,18 @@ internal enum class TvHomeFeaturedReason(val label: String) {
     RESUME("继续观看"), NEXT_EPISODE("接着看下一集"), DISCOVER("最近加入"),
 }
 
+internal data class TvHomeTitleParts(val main: String, val subtitle: String? = null)
+
+internal fun tvHomeTitleParts(title: String): TvHomeTitleParts {
+    val text = title.trim()
+    val separator = Regex("[：:]| [—–] ").find(text) ?: return TvHomeTitleParts(text)
+    val main = text.substring(0, separator.range.first).trim()
+    val subtitle = text.substring(separator.range.last + 1).trim()
+    return if (main.length in 2..24 && subtitle.length >= 2 &&
+        !(main.all(Char::isDigit) && subtitle.all(Char::isDigit))) TvHomeTitleParts(main, subtitle)
+    else TvHomeTitleParts(text)
+}
+
 internal data class TvHomeFeaturedItem(
     val key: String,
     val media: Media,
@@ -21,7 +33,7 @@ internal data class TvHomeFeaturedItem(
     val playLabel: String get() = when {
         playback == null -> "剧集"
         playback.type == "Episode" -> "继续 S${playback.season}E${playback.episode}"
-        reason == TvHomeFeaturedReason.RESUME -> "继续"
+        reason == TvHomeFeaturedReason.RESUME -> remainingMinutes?.let { "继续 · 剩余 $it 分钟" } ?: "继续"
         else -> "播放"
     }
     val metadata: String get() = listOfNotNull(
@@ -29,14 +41,11 @@ internal data class TvHomeFeaturedItem(
         if (details.type == "Series") "剧集" else "电影",
         media.rating?.let { "${"%.1f".format(Locale.ROOT, it)} 分" },
     ).joinToString(" · ")
-    val progressLabel: String get() {
-        val target = playback ?: return ""
-        return when {
-            target.type == "Episode" -> ""
-            target.ticks > target.resumeTicks && target.resumeTicks > 0 ->
-                "剩余 ${ceil((target.ticks - target.resumeTicks) / 600_000_000.0).toInt()} 分钟"
-            else -> ""
-        }
+    private val remainingMinutes: Long? get() {
+        val target = playback ?: return null
+        return if (target.type == "Movie" && target.ticks > target.resumeTicks && target.resumeTicks > 0)
+            ceil((target.ticks - target.resumeTicks) / 600_000_000.0).toLong()
+        else null
     }
     val progress: Float? get() = playback?.takeIf { it.ticks > 0 && it.resumeTicks > 0 }
         ?.let { (it.resumeTicks.toDouble() / it.ticks).toFloat().coerceIn(0f, 1f) }

@@ -13,6 +13,31 @@ class TvHomeFeaturedTest {
         resumeTicks = 10, lastPlayedAt = time)
     private fun discovery(id: String) = movie(id).copy(resumeTicks = 0)
 
+    @Test fun editorialTitlesSplitOnlyAtExplicitSeparators() {
+        assertEquals(TvHomeTitleParts("群山之间", "漫长旅途与归来的故事（演示）"),
+            tvHomeTitleParts("群山之间：漫长旅途与归来的故事（演示）"))
+        assertEquals(TvHomeTitleParts("Dune", "Part Two"), tvHomeTitleParts("Dune: Part Two"))
+        assertEquals(TvHomeTitleParts("海港", "归来"), tvHomeTitleParts("海港 — 归来"))
+        assertEquals(TvHomeTitleParts("海港", "归来"), tvHomeTitleParts("海港 – 归来"))
+        listOf("普通片名", "没有任何分隔符但很长的电影标题不应该被机械截成主标题与副标题", "WALL-E", "12:30",
+            "：没有主标题", "海港：", "A: Film", "非常非常非常非常非常非常非常非常非常非常非常非常长的前缀：归来").forEach {
+            assertEquals(TvHomeTitleParts(it), tvHomeTitleParts(it))
+        }
+        assertEquals(TvHomeTitleParts("海港", "归来：终章"), tvHomeTitleParts(" 海港 ： 归来：终章 "))
+    }
+
+    @Test fun atmosphereIgnoresTransparentBlackAndWhitePixelsAndMutesSaturation() {
+        assertEquals(androidx.compose.ui.graphics.Color.Transparent, tvHomeAtmosphereColor(intArrayOf()))
+        assertEquals(androidx.compose.ui.graphics.Color.Transparent,
+            tvHomeAtmosphereColor(intArrayOf(0x00CC3300, 0xFF000000.toInt(), 0xFFFFFFFF.toInt())))
+        val warm = tvHomeAtmosphereColor(IntArray(20) { 0xFFCC6633.toInt() })
+        assertTrue(warm.red > warm.green && warm.green > warm.blue)
+        assertTrue(warm.red - warm.blue < .6f)
+        val cool = tvHomeAtmosphereColor(intArrayOf(0xFF3366CC.toInt(), 0xFFFFFFFF.toInt(), 0xFF000000.toInt()))
+        assertTrue(cool.blue > cool.green && cool.green > cool.red)
+        assertEquals(1f, cool.alpha)
+    }
+
     @Test fun balancesThreeContinuationsAndThreeDiscoveriesInAlternatingOrder() {
         val resume = (1..8).map { movie("resume$it", (10 - it).toLong()) }
         val discover = (1..8).map { discovery("new$it") }
@@ -90,23 +115,28 @@ class TvHomeFeaturedTest {
             details = media.copy(type = "Series"), playback = null).metadata)
     }
 
-    @Test fun compactProgressKeepsEpisodeNumbersInTheButtonAndMovieMinutesAboveIt() {
+    @Test fun compactActionsIncludeEpisodeNumbersAndRoundedMovieMinutes() {
         val episode = Media("episode", "不应重复显示的集名", "Episode", season = 5, episode = 140)
         val item = TvHomeFeaturedItem(episode.id, episode, episode, episode, TvHomeFeaturedReason.RESUME)
         assertEquals("继续 S5E140", item.playLabel)
-        assertEquals("", item.progressLabel)
         val movie = Media("movie", "电影", "Movie", ticks = 1_800_000_001, resumeTicks = 600_000_000)
-        assertEquals("剩余 3 分钟", item.copy(playback = movie).progressLabel)
-        assertEquals("剩余 2 分钟", item.copy(playback = movie.copy(ticks = 1_800_000_000)).progressLabel)
-        assertEquals("", item.copy(playback = movie.copy(resumeTicks = 0)).progressLabel)
-        assertEquals("", item.copy(playback = movie.copy(resumeTicks = movie.ticks)).progressLabel)
-        assertEquals("", item.copy(playback = null).progressLabel)
+        assertEquals("继续 · 剩余 3 分钟", item.copy(playback = movie).playLabel)
+        assertEquals("继续 · 剩余 2 分钟", item.copy(playback = movie.copy(ticks = 1_800_000_000)).playLabel)
+        assertEquals("继续 · 剩余 1 分钟", item.copy(playback = movie.copy(ticks = movie.resumeTicks + 1)).playLabel)
+        assertEquals("继续", item.copy(playback = movie.copy(resumeTicks = 0)).playLabel)
+        assertEquals("继续", item.copy(playback = movie.copy(resumeTicks = -1)).playLabel)
+        assertEquals("继续", item.copy(playback = movie.copy(resumeTicks = movie.ticks)).playLabel)
+        assertEquals("继续", item.copy(playback = movie.copy(resumeTicks = movie.ticks + 1)).playLabel)
+        assertEquals("继续", item.copy(playback = movie.copy(ticks = 0)).playLabel)
+        assertEquals("继续", item.copy(playback = movie.copy(ticks = -1)).playLabel)
+        assertEquals("播放", item.copy(playback = movie, reason = TvHomeFeaturedReason.DISCOVER).playLabel)
+        assertEquals("剧集", item.copy(playback = null).playLabel)
     }
 
     @Test fun compactPlayLabelsKeepResumeAndNextEpisodeActionsDistinctFromNewMovies() {
         val media = movie("movie")
         val item = TvHomeFeaturedItem(media.id, media, media, media, TvHomeFeaturedReason.RESUME)
-        assertEquals("继续", item.playLabel)
+        assertEquals("继续 · 剩余 1 分钟", item.playLabel)
         assertEquals("继续 S5E140", item.copy(playback = media.copy(type = "Episode", season = 5, episode = 140)).playLabel)
         assertEquals("继续 S5E141", item.copy(playback = media.copy(type = "Episode", season = 5, episode = 141, resumeTicks = 0),
             reason = TvHomeFeaturedReason.NEXT_EPISODE).playLabel)

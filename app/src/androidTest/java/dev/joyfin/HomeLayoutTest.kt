@@ -35,10 +35,14 @@ import org.junit.runner.RunWith
 class HomeLayoutTest {
     @get:Rule val compose = createEmptyComposeRule()
 
-    private fun assertFocusOutline(tag: String, visible: Boolean) {
-        val pixels = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
+    private fun assertFocusOutline(tag: String, visible: Boolean, useUnmergedTree: Boolean = false,
+        minimumBrightness: Float = .85f) {
+        val pixels = compose.onNodeWithTag(tag, useUnmergedTree).captureToImage().toPixelMap()
         val edge = pixels[pixels.width / 2, 0]
-        assertEquals("Focus outline on $tag", visible, edge.red > .85f && edge.green > .85f && edge.blue > .85f)
+        assertEquals("Focus outline on $tag", visible,
+            edge.red > minimumBrightness && edge.green > minimumBrightness && edge.blue > minimumBrightness)
+        if (visible && minimumBrightness < .85f)
+            assertTrue("Collection focus outline stays softer than solid white", edge.red < .9f)
     }
 
     private fun awaitFocused(tag: String): SemanticsNodeInteraction {
@@ -54,7 +58,8 @@ class HomeLayoutTest {
 
     @Test
     fun tvSectionHeaderMoreKeepsOneFocusOutlineAndRestoresTheExpandedCard() {
-        val latest = listOf(Media("first", "第一部影片", "Movie"), Media("second", "第二部影片", "Movie"))
+        val latest = listOf(Media("first", "第一部影片", "Movie", year = 2025),
+            Media("second", "第二部影片", "Movie", year = 2026, rating = 8.8, ticks = 72_000_000_000))
         val library = Media("library", "电影库", "CollectionFolder")
         val emptyLibrary = Media("empty", "空媒体库", "CollectionFolder")
         var home by mutableStateOf(Home(emptyList(), latest, listOf(library, emptyLibrary), rails = listOf(
@@ -88,16 +93,23 @@ class HomeLayoutTest {
             awaitFocused("hero:play").performKeyInput { pressKey(Key.DirectionDown) }
             awaitFocused("hero:candidate:first").performKeyInput { pressKey(Key.DirectionDown) }
             awaitFocused("最近加入:first")
+            compose.onNodeWithTag("home:card-metadata:first", useUnmergedTree = true)
+                .assertIsDisplayed().assertTextEquals("2025")
+            compose.onNodeWithTag("home:card-metadata:second", useUnmergedTree = true).assertDoesNotExist()
             val headerMore = compose.onNodeWithTag("home:latest:more").getUnclippedBoundsInRoot()
             compose.onNodeWithTag("最近加入:first").performKeyInput { pressKey(Key.DirectionRight) }
             awaitFocused("最近加入:second").assertIsSelected()
-            assertFocusOutline("最近加入:second", true)
+            compose.onNodeWithTag("home:card-metadata:first", useUnmergedTree = true).assertDoesNotExist()
+            compose.onNodeWithTag("home:card-metadata:second", useUnmergedTree = true)
+                .assertIsDisplayed().assertTextEquals("2026 · 8.8 分 · 120 分钟")
+            assertFocusOutline("最近加入:second", true, minimumBrightness = .65f)
             val expanded = compose.onNodeWithTag("最近加入:second").getUnclippedBoundsInRoot()
 
             compose.onNodeWithTag("最近加入:second").performKeyInput { pressKey(Key.DirectionRight) }
             awaitFocused("最近加入:second").performKeyInput { pressKey(Key.DirectionUp) }
             awaitFocused("home:latest:more")
             compose.onNodeWithTag("最近加入:second").assertIsNotFocused().assertIsSelected()
+            compose.onNodeWithTag("home:card-metadata:second", useUnmergedTree = true).assertIsDisplayed()
             assertEquals(expanded, compose.onNodeWithTag("最近加入:second").getUnclippedBoundsInRoot())
             assertFocusOutline("最近加入:second", false)
             assertFocusOutline("home:latest:more", true)
@@ -113,7 +125,7 @@ class HomeLayoutTest {
 
             compose.onNodeWithTag("home:latest:more").performKeyInput { pressKey(Key.DirectionDown) }
             awaitFocused("最近加入:second")
-            assertFocusOutline("最近加入:second", true)
+            assertFocusOutline("最近加入:second", true, minimumBrightness = .65f)
             assertFocusOutline("home:latest:more", false)
             compose.onNodeWithTag("最近加入:second").performKeyInput { pressKey(Key.DirectionUp) }
             awaitFocused("home:latest:more").performKeyInput { pressKey(Key.Enter); pressKey(Key.DirectionDown) }
@@ -210,6 +222,11 @@ class HomeLayoutTest {
                 .performKeyInput { pressKey(Key.Enter) }
             compose.onAllNodesWithTag("继续观看:current").assertCountEquals(1)
             compose.onNodeWithTag("继续观看:older").assertDoesNotExist()
+            compose.onNodeWithTag("home:episode-placeholder:current", useUnmergedTree = true)
+                .assertIsDisplayed().assertTextEquals("暂无剧照")
+            compose.onNodeWithTag("home:card-metadata:current", useUnmergedTree = true)
+                .assertIsDisplayed().assertTextEquals("S1 E2 · 剩余 1 分钟")
+            compose.onNodeWithTag("episode-placeholder:current", useUnmergedTree = true).assertDoesNotExist()
             compose.runOnIdle { assertSame(current, opened.single()) }
 
             compose.runOnIdle { home = home.copy(resume = home.resume + newest) }
@@ -263,7 +280,7 @@ class HomeLayoutTest {
             resumeTicks = 600_000_000, lastPlayedAt = 10, rating = 9.1)
         val movie = Media("movie", "新电影", "Movie", year = 2025)
         val series = Media("series", "待选剧集", "Series")
-        val home = Home(listOf(episode, resumedMovie), listOf(movie, series), emptyList())
+        var home by mutableStateOf(Home(listOf(episode, resumedMovie), listOf(movie, series), emptyList()))
         val played = mutableListOf<String>()
         val opened = mutableListOf<String>()
         val actions = BrowseActions(
@@ -299,7 +316,7 @@ class HomeLayoutTest {
                     useUnmergedTree = true).assertCountEquals(0)
             }
             compose.onNodeWithTag("hero:metadata").assertTextEquals("2026 · 剧集 · 8.8 分")
-            compose.onNodeWithTag("hero:progress").assertTextEquals("")
+            compose.onNodeWithTag("hero:progress").assertDoesNotExist()
             compose.onNodeWithText("S5 · E140").assertDoesNotExist()
             compose.onNodeWithTag("hero:detail").assertTextContains("详情")
             compose.onAllNodes(hasAnyAncestor(hasTestTag("home:hero-content")) and
@@ -311,47 +328,103 @@ class HomeLayoutTest {
             }
             assertEquals(1, layouts.single().lineCount)
             assertTrue(layouts.single().isLineEllipsized(0))
+            val overviewBounds = compose.onNodeWithTag("hero:overview").getUnclippedBoundsInRoot()
+            val contentBounds = compose.onNodeWithTag("home:hero-content").getUnclippedBoundsInRoot()
+            assertTrue(overviewBounds.right < contentBounds.right)
+            fun assertFeaturedSelection(key: String, focused: Boolean) {
+                compose.onNodeWithTag("hero:candidate:$key").assertIsSelected()
+                if (focused) compose.onNodeWithTag("hero:selection:$key", useUnmergedTree = true).assertDoesNotExist()
+                else compose.onNodeWithTag("hero:selection:$key", useUnmergedTree = true).assertIsDisplayed()
+                assertFocusOutline("hero:artwork:$key", focused, useUnmergedTree = true)
+            }
+            fun assertActionTextFits(label: String) {
+                val actionLayouts = mutableListOf<TextLayoutResult>()
+                compose.onNode(hasText(label) and hasAnyAncestor(hasTestTag("hero:play")), useUnmergedTree = true)
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { assertTrue(it(actionLayouts)) }
+                assertEquals(1, actionLayouts.single().lineCount)
+                assertFalse(actionLayouts.single().isLineEllipsized(0))
+            }
+            assertFeaturedSelection("continuing-series", focused = false)
+            assertActionTextFits("继续 S5E140")
             compose.onNodeWithTag("hero:play").performKeyInput { pressKey(Key.Enter); pressKey(Key.DirectionDown) }
             awaitFocused("hero:candidate:continuing-series")
                 .assertContentDescriptionEquals("续看剧集，继续观看")
+            assertFeaturedSelection("continuing-series", focused = true)
             compose.onAllNodes(hasAnyAncestor(hasTestTag("hero:candidate:continuing-series")) and
                 SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo),
                 useUnmergedTree = true).assertCountEquals(1)
             compose.mainClock.advanceTimeBy(1_000)
-            val buttonBounds = compose.onNodeWithTag("hero:play").getUnclippedBoundsInRoot()
+            val stableBounds = listOf("hero:title", "hero:metadata", "hero:overview", "hero:play", "hero:detail")
+                .associateWith { compose.onNodeWithTag(it).getUnclippedBoundsInRoot() }
+            val buttonBounds = stableBounds.getValue("hero:play")
+            assertTrue(stableBounds.getValue("hero:overview").bottom < buttonBounds.top)
             fun assertButtonPosition() {
-                val bounds = compose.onNodeWithTag("hero:play").getUnclippedBoundsInRoot()
-                assertEquals(buttonBounds.left, bounds.left)
-                assertEquals(buttonBounds.top, bounds.top)
-                assertEquals(buttonBounds.bottom, bounds.bottom)
+                stableBounds.forEach { (tag, bounds) ->
+                    val actual = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+                    if (tag == "hero:metadata" || tag == "hero:overview") {
+                        assertEquals(bounds.left, actual.left)
+                        assertEquals(bounds.top, actual.top)
+                        assertEquals(bounds.bottom, actual.bottom)
+                    } else assertEquals("Stable bounds for $tag", bounds, actual)
+                }
             }
             compose.onNodeWithTag("hero:candidate:continuing-series").performKeyInput { pressKey(Key.DirectionRight) }
             awaitFocused("hero:candidate:movie")
             compose.onNodeWithTag("hero:play").assertTextContains("播放")
             compose.onNodeWithTag("hero:metadata").assertTextEquals("2025 · 电影")
             compose.onNodeWithTag("hero:overview").assertTextEquals("")
-            compose.onNodeWithTag("hero:progress").assertTextEquals("")
+            compose.onNodeWithTag("hero:progress").assertDoesNotExist()
             compose.mainClock.advanceTimeBy(1_000)
             assertButtonPosition()
+            assertActionTextFits("播放")
+            assertFeaturedSelection("movie", focused = true)
+            compose.onNodeWithTag("hero:selection:continuing-series", useUnmergedTree = true).assertDoesNotExist()
+            assertFocusOutline("hero:artwork:continuing-series", false, useUnmergedTree = true)
             compose.onNodeWithTag("hero:candidate:movie").performKeyInput { pressKey(Key.Enter); pressKey(Key.DirectionRight) }
             awaitFocused("hero:candidate:resumed")
             compose.onNodeWithTag("hero:metadata").assertTextEquals("电影 · 9.1 分")
-            compose.onNodeWithTag("hero:progress").assertTextEquals("剩余 2 分钟")
-            compose.onNodeWithTag("hero:play").assertTextContains("继续")
+            compose.onNodeWithTag("hero:progress").assertDoesNotExist()
+            compose.onNodeWithTag("hero:play").assertTextContains("继续 · 剩余 2 分钟")
             compose.mainClock.advanceTimeBy(1_000)
             assertButtonPosition()
+            assertActionTextFits("继续 · 剩余 2 分钟")
             compose.onNodeWithTag("hero:candidate:resumed").performKeyInput { pressKey(Key.DirectionRight) }
             awaitFocused("hero:candidate:series")
             compose.onNodeWithTag("hero:play").assertTextContains("剧集")
             compose.onNodeWithTag("hero:metadata").assertTextEquals("剧集")
-            compose.onNodeWithTag("hero:progress").assertTextEquals("")
+            compose.onNodeWithTag("hero:progress").assertDoesNotExist()
             compose.mainClock.advanceTimeBy(1_000)
             assertButtonPosition()
+            assertActionTextFits("剧集")
+            compose.onNodeWithTag("hero:candidate:series").performKeyInput { pressKey(Key.Enter) }
+            compose.runOnIdle { assertEquals(listOf(series.id), opened) }
+            compose.runOnIdle {
+                home = home.copy(resume = listOf(episode, resumedMovie.copy(ticks = 600_000_000L * 100_000)))
+            }
+            awaitFocused("hero:candidate:series")
+            val widerButton = compose.onNodeWithTag("hero:play").getUnclippedBoundsInRoot()
+            val shiftedDetail = compose.onNodeWithTag("hero:detail").getUnclippedBoundsInRoot()
+            assertTrue(widerButton.right > buttonBounds.right)
+            assertEquals(buttonBounds.left, widerButton.left)
+            assertEquals(buttonBounds.top, widerButton.top)
+            assertEquals(buttonBounds.bottom, widerButton.bottom)
+            compose.runOnIdle { home = home.copy(resume = listOf(episode, resumedMovie)) }
+            assertEquals(widerButton, compose.onNodeWithTag("hero:play").getUnclippedBoundsInRoot())
+            assertEquals(shiftedDetail, compose.onNodeWithTag("hero:detail").getUnclippedBoundsInRoot())
+            compose.runOnIdle { home = home.copy(resume = emptyList()) }
+            awaitFocused("hero:candidate:series")
+            assertEquals(widerButton, compose.onNodeWithTag("hero:play").getUnclippedBoundsInRoot())
+            assertEquals(shiftedDetail, compose.onNodeWithTag("hero:detail").getUnclippedBoundsInRoot())
             compose.onNodeWithTag("hero:candidate:series").performKeyInput { pressKey(Key.DirectionUp) }
-            awaitFocused("hero:play").performKeyInput { pressKey(Key.Enter) }
+            awaitFocused("hero:play")
+            assertFeaturedSelection("series", focused = false)
+            compose.onNodeWithTag("hero:play").performKeyInput { pressKey(Key.Enter); pressKey(Key.DirectionRight) }
+            awaitFocused("hero:detail")
+            assertFeaturedSelection("series", focused = false)
+            compose.onNodeWithTag("hero:detail").performKeyInput { pressKey(Key.Enter) }
             compose.runOnIdle {
                 assertEquals(listOf(episode.id, movie.id), played)
-                assertEquals(listOf(series.id), opened)
+                assertEquals(listOf(series.id, series.id, series.id), opened)
             }
         } finally {
             scenario.close()

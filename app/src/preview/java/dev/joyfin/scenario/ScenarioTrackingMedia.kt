@@ -7,6 +7,7 @@ import dev.joyfin.data.UserDataDto
 internal object ScenarioTrackingMedia {
     private fun show(id: String, name: String, overview: String) = ItemDto(
         id, "$name（演示）", "Series", overview = overview, year = 2026,
+        backdropTags = if (id in setOf("tracking-waiting", "tracking-unavailable")) emptyList() else listOf("demo-$id"),
     )
 
     val series = listOf(

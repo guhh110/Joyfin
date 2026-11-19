@@ -110,6 +110,7 @@ internal object ScenarioMedia {
     val series = ItemDto("series", "群山之间：漫长旅途与归来的故事（演示）", "Series",
         overview = "这是一部用于界面检查的演示作品。旅人穿越群山与海港，在漫长旅途中寻找回家的方向。长标题、完整简介与多季剧集用于检查布局和遥控焦点。",
         year = 2025, genres = listOf("剧情", "冒险"), rating = 8.6, childCount = 2,
+        backdropTags = listOf("demo-series"),
         people = listOf(
             PersonDto("person", "演示演员", "旅人", "Actor"),
             PersonDto("person-2", "Alex Morgan", "", "Director"),
@@ -128,7 +129,8 @@ internal object ScenarioMedia {
             seasonId = "season-$season", season = season, episode = episode, ticks = 14_400_000_000,
             userData = UserDataDto(positionTicks = if (episode == 1) 3_600_000_000 else 0))
     } }
-    val movies = (1..8).map { ItemDto("movie-$it", "海港来信 $it（演示）", "Movie", overview = series.overview, year = 2024, ticks = 54_000_000_000) }
+    val movies = (1..8).map { ItemDto("movie-$it", "海港来信 $it（演示）", "Movie", overview = series.overview,
+        year = 2024, ticks = 54_000_000_000, backdropTags = listOf("demo-movie-$it")) }
     val gridMovies = movies + (9..36).map {
         ItemDto("movie-$it", if (it % 3 == 0) "A Letter $it" else "海港来信 $it（演示）", "Movie",
             overview = series.overview, year = if (it % 2 == 0) 2024 else 0,

@@ -24,14 +24,14 @@ internal fun TvHomeBackdrop(item: Media?, images: ArtworkSource, collection: Boo
                 alignment = Alignment.CenterEnd)
         }
         Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-            0f to Palette.Background.copy(alpha = if (collection) .96f else .90f),
-            .43f to Palette.Background.copy(alpha = if (collection) .84f else .44f),
-            1f to Palette.Background.copy(alpha = if (collection) .71f else .02f),
+            0f to Palette.Background.copy(alpha = if (collection) .82f else .90f),
+            .43f to Palette.Background.copy(alpha = if (collection) .56f else .44f),
+            1f to Palette.Background.copy(alpha = if (collection) .30f else .02f),
         )))
         Box(Modifier.matchParentSize().background(Brush.verticalGradient(
             0f to Palette.Background.copy(alpha = .43f),
             .28f to Color.Transparent,
-            .55f to Color.Transparent,
+            (if (collection) .68f else .55f) to Color.Transparent,
             1f to Palette.Background,
         )))
     }
